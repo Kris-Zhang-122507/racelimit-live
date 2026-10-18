@@ -1,6 +1,6 @@
 // Sound effects, made on the fly with the Web Audio API (no sound files to download).
 // Off switch in the header, remembered in this browser.
-import { load, save } from "./common.js?v=mvd825zz";
+import { load, save } from "./common.js?v=mvd99utg";
 
 let ctx = null, master = null;
 let muted = load("muted", false);
@@ -50,10 +50,26 @@ function noise({ dur = 0.2, vol = 0.3, at = 0, filter = 2000, q = 1, type = "ban
   s.start(t);
 }
 
+// a held electronic beep (flat level, quick release), like the start-light beeps on the TV broadcast
+function beep({ freq = 880, dur = 0.2, vol = 0.2, at = 0 }) {
+  const c = ac(); if (!c || muted) return;
+  const t = c.currentTime + at, g = c.createGain(), lp = c.createBiquadFilter();
+  lp.type = "lowpass"; lp.frequency.value = freq * 3.2; lp.Q.value = 0.5;
+  for (const [mul, type, amp] of [[1, "triangle", 1], [2, "sine", 0.18], [3, "sine", 0.06]]) {
+    const o = c.createOscillator(), og = c.createGain(); o.type = type; o.frequency.value = freq * mul; og.gain.value = amp;
+    o.connect(og).connect(lp); o.start(t); o.stop(t + dur + 0.05);
+  }
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(vol, t + 0.006);
+  g.gain.setValueAtTime(vol, t + dur - 0.03);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  lp.connect(g).connect(master);
+}
+
 export const sfx = {
   // start lights: one short electronic "pip" per light, like the TV broadcast — a pure mid tone
   // with a soft overtone and a tiny click as the lamp switches on
-  light: () => { tone({ freq: 784, dur: 0.16, type: "sine", vol: 0.2, attack: 0.003 }); tone({ freq: 1568, dur: 0.07, type: "sine", vol: 0.04, attack: 0.002 }); noise({ dur: 0.02, vol: 0.05, filter: 3000, q: 0.8 }); },
+  light: () => beep({ freq: 880, dur: 0.22, vol: 0.22 }),
   // jump start / mistakes
   buzz: () => { tone({ freq: 150, dur: 0.35, type: "sawtooth", vol: 0.18 }); tone({ freq: 155, dur: 0.35, type: "sawtooth", vol: 0.12 }); },
   // good result: two rising notes

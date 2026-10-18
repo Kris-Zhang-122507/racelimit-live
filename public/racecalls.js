@@ -1,8 +1,8 @@
 // Two Live panels:
 //   Stewards  — pending penalties, the order once they're applied, investigations, track limits
 //   Pit window — for each close battle: could the car behind undercut, or the car ahead overcut?
-import { computeModel, lossFor } from "./circle.js?v=mvd825zz";
-import { fade } from "./tyres.js?v=mvd825zz";
+import { computeModel, lossFor } from "./circle.js?v=mvd99utg";
+import { fade } from "./tyres.js?v=mvd99utg";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const num = (s) => { const x = parseFloat(String(s ?? "").replace("+", "")); return Number.isFinite(x) ? x : null; };
