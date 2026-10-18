@@ -3,14 +3,14 @@
 //   2. change all four tyres: each wheel = gun off, then gun on with the new tyre fitted
 //   3. release the car when the light goes green (go early and it's an unsafe release)
 // The light only turns green once the jacks are down. The time is the stationary time, from the car stopping to the release, plus any penalties.
-import { load, save, share } from "./common.js?v=mvc4w8sc";
-import { sfx } from "./sfx.js?v=mvc4w8sc";
+import { load, save, share } from "./common.js?v=mvd6llni";
+import { sfx } from "./sfx.js?v=mvd6llni";
 
 const W = 900, H = 400;
 const TARGET = 450;            // where the car's middle should stop
 const SPEED = 300;             // px per second down the pit lane
 const SWAP = 280;              // ms for the new tyre to go on between the two gun hits
-const JACKS = 250;             // ms for the jacks to drop before the light turns green
+const JACKS = 90;              // ms for the jacks to drop before the light turns green
 const WHEELS = [               // key, position (car points right: the top side is the car's left)
   { key: "Q", name: "rear left", dx: -88, dy: -62 },
   { key: "P", name: "front left", dx: 92, dy: -62 },
@@ -137,7 +137,7 @@ export function mountPit(root) {
     }
     if (w.state === "new") {
       w.state = "done"; sfx.gun(); drawWheels();
-      if (wheels.every((v) => v.state === "done")) { setTimeout(sfx.clunk, JACKS - 60); phase = "jacks"; phaseText("Jacks down…", "Wait for green!", ["GO", false]); setTimeout(() => { if (phase === "jacks") green(); }, JACKS); }
+      if (wheels.every((v) => v.state === "done")) { setTimeout(sfx.clunk, 20); phase = "jacks"; phaseText("Jacks down…", "Wait for green!", ["GO", false]); setTimeout(() => { if (phase === "jacks") green(); }, JACKS); }
     }
   }
 
