@@ -3,8 +3,8 @@
 //   2. change all four tyres: each wheel = gun off, then gun on with the new tyre fitted
 //   3. release the car when the light goes green (go early and it's an unsafe release)
 // The light only turns green once the jacks are down. The time is the stationary time, from the car stopping to the release, plus any penalties.
-import { load, save, share } from "./common.js?v=mvd99utg";
-import { sfx } from "./sfx.js?v=mvd99utg";
+import { load, save, share } from "./common.js?v=mvdq8sd5";
+import { sfx } from "./sfx.js?v=mvdq8sd5";
 
 const W = 900, H = 400;
 const TARGET = 450;            // where the car's middle should stop

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Race at Spa — RaceLimit Live</title>
+<meta name="description" content="Drive a 2026-style F1 car around Spa-Francorchamps in your browser. Early test of the RaceLimit racing game.">
+<meta name="theme-color" content="#0B0D12">
+<link rel="icon" type="image/png" sizes="32x32" href="../favicon-32.png">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="RaceLimit Live">
+<meta property="og:title" content="RaceLimit Live — Race at Spa">
+<meta property="og:description" content="Drive a 2026-style F1 car around Spa-Francorchamps in your browser.">
+<meta property="og:image" content="https://kris-zhang-122507.github.io/racelimit-live/og.png">
+<link rel="stylesheet" href="race.css?v=mvdq8sd5">
+<script type="importmap">{ "imports": { "three": "../vendor/three/three.module.min.js", "three/addons/": "../vendor/three/addons/" } }</script>
+</head>
+<body>
+<div id="view">
+  <div id="hud" aria-live="off"></div>
+  <div class="overlay" id="loading"><div class="panel"><div class="brand">RACELIMIT <small>RACE</small></div><p id="loadText">Loading…</p><noscript>This game needs JavaScript.</noscript></div></div>
+  <div class="overlay" id="menu" hidden>
+    <div class="panel menu">
+      <div class="row"><div class="brand">RACELIMIT <small>RACE · EARLY TEST</small></div><span class="spacer"></span><a class="btn ghost" href="../games/">← Games</a></div>
+      <h1>Spa-Francorchamps</h1>
+      <p class="muted">A 2026-style car, alone on track. Set a lap time, then try to beat it. AI cars, tyres, pit stops and more circuits come next.</p>
+      <div class="keys">
+        <div><b>↑ / W</b> throttle</div><div><b>↓ / S</b> brake (hold when stopped to reverse)</div>
+        <div><b>← → / A D</b> steer</div><div><b>E / Q</b> gear up / down</div>
+        <div><b>C</b> change camera</div><div><b>B</b> look behind</div>
+        <div><b>R</b> back on track</div><div><b>L</b> racing line</div>
+        <div><b>M</b> sound</div><div><b>Esc</b> pause and settings</div>
+      </div>
+      <p class="muted small">A game controller works too: right trigger throttle, left trigger brake, stick to steer, bumpers for gears, Y for camera.</p>
+      <p class="touch-note small" id="touchNote">You'll need a keyboard or a game controller for now. Touch controls are coming.</p>
+      <div class="row"><button class="btn primary big" id="startBtn" type="button">Start</button><span class="muted small" id="bestLine"></span></div>
+    </div>
+  </div>
+  <div class="overlay" id="pause" hidden>
+    <div class="panel menu">
+      <h1>Paused</h1>
+      <div class="set"><span>Gears</span><div class="seg"><button data-set="auto=true">Automatic</button><button data-set="auto=false">Manual</button></div></div>
+      <div class="set"><span>Anti-lock brakes</span><div class="seg"><button data-set="abs=true">On</button><button data-set="abs=false">Off</button></div></div>
+      <div class="set"><span>Traction control</span><div class="seg"><button data-set="tc=true">On</button><button data-set="tc=false">Off</button></div></div>
+      <div class="set"><span>Racing line</span><div class="seg"><button data-set="line=full">Full</button><button data-set="line=braking">Braking only</button><button data-set="line=off">Off</button></div></div>
+      <div class="set"><span>Graphics</span><div class="seg"><button data-set="quality=high">High</button><button data-set="quality=low">Low (faster)</button></div></div>
+      <div class="set"><span>Camera</span><div class="seg"><button data-set="camera=chase">Chase</button><button data-set="camera=far">Far</button><button data-set="camera=tcam">T-cam</button><button data-set="camera=cockpit">Cockpit</button></div></div>
+      <div class="row"><button class="btn primary" id="resumeBtn" type="button">Resume</button><button class="btn" id="restartBtn" type="button">Restart</button><button class="btn" id="muteBtn" type="button">Sound</button><span class="spacer"></span><a class="btn ghost" href="../games/">Quit</a></div>
+    </div>
+  </div>
+</div>
+<script>if (!matchMedia("(pointer: coarse)").matches) document.getElementById("touchNote").hidden = true;</script>
+<script type="module" src="main.js?v=mvdq8sd5"></script>
+</body>
+</html>
