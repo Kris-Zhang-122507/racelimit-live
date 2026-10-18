@@ -1,7 +1,7 @@
 // Lights Out: five red lights come on one a second, hold for a random moment, then go out.
 // React as fast as you can. Too early is a jump start.
-import { load, save } from "./common.js?v=mvd6llni";
-import { sfx, grid } from "./sfx.js?v=mvd6llni";
+import { load, save } from "./common.js?v=mvd825zz";
+import { sfx } from "./sfx.js?v=mvd825zz";
 
 const VERDICTS = [
   [150, "Lightning! That's F1 level — or a very good guess", "good"],
@@ -30,9 +30,8 @@ export function mountLights(root) {
   const stage = $("loStage"), pods = [...root.querySelectorAll(".pod")];
 
   let state = "idle"; // idle → lighting → holding → out → result
-  let timers = [], t0 = 0, readyAt = 0, eng = null;
-  const clear = () => { timers.forEach((t) => { clearTimeout(t); clearInterval(t); }); timers = []; };
-  const engines = () => { eng?.stop(); eng = grid(); };
+  let timers = [], t0 = 0, readyAt = 0;
+  const clear = () => { timers.forEach(clearTimeout); timers = []; };
   const setLights = (n) => pods.forEach((p, i) => p.classList.toggle("on", i < n));
 
   function message(html) { $("loMsg").innerHTML = html; }
@@ -43,12 +42,10 @@ export function mountLights(root) {
     state = "lighting";
     setLights(0);
     message(`<div class="lo-verdict muted">Get ready…</div>`);
-    engines(); // the grid: engines idling, then revving up as the lights come on
-    for (let k = 1; k <= 5; k++) timers.push(setTimeout(() => { setLights(k); sfx.light(); eng.rev(k); }, 700 + (k - 1) * 1000));
+    for (let k = 1; k <= 5; k++) timers.push(setTimeout(() => { setLights(k); sfx.light(); }, 700 + (k - 1) * 1000));
     const hold = 200 + Math.random() * 2800; // like the real thing: you can't predict it
     timers.push(setTimeout(() => {
       state = "holding";
-      timers.push(setInterval(() => eng.rev(5), 900)); // keep blipping at random, so the sound gives nothing away
       timers.push(setTimeout(() => requestAnimationFrame((ts) => { if (state !== "holding") return; setLights(0); state = "out"; t0 = ts; }), hold));
     }, 700 + 4 * 1000));
   }
@@ -62,7 +59,6 @@ export function mountLights(root) {
       stats.jumps = (stats.jumps ?? 0) + 1;
       stats.history = [{ jump: true }, ...(stats.history ?? [])].slice(0, 12);
       setLights(0);
-      eng?.bog(); eng?.stop(0.9); eng = null;
       sfx.buzz();
       message(`<div class="lo-time bad">JUMP START</div><div class="lo-verdict">${ms != null ? "Under 0.1s — that was a guess, not a reaction" : "You went before the lights went out"} · drive-through penalty</div><div class="muted small">Tap or press Space to try again</div>`);
     } else {
@@ -70,8 +66,7 @@ export function mountLights(root) {
       if (isBest) stats.best = ms;
       stats.history = [{ ms }, ...(stats.history ?? [])].slice(0, 12);
       const [, text, cls] = VERDICTS.find(([lim]) => ms < lim);
-      if (eng) { eng.launch(); eng.stop(4); eng = null; } else sfx.launch();
-      if (isBest && stats.runs > 1) setTimeout(sfx.fanfare, 1200);
+      if (isBest && stats.runs > 1) setTimeout(sfx.fanfare, 250); else if (cls === "good") sfx.chime();
       message(`<div class="lo-time ${cls}">${(ms / 1000).toFixed(3)}s</div><div class="lo-verdict">${isBest && stats.runs > 1 ? "New personal best! " : ""}${text}</div><div class="muted small">Tap or press Space to go again</div>`);
     }
     save("lights", stats);
@@ -119,5 +114,5 @@ export function mountLights(root) {
   addEventListener("keydown", onKey);
   idle();
   drawStats(null);
-  return () => { clear(); eng?.stop(); eng = null; removeEventListener("keydown", onKey); };
+  return () => { clear(); removeEventListener("keydown", onKey); };
 }
