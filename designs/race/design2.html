@@ -1,0 +1,119 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: BC; font-weight: 700; src: url(../node_modules/@fontsource/barlow-condensed/files/barlow-condensed-latin-700-normal.woff2); }
+@font-face { font-family: BC; font-weight: 600; src: url(../node_modules/@fontsource/barlow-condensed/files/barlow-condensed-latin-600-normal.woff2); }
+@font-face { font-family: B; font-weight: 500; src: url(../node_modules/@fontsource/barlow/files/barlow-latin-500-normal.woff2); }
+@font-face { font-family: B; font-weight: 600; src: url(../node_modules/@fontsource/barlow/files/barlow-latin-600-normal.woff2); }
+@font-face { font-family: JB; font-weight: 600; src: url(../node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-600-normal.woff2); }
+:root { --bg: #0B0D12; --card: #13161D; --card2: #1A1E27; --line: #262B36; --text: #E8EAF0; --soft: #C3C9D4; --muted: #9AA3B2; --faint: #6B7383; --accent: #FFB547; }
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 1600px; height: 900px; overflow: hidden; background: var(--bg); color: var(--text); font: 500 14px/1.4 B; }
+.top { height: 64px; display: flex; align-items: center; gap: 18px; padding: 0 28px; border-bottom: 1px solid var(--line); background: #0E1117; }
+.brand { font: 700 24px BC; letter-spacing: .05em; color: var(--accent); } .brand small { font: 700 11px B; letter-spacing: .14em; color: var(--faint); border: 1px solid var(--line); border-radius: 4px; padding: 3px 7px; margin-left: 8px; vertical-align: middle; }
+.crumbs { font: 600 18px BC; letter-spacing: .04em; color: var(--muted); } .crumbs b { color: var(--text); } .sp { flex: 1; }
+.btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); font: 600 14px B; color: var(--text); } .btn.primary { background: var(--accent); border-color: var(--accent); color: #17120A; }
+.k { font: 600 11px B; letter-spacing: .12em; color: var(--muted); text-transform: uppercase; }
+.panel { background: var(--card); border: 1px solid #1C2029; border-radius: 12px; padding: 16px 18px; }
+h2 { margin: 0 0 8px; font: 600 22px BC; letter-spacing: .03em; }
+.chip { display: inline-flex; gap: 6px; align-items: center; padding: 5px 10px; border-radius: 14px; background: #1C2230; font: 600 12px B; color: var(--soft); }
+.chip.on { background: #12301F; color: #6EE7A8; } .chip.off { background: #2A1517; color: #FF9A9A; }
+.concept { position: absolute; right: 18px; bottom: 10px; font: 600 10px B; letter-spacing: .14em; color: rgba(232,234,240,.4); text-transform: uppercase; }
+</style>
+</head><body><div id="root"></div>
+<script type="module">
+const screen = new URLSearchParams(location.search).get("screen") || "era";
+const root = document.getElementById("root");
+
+// a car side view drawn from a few numbers per era (front is on the right)
+function car(o, colour, w = 520) {
+  const { len = 5.6, noseH = 0.3, noseTip = 0.18, rwH = 0.95, rwChord = 0.5, fwH = 0.1, wheel = 0.33, tyreW = 0.33, halo = false, fin = false, covers = false, beam = false, engineH = 0.95, grooves = false, monkey = false } = o;
+  const s = w / 6.2, X = (z) => 20 + (z + 0.3) * s, Y = (y) => 150 - y * s;
+  const rear = 0, front = len, fax = len - 1.0, rax = 0.75;
+  const body = `M${X(rear + 0.1)},${Y(0.18)} L${X(rear + 0.2)},${Y(engineH * 0.55)} Q${X(1.5)},${Y(engineH)} ${X(2.4)},${Y(engineH * 0.98)} L${X(2.6)},${Y(0.72)} Q${X(3.0)},${Y(0.66)} ${X(3.4)},${Y(0.6)} L${X(fax - 0.3)},${Y(noseH + 0.12)} Q${X(front - 0.4)},${Y(noseH)} ${X(front - 0.05)},${Y(noseTip)} L${X(front - 0.2)},${Y(noseTip - 0.07)} L${X(3.2)},${Y(0.2)} L${X(rear + 0.1)},${Y(0.12)} Z`;
+  const pod = `M${X(1.2)},${Y(0.16)} L${X(1.4)},${Y(0.58)} Q${X(2.3)},${Y(0.66)} ${X(3.0)},${Y(0.6)} L${X(3.1)},${Y(0.18)} Z`;
+  const wheelG = (z) => `<circle cx="${X(z)}" cy="${Y(wheel)}" r="${wheel * s}" fill="#15171C"/><circle cx="${X(z)}" cy="${Y(wheel)}" r="${wheel * s * (covers ? 0.82 : 0.6)}" fill="${covers ? "#2A2E37" : "#3A3F4A"}"/>${grooves ? `<circle cx="${X(z)}" cy="${Y(wheel)}" r="${wheel * s * 0.92}" fill="none" stroke="#2A2D33" stroke-width="2" stroke-dasharray="3 4"/>` : ""}`;
+  return `<svg width="${w}" height="170" viewBox="0 0 ${w} 170">
+    <rect x="${X(-0.25)}" y="${Y(rwH + 0.12)}" width="${rwChord * s * 0.4}" height="${(rwH - 0.3) * s}" fill="#2A2E37"/>
+    <rect x="${X(-0.25)}" y="${Y(rwH + 0.12)}" width="${rwChord * s}" height="${0.1 * s}" rx="3" fill="${colour}"/>
+    ${beam ? `<rect x="${X(-0.15)}" y="${Y(0.42)}" width="${0.35 * s}" height="${0.05 * s}" fill="#2A2E37"/>` : ""}
+    ${monkey ? `<rect x="${X(-0.2)}" y="${Y(0.38)}" width="${0.3 * s}" height="${0.04 * s}" fill="#2A2E37"/>` : ""}
+    <path d="${pod}" fill="${colour}" opacity=".75"/>
+    <path d="${body}" fill="${colour}"/>
+    ${fin ? `<path d="M${X(0.1)},${Y(0.9)} Q${X(1.2)},${Y(1.0)} ${X(2.1)},${Y(engineH * 0.98)} L${X(0.1)},${Y(0.62)} Z" fill="${colour}" opacity=".85"/>` : ""}
+    <circle cx="${X(3.05)}" cy="${Y(0.78)}" r="${0.14 * s}" fill="#F2F2F2"/>
+    ${halo ? `<path d="M${X(2.7)},${Y(0.72)} Q${X(2.95)},${Y(1.0)} ${X(3.3)},${Y(0.95)} L${X(3.55)},${Y(0.7)}" fill="none" stroke="#111216" stroke-width="${0.06 * s}" stroke-linecap="round"/>` : ""}
+    <rect x="${X(front - 0.35)}" y="${Y(fwH + 0.06)}" width="${0.55 * s}" height="${0.06 * s}" rx="2" fill="${colour}"/>
+    ${wheelG(rax)}${wheelG(fax)}
+    <line x1="${X(-0.3)}" x2="${X(front + 0.3)}" y1="${Y(0)}" y2="${Y(0)}" stroke="#262B36"/>
+  </svg>`;
+}
+const ERAS = [
+  { years: "2026", name: "Active aero", c: "#FFB547", car: { len: 5.3, noseH: 0.26, noseTip: 0.14, rwH: 0.9, wheel: 0.35, halo: true, covers: false, engineH: 0.92 },
+    on: ["Wings that open on straights", "Overtake mode (extra electric power)", "About half the power is electric", "Smaller, lighter cars", "Halo"], off: ["DRS", "Refuelling"] },
+  { years: "2022–2025", name: "Ground effect", c: "#3671C6", car: { len: 5.6, noseH: 0.3, noseTip: 0.13, rwH: 0.95, wheel: 0.36, halo: true, covers: true, beam: true },
+    on: ["Downforce from the floor", "18-inch wheels with covers", "DRS", "Halo"], off: ["Refuelling", "Traction control"] },
+  { years: "2017–2021", name: "Wide & fast", c: "#27F4D2", car: { len: 5.7, noseH: 0.42, noseTip: 0.2, rwH: 0.98, rwChord: 0.62, wheel: 0.33, halo: true, fin: true, monkey: true },
+    on: ["Wider cars, much more downforce", "DRS", "Halo from 2018", "13-inch wheels"], off: ["Refuelling"] },
+  { years: "2014–2016", name: "Hybrid turbo", c: "#E8EAF0", car: { len: 5.5, noseH: 0.45, noseTip: 0.12, rwH: 1.0, rwChord: 0.42, wheel: 0.33, monkey: true },
+    on: ["1.6 V6 turbo hybrid", "DRS", "Narrow cars, low noses"], off: ["Halo", "Refuelling"] },
+  { years: "2009–2013", name: "KERS & DRS", c: "#E8002D", car: { len: 5.3, noseH: 0.6, noseTip: 0.45, rwH: 1.05, rwChord: 0.4, wheel: 0.33, engineH: 1.0 },
+    on: ["2.4 V8", "Slick tyres return", "KERS boost button", "DRS from 2011", "No refuelling from 2010"], off: ["Halo"] },
+  { years: "1998–2008", name: "V10 & refuelling", c: "#FF8000", car: { len: 5.0, noseH: 0.58, noseTip: 0.45, rwH: 1.0, rwChord: 0.48, wheel: 0.33, grooves: true, engineH: 0.98 },
+    on: ["V10 (V8 from 2006)", "Refuelling at pit stops", "Grooved tyres", "Traction control 2001–2007"], off: ["DRS", "Halo", "Hybrid power"] },
+];
+
+if (screen === "era") {
+  const sel = 1;
+  const e = ERAS[sel];
+  const years = []; for (let y = 1998; y <= 2026; y++) years.push(y);
+  const eraOf = (y) => (y >= 2026 ? 0 : y >= 2022 ? 1 : y >= 2017 ? 2 : y >= 2014 ? 3 : y >= 2009 ? 4 : 5);
+  root.innerHTML = `<div class="top"><div class="brand">RACELIMIT<small>RACE</small></div><div class="crumbs">New race weekend · <b>Choose a season</b></div><div class="sp"></div><span class="btn">Random season</span><span class="btn primary">Pick 2024 →</span></div>
+  <div style="padding:18px 24px;display:grid;gap:16px">
+    <div class="panel" style="padding:14px 18px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:10px"><span class="k">Season</span><span class="k">29 seasons · 1998 – 2026</span></div>
+      <div style="display:flex;gap:3px">${years.map((y) => { const k = eraOf(y), on = y === 2024; return `<div style="flex:1;text-align:center"><div style="height:26px;border-radius:4px;background:${on ? ERAS[k].c : ERAS[k].c + "33"};box-shadow:${on ? "0 0 0 2px #E8EAF0" : "none"}"></div><div style="font:600 10px JB;color:${on ? "#E8EAF0" : "#6B7383"};margin-top:4px">${String(y).slice(2)}</div></div>`; }).join("")}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 470px;gap:16px">
+      <div class="panel">
+        <div style="display:flex;align-items:baseline;gap:12px"><h2 style="font-size:30px;margin:0">2024</h2><span class="k" style="color:${e.c}">${e.name} era · ${e.years}</span></div>
+        <div style="margin:6px 0 4px">${car(e.car, e.c, 760)}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">${e.on.map((t) => `<span class="chip on">✓ ${t}</span>`).join("")}${e.off.map((t) => `<span class="chip off">✕ ${t}</span>`).join("")}</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;border-top:1px solid #262B36;padding-top:14px">
+          <div><div class="k">Grid</div><div style="font:600 18px B">20 drivers · 10 teams</div><div style="font:600 12px B;color:#9AA3B2">real names, team colours</div></div>
+          <div><div class="k">Calendar</div><div style="font:600 18px B">24 races</div><div style="font:600 12px B;color:#9AA3B2">incl. sprint weekends</div></div>
+          <div><div class="k">Tyres</div><div style="font:600 18px B">C1 – C5</div><div style="font:600 12px B;color:#9AA3B2">3 compounds per race</div></div>
+          <div><div class="k">Points</div><div style="font:600 18px B">25-18-15…</div><div style="font:600 12px B;color:#9AA3B2">+ sprint points</div></div>
+        </div>
+        <div class="k" style="margin:16px 0 8px">Track layouts change by year too</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">${["Spa — 2007+ Bus Stop", "Silverstone — Arena layout (2010+)", "Barcelona — no chicane (2023+)", "Albert Park — 2022 layout", "Yas Marina — 2021 layout"].map((t) => `<span class="chip">${t}</span>`).join("")}</div>
+      </div>
+      <div class="panel" style="display:grid;gap:10px;align-content:start">
+        <div class="k">Every era</div>
+        ${ERAS.map((x, i) => `<div style="display:grid;grid-template-columns:150px 1fr;gap:8px;align-items:center;padding:6px 8px;border-radius:10px;background:${i === sel ? "#232836" : "transparent"};box-shadow:${i === sel ? `inset 3px 0 0 ${x.c}` : "none"}">
+          <div style="margin-left:-6px">${car(x.car, x.c, 150)}</div><div><b style="font:600 16px B">${x.years}</b><div class="k" style="color:${x.c}">${x.name}</div><div style="font:600 12px B;color:#9AA3B2">${x.on.slice(0, 2).join(" · ")}</div></div></div>`).join("")}
+      </div>
+    </div>
+  </div><div class="concept">Design concept · choose a season</div>`;
+  for (const s of root.querySelectorAll(".panel:last-child svg")) { s.setAttribute("viewBox", "8 110 150 46"); s.setAttribute("height", "46"); }
+}
+
+if (screen === "menu") {
+  const tile = (title, desc, tag, big, art) => `<div class="panel" style="${big ? "grid-row: span 2;" : ""}display:grid;gap:8px;align-content:end;position:relative;overflow:hidden;min-height:${big ? 0 : 170}px;background:linear-gradient(180deg,#151922,#101319)">
+    <div style="position:absolute;inset:0;display:grid;place-items:center;opacity:.9">${art}</div>
+    <div style="position:relative">${tag ? `<span class="chip" style="background:${tag[1]};color:#0B0D12;margin-bottom:8px">${tag[0]}</span>` : ""}<h2 style="font-size:${big ? 34 : 22}px;margin:6px 0 2px">${title}</h2><div style="font:500 14px B;color:#C3C9D4;max-width:${big ? 520 : 330}px">${desc}</div></div></div>`;
+  const icon = (d, c = "#FFB547", sz = 120) => `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="opacity:.18">${d}</svg>`;
+  root.innerHTML = `<div class="top"><div class="brand">RACELIMIT<small>RACE</small></div><div class="crumbs"><b>Main menu</b></div><div class="sp"></div><span class="btn">Garage</span><span class="btn">Settings · wheel & pedals</span></div>
+  <div style="padding:18px 24px;display:grid;grid-template-columns:1.4fr 1fr 1fr;grid-template-rows:repeat(3,1fr);gap:16px;height:836px">
+    ${tile("Race weekend", "Practice, qualifying, sprint and race at any circuit, in any season from 1998 to 2026 — with real weather, tyre wear, damage and race control.", ["Main mode", "#FFB547"], true, `<img src="./bg-real.png" style="width:100%;height:100%;object-fit:cover;opacity:.7;mask-image:linear-gradient(180deg,#000 40%,transparent)">`)}
+    ${tile("Live race", "During a real Grand Prix, race alongside it: the real cars' positions from live timing appear as ghosts, and you join the running order.", ["Only on RaceLimit", "#2FD27A"], false, icon('<circle cx="12" cy="12" r="3"/><path d="M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7"/>', "#2FD27A"))}
+    ${tile("Beat the driver", "Race a real driver's fastest lap as a ghost, then compare your speed, braking and throttle against their real telemetry.", null, false, icon('<path d="M3 17l5-6 4 3 5-7 4 4"/><path d="M3 21h18"/>'))}
+    ${tile("Career", "Start at a back-of-the-grid team. Develop upgrades, manage the power unit allocation and budget cap, and get offers from bigger teams.", null, false, icon('<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3a3 3 0 0 1-3 4M7 5H4a3 3 0 0 0 3 4"/>'))}
+    ${tile("Famous moments", "Jump into real races at the moment it mattered: defend for 10 laps, win from the pit lane, survive the final safety car restart.", null, false, icon('<path d="M12 2l3 7 7 .6-5.3 4.7L18.3 22 12 18l-6.3 4 1.6-7.7L2 9.6 9 9z"/>'))}
+    ${tile("With friends", "Race online in the same room code, or share a ghost lap link and see who's fastest this week.", null, false, icon('<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M14 20c0-2.5 1.5-4.5 3-4.5s4 2 4 4.5"/>'))}
+    ${tile("Replays & photo mode", "Watch your race from TV cameras, onboard or the helicopter; pause and frame a shot.", null, false, icon('<rect x="3" y="6" width="18" height="13" rx="2"/><circle cx="12" cy="12.5" r="3.5"/><path d="M8 6l1.5-2h5L16 6"/>'))}
+    ${tile("Daily challenge", "One track, one car, one condition — a new target every day, like Guess the Track.", null, false, icon('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>'))}
+  </div><div class="concept">Design concept · main menu & modes</div>`;
+}
+document.title = "done";
+</script></body></html>

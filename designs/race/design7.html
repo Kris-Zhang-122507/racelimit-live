@@ -1,0 +1,125 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: BC; font-weight: 700; src: url(../node_modules/@fontsource/barlow-condensed/files/barlow-condensed-latin-700-normal.woff2); }
+@font-face { font-family: BC; font-weight: 600; src: url(../node_modules/@fontsource/barlow-condensed/files/barlow-condensed-latin-600-normal.woff2); }
+@font-face { font-family: B; font-weight: 500; src: url(../node_modules/@fontsource/barlow/files/barlow-latin-500-normal.woff2); }
+@font-face { font-family: B; font-weight: 600; src: url(../node_modules/@fontsource/barlow/files/barlow-latin-600-normal.woff2); }
+@font-face { font-family: JB; font-weight: 600; src: url(../node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-600-normal.woff2); }
+:root { --bg: #0B0D12; --card: #13161D; --card2: #1A1E27; --line: #262B36; --text: #E8EAF0; --soft: #C3C9D4; --muted: #9AA3B2; --faint: #6B7383; --accent: #FFB547; --good: #2FD27A; --bad: #FF6B6B; --blue: #5AA9FF; }
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 1600px; height: 900px; overflow: hidden; background: var(--bg); color: var(--text); font: 500 14px/1.4 B; }
+.top { height: 64px; display: flex; align-items: center; gap: 18px; padding: 0 28px; border-bottom: 1px solid var(--line); background: #0E1117; }
+.brand { font: 700 24px BC; letter-spacing: .05em; color: var(--accent); } .brand small { font: 700 11px B; letter-spacing: .14em; color: var(--faint); border: 1px solid var(--line); border-radius: 4px; padding: 3px 7px; margin-left: 8px; vertical-align: middle; }
+.crumbs { font: 600 18px BC; letter-spacing: .04em; color: var(--muted); } .crumbs b { color: var(--text); } .sp { flex: 1; }
+.btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); font: 600 14px B; color: var(--text); white-space: nowrap; } .btn.primary { background: var(--accent); border-color: var(--accent); color: #17120A; }
+.k { font: 600 11px B; letter-spacing: .12em; color: var(--muted); text-transform: uppercase; }
+.panel { background: var(--card); border: 1px solid #1C2029; border-radius: 12px; padding: 16px 18px; min-width: 0; }
+h2 { margin: 0 0 8px; font: 600 22px BC; letter-spacing: .03em; }
+.chip { display: inline-flex; gap: 6px; align-items: center; padding: 4px 10px; border-radius: 14px; background: #1C2230; font: 600 12px B; color: var(--soft); white-space: nowrap; }
+.mono { font-family: JB; font-weight: 600; }
+.bar { height: 8px; border-radius: 4px; background: #232836; overflow: hidden; } .bar i { display: block; height: 100%; border-radius: 4px; }
+.row { display: flex; align-items: center; gap: 10px; }
+.concept { position: absolute; right: 18px; bottom: 10px; font: 600 10px B; letter-spacing: .14em; color: rgba(232,234,240,.4); text-transform: uppercase; }
+.grid { display: grid; gap: 16px; padding: 18px 24px; }
+table { border-collapse: collapse; width: 100%; } td { padding: 7px 6px; border-top: 1px solid #1F2430; font: 600 14px B; } td.r { text-align: right; }
+.slider { display: grid; grid-template-columns: 130px 1fr 54px; gap: 12px; align-items: center; font: 600 13px B; color: var(--soft); }
+.slider .track { height: 6px; border-radius: 3px; background: #2A2F3B; position: relative; } .slider .track i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--accent); } .slider .track b { position: absolute; top: 50%; width: 16px; height: 16px; border-radius: 50%; background: #E8EAF0; transform: translate(-50%, -50%); box-shadow: 0 0 0 3px rgba(0,0,0,.4); }
+.key { font: 600 11px JB; color: #0B0D12; background: #C3C9D4; border-radius: 3px; padding: 2px 6px; }
+</style>
+</head><body><div id="root"></div>
+<script type="module">
+const screen = new URLSearchParams(location.search).get("screen") || "phone";
+const root = document.getElementById("root");
+const top = (crumb, right = "") => `<div class="top"><div class="brand">RACELIMIT<small>RACE</small></div><div class="crumbs">${crumb}</div><div class="sp"></div>${right}</div>`;
+const slider = (label, v, txt) => `<div class="slider"><span>${label}</span><div class="track"><i style="width:${v}%"></i><b style="left:${v}%"></b></div><span class="mono" style="text-align:right">${txt}</span></div>`;
+
+
+
+const key = (k, w = 0) => `<span style="display:inline-grid;place-items:center;min-width:${w || 26}px;height:26px;padding:0 6px;border-radius:6px;background:#E8EAF0;color:#0B0D12;font:700 12px JB;box-shadow:0 2px 0 #9AA3B2">${k}</span>`;
+const pad = (k, c = "#3A4150", fg = "#E8EAF0") => `<span style="display:inline-grid;place-items:center;min-width:26px;height:26px;padding:0 6px;border-radius:13px;background:${c};color:${fg};font:700 12px B">${k}</span>`;
+const wb = (t, c) => `<span style="display:inline-flex;align-items:center;gap:6px;font:600 13px B"><i style="width:14px;height:14px;border-radius:50%;background:${c};display:inline-block"></i>${t}</span>`;
+
+
+// a phone frame: landscape or portrait
+const phone = (inner, { w = 560, h = 268, land = true } = {}) => `<div style="position:relative;width:${w}px;height:${h}px;border-radius:${land ? 34 : 40}px;background:#050608;padding:12px;box-shadow:0 0 0 2px #2A2F3B, 0 20px 50px rgba(0,0,0,.5)"><div style="position:absolute;${land ? "left:4px;top:50%;width:5px;height:60px;transform:translateY(-50%)" : "top:4px;left:50%;height:5px;width:60px;transform:translateX(-50%)"};border-radius:3px;background:#1A1D24"></div><div style="width:100%;height:100%;border-radius:${land ? 24 : 30}px;overflow:hidden;position:relative;background:#0B0D12">${inner}</div></div>`;
+let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+const qr = (n = 25, px = 7) => { let c = ""; for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) { const finder = (a, b) => x >= a && x < a + 7 && y >= b && y < b + 7; const inF = finder(0, 0) || finder(n - 7, 0) || finder(0, n - 7); let on; if (inF) { const fx = x < 7 ? x : x - (n - 7), fy = y < 7 ? y : y - (n - 7); on = fx === 0 || fx === 6 || fy === 0 || fy === 6 || (fx >= 2 && fx <= 4 && fy >= 2 && fy <= 4); } else on = rnd() < 0.48; if (on) c += `<rect x="${x * px}" y="${y * px}" width="${px}" height="${px}"/>`; } return `<svg width="${n * px}" height="${n * px}" style="background:#fff;padding:10px;border-radius:10px;box-sizing:content-box"><g fill="#0B0D12">${c}</g></svg>`; };
+
+if (screen === "phone") {
+  // 1) controller layout (landscape, tilt to steer)
+  const ctrl = `
+    <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 120%,#1A1E27,#0B0D12 70%)"></div>
+    <div style="position:absolute;left:10px;top:10px;right:10px;display:flex;justify-content:space-between;align-items:center;font:600 11px B;color:#9AA3B2"><span>● connected · 18 ms</span><span style="font:700 13px BC;color:#E8EAF0;letter-spacing:.04em">TILT TO STEER</span><span>🔋 81%</span></div>
+    <div style="position:absolute;left:12px;top:36px;bottom:12px;width:110px;border-radius:16px;background:linear-gradient(180deg,#2A1517,#1A0E10);border:1px solid #5A2228;display:grid;place-items:center;font:700 18px BC;color:#FF8A8A;letter-spacing:.06em">BRAKE<div style="position:absolute;bottom:10px;left:10px;right:10px;height:6px;border-radius:3px;background:#3A1A1E"><i style="display:block;width:35%;height:100%;border-radius:3px;background:#FF6B6B"></i></div></div>
+    <div style="position:absolute;right:12px;top:36px;bottom:12px;width:110px;border-radius:16px;background:linear-gradient(180deg,#12301F,#0B1E14);border:1px solid #1F5A38;display:grid;place-items:center;font:700 18px BC;color:#6EE7A8;letter-spacing:.06em">THROTTLE<div style="position:absolute;bottom:10px;left:10px;right:10px;height:6px;border-radius:3px;background:#183A26"><i style="display:block;width:90%;height:100%;border-radius:3px;background:#2FD27A"></i></div></div>
+    <div style="position:absolute;left:136px;right:136px;top:40px;display:grid;justify-items:center;gap:6px">
+      <svg width="200" height="70" viewBox="0 0 200 70"><path d="M20,60 A80,80 0 0 1 180,60" fill="none" stroke="#262B36" stroke-width="8" stroke-linecap="round"/><path d="M100,-20 L100,0" /><g transform="rotate(-14 100 92)"><path d="M100,12 L100,38" stroke="#FFB547" stroke-width="5" stroke-linecap="round"/></g><circle cx="100" cy="62" r="5" fill="#E8EAF0"/></svg>
+      <div style="display:flex;gap:8px;align-items:baseline"><span style="font:700 40px/1 BC;color:#FFB547">7</span><span style="font:600 18px JB">276</span><span style="font:600 9px B;color:#9AA3B2">KM/H</span></div>
+    </div>
+    <div style="position:absolute;left:136px;right:136px;bottom:14px;display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
+      ${[["DRS", "#2D6BFF"], ["OT", "#FF8A1F"], ["▲ gear", "#3A4150"], ["▼ gear", "#3A4150"]].map(([t, c]) => `<div style="height:40px;border-radius:12px;background:${c}33;border:1px solid ${c};display:grid;place-items:center;font:700 12px B;color:#E8EAF0">${t}</div>`).join("")}
+    </div>`;
+  // 2) pit wall second screen (portrait)
+  const wall = `
+    <div style="padding:12px 12px 0;display:grid;gap:8px;width:100%;box-sizing:border-box">
+      <div style="display:flex;justify-content:space-between;align-items:center"><b style="font:700 18px BC;letter-spacing:.04em;color:#FFB547">PIT WALL</b><span class="chip" style="font-size:11px">Lap 23 / 44</span></div>
+      <svg width="220" height="128" viewBox="0 0 222 150"><path d="M30,20 C60,10 90,18 110,40 C130,62 170,60 200,80 C212,90 205,110 185,118 C150,130 120,120 95,126 C70,132 40,140 22,120 C10,104 18,80 30,66 C40,55 20,40 30,20Z" fill="none" stroke="#3A4150" stroke-width="7" stroke-linejoin="round"/>${[[104, 34, "#FFA51F"], [130, 58, "#FF8000"], [170, 66, "#C8102E"], [60, 132, "#27F4D2"], [25, 96, "#3671C6"]].map(([x, y, c]) => `<circle cx="${x}" cy="${y}" r="6" fill="${c}" stroke="#0B0D12" stroke-width="2"/>`).join("")}</svg>
+      <div style="display:grid;gap:4px;font:600 13px B">${[["4", "NOR", "+0.7"], ["5", "YOU", "—"], ["6", "LEC", "−1.4"]].map(([p, n, g]) => `<div style="display:flex;justify-content:space-between;padding:5px 8px;border-radius:6px;background:${n === "YOU" ? "#2A2310" : "#13161D"};color:${n === "YOU" ? "#FFB547" : "#E8EAF0"}"><span>${p} ${n}</span><span style="font-family:JB">${g}</span></div>`).join("")}</div>
+      <div style="background:#13161D;border-radius:10px;padding:10px;display:grid;gap:6px"><div class="k">Pit plan</div><div style="display:flex;justify-content:space-between;font:600 13px B"><span>Box</span><b style="color:#FFB547">End of lap 26</b></div><div style="display:flex;justify-content:space-between;font:600 13px B"><span>Tyres</span><b>Hard · new</b></div><div style="height:34px;border-radius:10px;background:#FFB547;color:#17120A;display:grid;place-items:center;font:700 13px B">BOX THIS LAP</div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">${["BB 56.5", "Diff 7"].map((t) => `<div style="background:#13161D;border-radius:8px;padding:8px;font:600 12px B;text-align:center">${t}<div style="color:#6B7383;font-size:11px">− · +</div></div>`).join("")}</div>
+    </div>`;
+  root.innerHTML = top("Settings · <b>Use your phone as a controller</b>", `<span class="chip">No app to install — it opens in the phone's browser</span>`) + `
+  <div class="grid" style="grid-template-columns:360px 1fr;grid-template-rows:1fr;height:836px">
+    <div class="panel" style="display:grid;gap:14px;align-content:start;justify-items:center">
+      <div class="k" style="justify-self:start">1 · Pair (on the computer)</div>
+      ${qr()}
+      <div style="font:700 26px JB;letter-spacing:.1em;color:#FFB547">RL · 4827</div>
+      <div style="font:500 14px/1.45 B;color:#C3C9D4;text-align:center">Scan with your phone camera, or open RaceLimit on your phone, tap <b style="color:#E8EAF0">Pad</b> and type the code.</div>
+      <div style="width:100%;display:grid;gap:6px;font:600 13px B">${[["Phone connected", "#2FD27A", "iPhone · Safari"], ["Delay", "#2FD27A", "18 ms on home Wi-Fi"], ["Tilt allowed", "#2FD27A", "tap 'Allow motion' once"], ["Vibration", "#FFB547", "Android only"]].map(([a, c, b]) => `<div style="display:flex;justify-content:space-between;background:#181C25;border-radius:8px;padding:8px 10px"><span><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${c};margin-right:8px"></i>${a}</span><span style="color:#9AA3B2">${b}</span></div>`).join("")}</div>
+      <div style="font:500 12px B;color:#6B7383;text-align:center">Up to 4 phones per computer, so friends can race split-screen or run the pit wall.</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 300px;gap:16px">
+      <div class="panel" style="display:grid;gap:12px;align-content:start;justify-items:center">
+        <div class="k" style="justify-self:start">2 · Drive: hold the phone sideways like a steering wheel</div>
+        ${phone(ctrl, { w: 640, h: 300 })}
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%">${[["Tilt to steer", "Turn the phone like a wheel. Sensitivity and deadzone in Settings."], ["Thumbs on the pedals", "Press harder on the screen edge area = more throttle / brake (or full on/off)."], ["Feel the kerbs", "The phone buzzes on kerbs, wheelspin and lock-ups."]].map(([a, b]) => `<div style="background:#181C25;border-radius:10px;padding:10px 12px"><b>${a}</b><div style="font:500 13px B;color:#C3C9D4">${b}</div></div>`).join("")}</div>
+        <div class="k" style="justify-self:start;margin-top:4px">Other layouts</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-self:start">${["Tilt + touch pedals", "Two thumbsticks (no tilt)", "Buttons only (for younger players)", "Left-handed"].map((t, i) => `<span class="chip" style="${i === 0 ? "background:#2A2310;color:#FFB547" : ""}">${t}</span>`).join("")}</div>
+      </div>
+      <div class="panel" style="display:grid;gap:12px;align-content:start;justify-items:center">
+        <div class="k" style="justify-self:start">3 · Or make it the pit wall</div>
+        ${phone(wall, { w: 268, h: 520, land: false })}
+        <div style="font:500 13px B;color:#C3C9D4;text-align:center">Drive with a keyboard or wheel, and use the phone as a second screen for the map, gaps and pit plan.</div>
+      </div>
+    </div>
+  </div><div class="concept">Design concept · phone as a controller</div>`;
+}
+
+if (screen === "assists") {
+  const tog = (label, opts, on, note = "") => `<div style="display:grid;grid-template-columns:170px 1fr;gap:10px;align-items:center;border-top:1px solid #1F2430;padding:8px 0"><span style="font:600 14px B">${label}${note ? `<div style="font:500 11px B;color:#6B7383">${note}</div>` : ""}</span><span style="display:flex;gap:4px;flex-wrap:wrap">${opts.map((o, i) => `<span class="chip" style="${i === on ? "background:#2A2310;color:#FFB547;box-shadow:inset 0 0 0 1px #FFB547" : ""}">${o}</span>`).join("")}</span></div>`;
+  root.innerHTML = top("Settings · <b>Assists, difficulty & graphics</b>", `<span class="chip">Pick a preset or change each one</span><span class="btn primary">Save</span>`) + `
+  <div class="grid" style="grid-template-columns:1fr 1fr 1fr;height:836px">
+    <div class="panel" style="display:grid;gap:4px;align-content:start">
+      <h2>Assists</h2>
+      <div style="display:flex;gap:6px;margin-bottom:6px">${["New to F1", "Casual", "Racer", "Sim"].map((t, i) => `<span class="btn" style="height:34px;${i === 1 ? "background:#FFB547;color:#17120A;border-color:#FFB547" : ""}">${t}</span>`).join("")}</div>
+      ${tog("Steering assist", ["Off", "Low", "High"], 1)}${tog("Braking assist", ["Off", "Low", "Full"], 1, "brakes for you before corners")}${tog("Anti-lock brakes", ["Off", "On"], 1)}${tog("Traction control", ["Off", "Medium", "Full"], 1)}${tog("Gears", ["Manual", "Auto"], 1)}${tog("Clutch at starts", ["Auto", "Assisted", "Manual"], 0)}${tog("Racing line", ["Off", "Corners only", "Full"], 1, "turns red where you should brake")}${tog("Pit lane", ["Auto", "Manual"], 0)}${tog("Energy deploy", ["Auto", "Presets", "Manual"], 1)}
+    </div>
+    <div class="panel" style="display:grid;gap:6px;align-content:start">
+      <h2>Difficulty</h2>
+      <div style="display:grid;gap:4px"><div class="row" style="justify-content:space-between"><span style="font:600 14px B">AI speed</span><b class="mono" style="color:#FFB547">72</b></div><div style="height:8px;border-radius:4px;background:#232836;position:relative"><i style="position:absolute;left:0;top:0;bottom:0;width:72%;border-radius:4px;background:#FFB547"></i><b style="position:absolute;left:72%;top:50%;width:16px;height:16px;border-radius:50%;background:#E8EAF0;transform:translate(-50%,-50%)"></b></div><div class="row" style="justify-content:space-between;font:500 11px B;color:#6B7383"><span>0 · cruising</span><span>110 · faster than the real drivers</span></div></div>
+      <div style="background:#181C25;border-radius:10px;padding:10px 12px;font:500 13px B;color:#C3C9D4">Suggested from your lap times: <b style="color:#E8EAF0">68–76</b>. After each race it can adjust itself.</div>
+      ${tog("AI aggression", ["Gentle", "Normal", "Hard"], 1)}${tog("AI mistakes", ["Never", "Sometimes", "Realistic"], 2)}${tog("Damage", ["Visual only", "Reduced", "Full"], 1)}${tog("Tyre & fuel wear", ["Off", "Normal", "×2", "×3"], 1)}${tog("Weather", ["Always dry", "Real forecast", "Random"], 1)}${tog("Penalties", ["Off", "Relaxed", "Real"], 1)}${tog("Rewind", ["Off", "3 per race", "Unlimited"], 1, "go back a few seconds after a mistake")}
+    </div>
+    <div class="panel" style="display:grid;gap:6px;align-content:start">
+      <h2>Graphics</h2>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">${[["Low", "school laptop", "60"], ["Medium", "most laptops", "60"], ["High", "gaming PC", "90"], ["Ultra", "fast GPU", "120"]].map(([a, b, f], i) => `<div style="border-radius:10px;padding:8px;text-align:center;background:${i === 1 ? "#2A2310" : "#181C25"};box-shadow:${i === 1 ? "inset 0 0 0 1px #FFB547" : "none"}"><b style="color:${i === 1 ? "#FFB547" : "#E8EAF0"}">${a}</b><div style="font:500 11px B;color:#9AA3B2">${b}</div><div class="mono" style="font-size:12px;margin-top:2px">~${f} fps</div></div>`).join("")}</div>
+      <div style="background:#181C25;border-radius:10px;padding:10px 12px;font:500 13px B;color:#C3C9D4">Auto-picked after a 5-second test when you first open the game. Runs in the browser, so no download.</div>
+      ${tog("Resolution", ["70%", "85%", "100%", "Auto"], 3)}${tog("Shadows", ["Off", "Car only", "Full"], 1)}${tog("Trees & crowd", ["Few", "Normal", "Lots"], 1)}${tog("Spray, smoke, sparks", ["Low", "High"], 1)}${tog("Reflections", ["Off", "Simple", "Full"], 1)}${tog("Motion blur", ["Off", "On"], 0)}
+      <div class="k" style="margin-top:8px">Accessibility</div>
+      ${tog("Flag colours", ["Normal", "Colour-blind safe"], 0)}${tog("Radio subtitles", ["Off", "On"], 1)}
+    </div>
+  </div><div class="concept">Design concept · assists, difficulty, graphics</div>`;
+}
+document.title = "done";
+</script></body></html>

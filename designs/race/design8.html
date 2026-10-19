@@ -1,0 +1,138 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: BC; font-weight: 700; src: url(../node_modules/@fontsource/barlow-condensed/files/barlow-condensed-latin-700-normal.woff2); }
+@font-face { font-family: BC; font-weight: 600; src: url(../node_modules/@fontsource/barlow-condensed/files/barlow-condensed-latin-600-normal.woff2); }
+@font-face { font-family: B; font-weight: 500; src: url(../node_modules/@fontsource/barlow/files/barlow-latin-500-normal.woff2); }
+@font-face { font-family: B; font-weight: 600; src: url(../node_modules/@fontsource/barlow/files/barlow-latin-600-normal.woff2); }
+@font-face { font-family: JB; font-weight: 600; src: url(../node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-600-normal.woff2); }
+:root { --bg: #0B0D12; --card: #13161D; --card2: #1A1E27; --line: #262B36; --text: #E8EAF0; --soft: #C3C9D4; --muted: #9AA3B2; --faint: #6B7383; --accent: #FFB547; --good: #2FD27A; --bad: #FF6B6B; --blue: #5AA9FF; }
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 1600px; height: 900px; overflow: hidden; background: var(--bg); color: var(--text); font: 500 14px/1.4 B; }
+.top { height: 64px; display: flex; align-items: center; gap: 18px; padding: 0 28px; border-bottom: 1px solid var(--line); background: #0E1117; }
+.brand { font: 700 24px BC; letter-spacing: .05em; color: var(--accent); } .brand small { font: 700 11px B; letter-spacing: .14em; color: var(--faint); border: 1px solid var(--line); border-radius: 4px; padding: 3px 7px; margin-left: 8px; vertical-align: middle; }
+.crumbs { font: 600 18px BC; letter-spacing: .04em; color: var(--muted); } .crumbs b { color: var(--text); } .sp { flex: 1; }
+.btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); font: 600 14px B; color: var(--text); white-space: nowrap; } .btn.primary { background: var(--accent); border-color: var(--accent); color: #17120A; }
+.k { font: 600 11px B; letter-spacing: .12em; color: var(--muted); text-transform: uppercase; }
+.panel { background: var(--card); border: 1px solid #1C2029; border-radius: 12px; padding: 16px 18px; min-width: 0; }
+h2 { margin: 0 0 8px; font: 600 22px BC; letter-spacing: .03em; }
+.chip { display: inline-flex; gap: 6px; align-items: center; padding: 4px 10px; border-radius: 14px; background: #1C2230; font: 600 12px B; color: var(--soft); white-space: nowrap; }
+.mono { font-family: JB; font-weight: 600; }
+.bar { height: 8px; border-radius: 4px; background: #232836; overflow: hidden; } .bar i { display: block; height: 100%; border-radius: 4px; }
+.row { display: flex; align-items: center; gap: 10px; }
+.concept { position: absolute; right: 18px; bottom: 10px; font: 600 10px B; letter-spacing: .14em; color: rgba(232,234,240,.4); text-transform: uppercase; }
+.grid { display: grid; gap: 16px; padding: 18px 24px; }
+table { border-collapse: collapse; width: 100%; } td { padding: 7px 6px; border-top: 1px solid #1F2430; font: 600 14px B; } td.r { text-align: right; }
+.slider { display: grid; grid-template-columns: 130px 1fr 54px; gap: 12px; align-items: center; font: 600 13px B; color: var(--soft); }
+.slider .track { height: 6px; border-radius: 3px; background: #2A2F3B; position: relative; } .slider .track i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--accent); } .slider .track b { position: absolute; top: 50%; width: 16px; height: 16px; border-radius: 50%; background: #E8EAF0; transform: translate(-50%, -50%); box-shadow: 0 0 0 3px rgba(0,0,0,.4); }
+.key { font: 600 11px JB; color: #0B0D12; background: #C3C9D4; border-radius: 3px; padding: 2px 6px; }
+</style>
+</head><body><div id="root"></div>
+<script type="module">
+const screen = new URLSearchParams(location.search).get("screen") || "pad";
+const root = document.getElementById("root");
+const top = (crumb, right = "") => `<div class="top"><div class="brand">RACELIMIT<small>RACE</small></div><div class="crumbs">${crumb}</div><div class="sp"></div>${right}</div>`;
+const slider = (label, v, txt) => `<div class="slider"><span>${label}</span><div class="track"><i style="width:${v}%"></i><b style="left:${v}%"></b></div><span class="mono" style="text-align:right">${txt}</span></div>`;
+
+
+
+const key = (k, w = 0) => `<span style="display:inline-grid;place-items:center;min-width:${w || 26}px;height:26px;padding:0 6px;border-radius:6px;background:#E8EAF0;color:#0B0D12;font:700 12px JB;box-shadow:0 2px 0 #9AA3B2">${k}</span>`;
+const pad = (k, c = "#3A4150", fg = "#E8EAF0") => `<span style="display:inline-grid;place-items:center;min-width:26px;height:26px;padding:0 6px;border-radius:13px;background:${c};color:${fg};font:700 12px B">${k}</span>`;
+const wb = (t, c) => `<span style="display:inline-flex;align-items:center;gap:6px;font:600 13px B"><i style="width:14px;height:14px;border-radius:50%;background:${c};display:inline-block"></i>${t}</span>`;
+
+
+// a phone frame: landscape or portrait
+const phone = (inner, { w = 560, h = 268, land = true } = {}) => `<div style="position:relative;width:${w}px;height:${h}px;border-radius:${land ? 34 : 40}px;background:#050608;padding:12px;box-shadow:0 0 0 2px #2A2F3B, 0 20px 50px rgba(0,0,0,.5)"><div style="position:absolute;${land ? "left:4px;top:50%;width:5px;height:60px;transform:translateY(-50%)" : "top:4px;left:50%;height:5px;width:60px;transform:translateX(-50%)"};border-radius:3px;background:#1A1D24"></div><div style="width:100%;height:100%;border-radius:${land ? 24 : 30}px;overflow:hidden;position:relative;background:#0B0D12">${inner}</div></div>`;
+let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+const qr = (n = 25, px = 7) => { let c = ""; for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) { const finder = (a, b) => x >= a && x < a + 7 && y >= b && y < b + 7; const inF = finder(0, 0) || finder(n - 7, 0) || finder(0, n - 7); let on; if (inF) { const fx = x < 7 ? x : x - (n - 7), fy = y < 7 ? y : y - (n - 7); on = fx === 0 || fx === 6 || fy === 0 || fy === 6 || (fx >= 2 && fx <= 4 && fy >= 2 && fy <= 4); } else on = rnd() < 0.48; if (on) c += `<rect x="${x * px}" y="${y * px}" width="${px}" height="${px}"/>`; } return `<svg width="${n * px}" height="${n * px}" style="background:#fff;padding:10px;border-radius:10px;box-sizing:content-box"><g fill="#0B0D12">${c}</g></svg>`; };
+
+
+const btn = (t, c, sz = 34) => `<div style="width:${sz}px;height:${sz}px;border-radius:50%;background:${c};box-shadow:inset 0 -3px 0 rgba(0,0,0,.35),0 0 0 3px #0B0D12;display:grid;place-items:center;font:700 ${sz > 30 ? 10 : 8}px B;color:${["#E8EAF0", "#FFD23F", "#C3C9D4", "#2FD27A"].includes(c) ? "#0B0D12" : "#fff"}">${t}</div>`;
+const caption = (t, d) => `<div style="margin-top:12px"><b style="font:600 16px B">${t}</b><div style="font:500 13px/1.4 B;color:#C3C9D4;margin-top:2px">${d}</div></div>`;
+
+if (screen === "pad") {
+  // 1) wheel replica
+  const wheel = `
+    <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 60%,#1A1E27,#07080A 75%)"></div>
+    <div style="position:absolute;left:50%;top:14px;transform:translateX(-50%);display:flex;gap:4px">${Array.from({ length: 15 }, (_, k) => `<i style="width:9px;height:9px;border-radius:50%;background:${k < 9 ? (k < 5 ? "#2BFF6A" : "#FF2B2B") : "#2a2c31"}"></i>`).join("")}</div>
+    <div style="position:absolute;left:50%;top:34px;transform:translateX(-50%);width:210px;height:96px;border-radius:8px;background:#020304;border:1px solid #1f2a33;display:grid;grid-template-columns:1fr 70px 1fr;align-items:center;padding:0 8px;font:600 11px JB">
+      <div style="display:grid;gap:3px"><span style="color:#2FD27A">−0.142</span><span>291</span><span style="color:#FFB547">BB 56.5</span></div>
+      <div style="text-align:center;font:700 58px/1 BC;color:#fff">8</div>
+      <div style="display:grid;gap:3px;text-align:right"><span>P5</span><span style="color:#6EE7A8">ERS 78%</span><span style="color:#9AA3B2">L23</span></div>
+    </div>
+    <div style="position:absolute;left:28px;top:30px;display:grid;grid-template-columns:repeat(2,40px);gap:10px">${[["DRS", "#2D6BFF"], ["N", "#2FD27A"], ["PL", "#FFD23F"], ["RADIO", "#FFD23F"], ["BOX", "#E8002D"], ["OK", "#E8EAF0"]].map(([t, c]) => btn(t, c, 40)).join("")}</div>
+    <div style="position:absolute;right:28px;top:30px;display:grid;grid-template-columns:repeat(2,40px);gap:10px">${[["OT", "#FF8A1F"], ["P", "#FF8A1F"], ["MARK", "#9B59FF"], ["+1", "#C3C9D4"], ["−1", "#C3C9D4"], ["BB", "#2D6BFF"]].map(([t, c]) => btn(t, c, 40)).join("")}</div>
+    <div style="position:absolute;left:50%;bottom:16px;transform:translateX(-50%);display:flex;gap:16px;align-items:center">${[["MODE", "#C3C9D4"], ["STRAT", "#FFB547"], ["TRQ", "#C3C9D4"]].map(([t, c], i) => `<div style="display:grid;justify-items:center;gap:3px"><div style="width:${i === 1 ? 54 : 42}px;height:${i === 1 ? 54 : 42}px;border-radius:50%;background:conic-gradient(#FFD23F 0 16%,#2FD27A 0 33%,#5AA9FF 0 50%,#FF6B6B 0 66%,#C59BFF 0 83%,#FFB547 0);padding:5px;box-sizing:border-box"><div style="width:100%;height:100%;border-radius:50%;background:#8E949C;box-shadow:inset 0 0 0 3px #5A6170"></div></div><span style="font:700 9px B;color:${c}">${t}</span></div>`).join("")}</div>
+    <div style="position:absolute;left:0;top:0;bottom:0;width:20px;background:linear-gradient(90deg,#5A2228,transparent);"></div><div style="position:absolute;right:0;top:0;bottom:0;width:20px;background:linear-gradient(270deg,#1F5A38,transparent)"></div>
+    <div style="position:absolute;left:6px;bottom:8px;font:700 10px B;color:#FF8A8A;writing-mode:vertical-rl;transform:rotate(180deg)">BRAKE ▲</div><div style="position:absolute;right:6px;bottom:8px;font:700 10px B;color:#6EE7A8;writing-mode:vertical-rl">THROTTLE ▲</div>`;
+  // 2) layout editor
+  const editor = `
+    <div style="position:absolute;inset:0;background:#0B0D12;background-image:linear-gradient(#161A22 1px,transparent 1px),linear-gradient(90deg,#161A22 1px,transparent 1px);background-size:24px 24px"></div>
+    <div style="position:absolute;left:12px;top:10px;right:12px;display:flex;justify-content:space-between;font:700 13px BC;letter-spacing:.04em"><span style="color:#FFB547">EDIT LAYOUT</span><span style="color:#9AA3B2">drag · pinch to resize</span></div>
+    <div style="position:absolute;left:14px;top:40px;bottom:14px;width:96px;border-radius:14px;border:2px dashed #FF6B6B;background:#2A151788;display:grid;place-items:center;font:700 14px BC;color:#FF8A8A">BRAKE</div>
+    <div style="position:absolute;right:14px;top:40px;bottom:14px;width:96px;border-radius:14px;border:2px dashed #2FD27A;background:#12301F88;display:grid;place-items:center;font:700 14px BC;color:#6EE7A8">THROTTLE</div>
+    <div style="position:absolute;left:140px;top:60px;border:2px dashed #FFB547;border-radius:50%;padding:4px">${btn("DRS", "#2D6BFF", 46)}</div>
+    <div style="position:absolute;left:212px;top:66px;border:2px solid #FFB547;border-radius:50%;padding:4px;box-shadow:0 0 0 6px #FFB54733">${btn("OT", "#FF8A1F", 56)}</div>
+    <div style="position:absolute;left:292px;top:60px">${btn("BOX", "#E8002D", 40)}</div>
+    <div style="position:absolute;left:140px;bottom:20px;right:140px;display:flex;gap:8px;justify-content:center">${["+ Add button", "Opacity 70%", "Reset"].map((t) => `<span class="chip" style="font-size:11px">${t}</span>`).join("")}</div>
+    <div style="position:absolute;left:206px;top:146px;background:#13161D;border:1px solid #262B36;border-radius:8px;padding:6px 10px;font:600 11px B;color:#C3C9D4">OT · size 56 · tap = hold for boost</div>`;
+  // 3) calibration
+  const calib = `
+    <div style="position:absolute;inset:0;background:#0B0D12"></div>
+    <div style="position:absolute;left:14px;top:10px;font:700 13px BC;letter-spacing:.04em;color:#FFB547">STEERING SETUP</div>
+    <div style="position:absolute;left:18px;top:38px;width:170px;display:grid;justify-items:center;gap:4px"><svg width="170" height="96" viewBox="-85 -86 170 96"><path d="M-75,0 A75,75 0 0 1 75,0" fill="none" stroke="#262B36" stroke-width="10" stroke-linecap="round"/><path d="M-75,0 A75,75 0 0 1 -53,-53" fill="none" stroke="#FFB547" stroke-width="10" stroke-linecap="round"/><path d="M53,-53 A75,75 0 0 1 75,0" fill="none" stroke="#FFB547" stroke-width="10" stroke-linecap="round"/><path d="M-8,-74 A75,75 0 0 1 8,-74" fill="none" stroke="#FF6B6B" stroke-width="12"/><line x1="0" y1="0" x2="-30" y2="-62" stroke="#E8EAF0" stroke-width="4" stroke-linecap="round"/><circle r="6" fill="#E8EAF0"/></svg><span style="font:600 12px B">Tilt <b class="mono">−24°</b> of ±90°</span><span class="chip" style="font-size:11px">Hold level · tap to centre</span></div>
+    <div style="position:absolute;left:206px;right:14px;top:36px;display:grid;gap:9px;font:600 12px B">
+      ${[["Steering range", 50, "±90°"], ["Sensitivity", 62, "1.2"], ["Deadzone", 8, "2°"], ["Pedal pressure", 70, "firm"]].map(([a, v, t]) => `<div style="display:grid;grid-template-columns:96px 1fr 38px;gap:8px;align-items:center"><span>${a}</span><span style="height:5px;border-radius:3px;background:#2A2F3B;position:relative"><i style="position:absolute;left:0;top:0;bottom:0;width:${v}%;border-radius:3px;background:#FFB547"></i><b style="position:absolute;left:${v}%;top:50%;width:12px;height:12px;border-radius:50%;background:#E8EAF0;transform:translate(-50%,-50%)"></b></span><span class="mono" style="text-align:right">${t}</span></div>`).join("")}
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:2px">${["Kerbs", "Lock-up", "Wheelspin", "Gear shift", "Contact", "OT ready"].map((t, i) => `<span class="chip" style="font-size:10px;${i < 4 ? "background:#2A2310;color:#FFB547" : ""}">〰 ${t}</span>`).join("")}</div>
+    </div>`;
+  const feats = [["Wheel replica", "The phone becomes the car's steering wheel: same buttons, dials and screen. Tilt to steer, squeeze the edges for pedals."], ["Make your own layout", "Drag buttons where your thumbs are, change sizes, add any wheel button, save layouts per car."], ["Steering setup", "Set how far you tilt for full lock, sensitivity and deadzone; pick which things buzz the phone."]];
+  root.innerHTML = top("Phone · <b>Controller features</b>", `<span class="chip">Opens in the phone's browser · no app</span>`) + `
+  <div class="grid" style="grid-template-columns:repeat(3,1fr);height:836px;align-content:start">
+    ${[wheel, editor, calib].map((inner, i) => `<div class="panel" style="display:grid;justify-items:center;align-content:start"><div class="k" style="justify-self:start;margin-bottom:12px">${["Mode 1", "Mode 2", "Settings"][i]}</div>${phone(inner, { w: 470, h: 236 })}${caption(...feats[i])}</div>`).join("")}
+    <div class="panel" style="grid-column:span 3;display:grid;grid-template-columns:repeat(4,1fr);gap:14px">
+      ${[["Two phones", "One phone is the wheel, a second one (or a tablet) lies flat as the pedals."], ["Stays awake", "The screen won't dim mid-race, and it reconnects by itself if Wi-Fi drops."], ["Quick buttons", "Long-press anywhere for the radial quick menu: brake bias, diff, engine, deploy."], ["Shows what matters", "Low battery or a weak connection warns you before the race, not during it."], ["Tablet layout", "On an iPad you get the wheel plus a mini map and gaps at the side."], ["Pause from the phone", "Two-finger tap pauses (single player) and opens the pit plan."], ["Kids mode", "Big buttons, auto throttle and braking assist — steer only."], ["Left-handed", "Mirrors every layout."]].map(([a, b]) => `<div style="background:#181C25;border-radius:10px;padding:10px 12px"><b>${a}</b><div style="font:500 13px/1.35 B;color:#C3C9D4">${b}</div></div>`).join("")}
+    </div>
+  </div><div class="concept">Design concept · phone controller features</div>`;
+}
+
+if (screen === "second") {
+  const P = (inner) => phone(inner, { w: 280, h: 610, land: false });
+  const head = (t, c = "#FFB547", r = "") => `<div style="display:flex;justify-content:space-between;align-items:center"><b style="font:700 17px BC;letter-spacing:.04em;color:${c}">${t}</b>${r}</div>`;
+  const pad = (s) => `<div style="padding:12px;display:grid;gap:8px;width:100%;box-sizing:border-box;font:600 12px B;overflow:hidden">${s}</div>`;
+  const card = (s, bg = "#13161D") => `<div style="background:${bg};border-radius:10px;padding:9px 10px;display:grid;gap:5px">${s}</div>`;
+  const row = (a, b, c = "#E8EAF0") => `<div style="display:flex;justify-content:space-between"><span style="color:#9AA3B2">${a}</span><b style="color:${c}">${b}</b></div>`;
+  // 1) race engineer (a friend)
+  const eng = pad(head("RACE ENGINEER", "#FFB547", `<span class="chip" style="font-size:10px">● your friend driving</span>`) +
+    card(`<div class="k">Your driver</div>${row("Position", "P5 · +0.7 to NOR")}${row("Tyres", "M · 14 laps · 62%", "#FFB547")}${row("Battery", "78%", "#6EE7A8")}${row("Fuel", "+0.2 lap", "#6EE7A8")}`) +
+    card(`<div class="k">Strategy</div>${row("Undercut on NOR", "likely ✓", "#6EE7A8")}${row("Rain in", "8 min", "#5AA9FF")}<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px"><span style="height:34px;border-radius:9px;background:#FFB547;color:#17120A;display:grid;place-items:center;font:700 12px B">BOX THIS LAP</span><span style="height:34px;border-radius:9px;background:#232836;display:grid;place-items:center;font:700 12px B">STAY OUT</span></div>`) +
+    card(`<div class="k">Send to driver</div>${["Push now, gap 0.7", "Save the tyres", "Defend into T1", "Rain coming"].map((t) => `<div style="background:#1C2230;border-radius:7px;padding:6px 8px">💬 ${t}</div>`).join("")}<div style="height:34px;border-radius:9px;background:#10213A;color:#5AA9FF;display:grid;place-items:center;font:700 12px B">🎙 HOLD TO TALK</div>`));
+  // 2) telemetry
+  const spark = (pts, c, h = 46) => `<svg width="100%" height="${h}" viewBox="0 0 232 ${h}" preserveAspectRatio="none"><path d="${pts.map((v, i) => `${i ? "L" : "M"}${(i / (pts.length - 1)) * 232},${h - v * h}`).join("")}" fill="none" stroke="${c}" stroke-width="2"/></svg>`;
+  const sp = Array.from({ length: 60 }, (_, i) => 0.25 + 0.65 * Math.abs(Math.sin(i / 7)) ** 0.6), th = sp.map((v, i) => (sp[i + 1] ?? v) >= v ? 0.95 : 0.1), br = th.map((v) => (v < 0.5 ? 0.9 : 0.04));
+  const tel = pad(head("TELEMETRY", "#5AA9FF", `<span class="chip" style="font-size:10px">live</span>`) +
+    card(`<div class="k">Speed</div>${spark(sp, "#FFB547")}<div class="k">Throttle / brake</div>${spark(th, "#2FD27A", 26)}${spark(br, "#FF6B6B", 26)}`) +
+    card(`<div class="k">Tyres · temp / wear</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">${[["FL", 96, 58, "#2FD27A"], ["FR", 102, 64, "#FFB547"], ["RL", 94, 61, "#2FD27A"], ["RR", 99, 63, "#2FD27A"]].map(([n, t, w, c]) => `<div style="background:${c}22;border:1px solid ${c};border-radius:8px;padding:6px;text-align:center"><b>${n}</b><div class="mono" style="color:${c}">${t}°</div><div style="color:#9AA3B2;font-size:11px">${w}% left</div></div>`).join("")}</div>`) +
+    card(`${row("Brakes", "FL 610° · RL 520°")}${row("Engine temp", "OK")}${row("Last lap vs best", "+0.31 s", "#FF6B6B")}`));
+  // 3) extra camera
+  const camv = pad(head("EXTRA CAMERA", "#E8EAF0") +
+    `<div style="height:190px;border-radius:10px;background:url(./bg-chase.png) 48% 60%/430px auto;border:1px solid #262B36;position:relative"><span class="chip" style="position:absolute;left:6px;top:6px;font-size:10px">CHASE CAM</span></div>` +
+    `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">${["Chase cam", "Rear view", "TV camera", "Rival onboard", "Track map", "Timing tower"].map((t, i) => `<span style="height:32px;border-radius:8px;background:${i === 0 ? "#2A2310" : "#13161D"};color:${i === 0 ? "#FFB547" : "#E8EAF0"};display:grid;place-items:center">${t}</span>`).join("")}</div>` +
+    card(`<div style="font:500 12px B;color:#C3C9D4">Prop the phone under your monitor as a rear-view screen, or watch a rival's onboard while you chase them.</div>`));
+  // 4) voice radio
+  const voice = pad(head("RADIO", "#FFD23F") +
+    `<div style="display:grid;gap:6px">${[["you", "Box this lap"], ["eng", "Copy. Box, box. Hards are ready."], ["you", "What's the gap to Norris?"], ["eng", "Gap is 0.7. He's on older tyres."], ["you", "Brake bias up one"], ["eng", "Bias 57.0 ✓"]].map(([w, t]) => `<div style="max-width:84%;justify-self:${w === "you" ? "end" : "start"};background:${w === "you" ? "#2A2310" : "#13161D"};color:${w === "you" ? "#FFB547" : "#E8EAF0"};border-radius:10px;padding:7px 9px;font:500 12.5px B">${t}</div>`).join("")}</div>` +
+    `<div style="justify-self:center;margin-top:6px;width:84px;height:84px;border-radius:50%;background:radial-gradient(#FFD23F,#C9A20E);display:grid;place-items:center;box-shadow:0 0 0 8px #FFD23F33;font:700 12px B;color:#17120A">HOLD<br>TO TALK</div>` +
+    `<div style="text-align:center;color:#9AA3B2;font:500 11.5px B">Say commands out loud; the game understands them and your engineer answers.</div>`);
+  // 5) live timing / replay remote
+  const live = pad(head("LIVE & REPLAY", "#E10600", `<span class="chip" style="font-size:10px;background:#E10600;color:#fff">● LIVE</span>`) +
+    card(`<div class="k">Real race (RaceLimit Live)</div>${[["1", "VER", "Leader"], ["2", "HAM", "+1.8"], ["3", "PIA", "+4.1"], ["–", "YOU", "+5.3"]].map(([p, n, g]) => `<div style="display:flex;justify-content:space-between;${n === "YOU" ? "color:#FFB547" : ""}"><span>${p} ${n}</span><span class="mono">${g}</span></div>`).join("")}`) +
+    card(`<div class="k">Replay remote</div><div style="height:6px;border-radius:3px;background:#2A2F3B;position:relative"><i style="position:absolute;left:0;top:0;bottom:0;width:46%;border-radius:3px;background:#FFB547"></i></div><div style="display:flex;justify-content:space-around;font:700 18px B"><span>⏮</span><span style="color:#FFB547">⏯</span><span>⏭</span><span>📷</span></div><div style="color:#9AA3B2;font:500 11.5px B">Scrub the replay and take photos from the sofa.</div>`) +
+    card(`<div class="k">Alerts</div>${["🔔 Rain in 5 min", "🔔 NOR has pitted", "🔔 Safety car!"].map((t) => `<div>${t}</div>`).join("")}`));
+  const caps = [["Race engineer", "A friend runs your strategy and talks to you while you drive."], ["Telemetry", "Live speed, pedals, tyre temps and wear, brakes."], ["Extra camera", "Rear view, rival onboard, TV camera or the map."], ["Voice radio", "Talk to your engineer: \"box this lap\", \"what's the gap\"."], ["Live & replay", "Real race timing, replay remote, alerts."]];
+  root.innerHTML = top("Phone · <b>Second-screen features</b>", `<span class="chip">Use with keyboard, controller, wheel — or a second phone</span>`) + `
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;padding:18px 22px;height:836px;box-sizing:border-box">
+    ${[eng, tel, camv, voice, live].map((inner, i) => `<div style="display:grid;justify-items:center;align-content:start">${P(inner)}<div style="text-align:center">${caption(...caps[i])}</div></div>`).join("")}
+  </div><div class="concept">Design concept · phone as a second screen</div>`;
+}
+document.title = "done";
+</script></body></html>

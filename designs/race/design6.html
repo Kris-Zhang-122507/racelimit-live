@@ -1,0 +1,122 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: BC; font-weight: 700; src: url(../node_modules/@fontsource/barlow-condensed/files/barlow-condensed-latin-700-normal.woff2); }
+@font-face { font-family: BC; font-weight: 600; src: url(../node_modules/@fontsource/barlow-condensed/files/barlow-condensed-latin-600-normal.woff2); }
+@font-face { font-family: B; font-weight: 500; src: url(../node_modules/@fontsource/barlow/files/barlow-latin-500-normal.woff2); }
+@font-face { font-family: B; font-weight: 600; src: url(../node_modules/@fontsource/barlow/files/barlow-latin-600-normal.woff2); }
+@font-face { font-family: JB; font-weight: 600; src: url(../node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-600-normal.woff2); }
+:root { --bg: #0B0D12; --card: #13161D; --card2: #1A1E27; --line: #262B36; --text: #E8EAF0; --soft: #C3C9D4; --muted: #9AA3B2; --faint: #6B7383; --accent: #FFB547; --good: #2FD27A; --bad: #FF6B6B; --blue: #5AA9FF; }
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 1600px; height: 900px; overflow: hidden; background: var(--bg); color: var(--text); font: 500 14px/1.4 B; }
+.top { height: 64px; display: flex; align-items: center; gap: 18px; padding: 0 28px; border-bottom: 1px solid var(--line); background: #0E1117; }
+.brand { font: 700 24px BC; letter-spacing: .05em; color: var(--accent); } .brand small { font: 700 11px B; letter-spacing: .14em; color: var(--faint); border: 1px solid var(--line); border-radius: 4px; padding: 3px 7px; margin-left: 8px; vertical-align: middle; }
+.crumbs { font: 600 18px BC; letter-spacing: .04em; color: var(--muted); } .crumbs b { color: var(--text); } .sp { flex: 1; }
+.btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); font: 600 14px B; color: var(--text); white-space: nowrap; } .btn.primary { background: var(--accent); border-color: var(--accent); color: #17120A; }
+.k { font: 600 11px B; letter-spacing: .12em; color: var(--muted); text-transform: uppercase; }
+.panel { background: var(--card); border: 1px solid #1C2029; border-radius: 12px; padding: 16px 18px; min-width: 0; }
+h2 { margin: 0 0 8px; font: 600 22px BC; letter-spacing: .03em; }
+.chip { display: inline-flex; gap: 6px; align-items: center; padding: 4px 10px; border-radius: 14px; background: #1C2230; font: 600 12px B; color: var(--soft); white-space: nowrap; }
+.mono { font-family: JB; font-weight: 600; }
+.bar { height: 8px; border-radius: 4px; background: #232836; overflow: hidden; } .bar i { display: block; height: 100%; border-radius: 4px; }
+.row { display: flex; align-items: center; gap: 10px; }
+.concept { position: absolute; right: 18px; bottom: 10px; font: 600 10px B; letter-spacing: .14em; color: rgba(232,234,240,.4); text-transform: uppercase; }
+.grid { display: grid; gap: 16px; padding: 18px 24px; }
+table { border-collapse: collapse; width: 100%; } td { padding: 7px 6px; border-top: 1px solid #1F2430; font: 600 14px B; } td.r { text-align: right; }
+.slider { display: grid; grid-template-columns: 130px 1fr 54px; gap: 12px; align-items: center; font: 600 13px B; color: var(--soft); }
+.slider .track { height: 6px; border-radius: 3px; background: #2A2F3B; position: relative; } .slider .track i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--accent); } .slider .track b { position: absolute; top: 50%; width: 16px; height: 16px; border-radius: 50%; background: #E8EAF0; transform: translate(-50%, -50%); box-shadow: 0 0 0 3px rgba(0,0,0,.4); }
+.key { font: 600 11px JB; color: #0B0D12; background: #C3C9D4; border-radius: 3px; padding: 2px 6px; }
+</style>
+</head><body><div id="root"></div>
+<script type="module">
+const screen = new URLSearchParams(location.search).get("screen") || "rules";
+const root = document.getElementById("root");
+const top = (crumb, right = "") => `<div class="top"><div class="brand">RACELIMIT<small>RACE</small></div><div class="crumbs">${crumb}</div><div class="sp"></div>${right}</div>`;
+const slider = (label, v, txt) => `<div class="slider"><span>${label}</span><div class="track"><i style="width:${v}%"></i><b style="left:${v}%"></b></div><span class="mono" style="text-align:right">${txt}</span></div>`;
+
+
+
+const key = (k, w = 0) => `<span style="display:inline-grid;place-items:center;min-width:${w || 26}px;height:26px;padding:0 6px;border-radius:6px;background:#E8EAF0;color:#0B0D12;font:700 12px JB;box-shadow:0 2px 0 #9AA3B2">${k}</span>`;
+const pad = (k, c = "#3A4150", fg = "#E8EAF0") => `<span style="display:inline-grid;place-items:center;min-width:26px;height:26px;padding:0 6px;border-radius:13px;background:${c};color:${fg};font:700 12px B">${k}</span>`;
+const wb = (t, c) => `<span style="display:inline-flex;align-items:center;gap:6px;font:600 13px B"><i style="width:14px;height:14px;border-radius:50%;background:${c};display:inline-block"></i>${t}</span>`;
+
+if (screen === "rules") {
+  // top-down corner: two cars going into a right-hander, apex marked
+  const car = (x, y, rot, col, label) => `<g transform="translate(${x},${y}) rotate(${rot})"><rect x="-11" y="-30" width="22" height="60" rx="8" fill="${col}"/><rect x="-17" y="-34" width="34" height="7" rx="2" fill="#16171B"/><rect x="-14" y="26" width="28" height="7" rx="2" fill="#16171B"/>${[[-16, -20], [16, -20], [-16, 20], [16, 20]].map(([a, b]) => `<rect x="${a - 5}" y="${b - 8}" width="10" height="16" rx="3" fill="#0B0D12"/>`).join("")}<circle cx="0" cy="-4" r="5" fill="#E8EAF0"/></g><text x="${x + 26}" y="${y - 30}" fill="${col}" font-family="B" font-weight="600" font-size="13">${label}</text>`;
+  root.innerHTML = top("Rules · <b>Overtaking & the stewards</b>", `<span class="chip">Based on F1's driving guidelines, simplified</span>`) + `
+  <div class="grid" style="grid-template-columns:620px 1fr;grid-template-rows:auto 1fr;height:836px">
+    <div class="panel" style="grid-row:span 2;display:grid;gap:10px;align-content:start">
+      <h2>Were you alongside at the apex?</h2>
+      <svg width="580" height="430" viewBox="0 0 580 430">
+        <path d="M70,430 L70,230 Q70,90 210,90 L580,90" fill="none" stroke="#2A2F3B" stroke-width="150"/>
+        <path d="M70,430 L70,230 Q70,90 210,90 L580,90" fill="none" stroke="#3A4150" stroke-width="2" stroke-dasharray="10 10"/>
+        <path d="M-5,430 L-5,230 Q-5,15 210,15 L580,15" fill="none" stroke="#E8002D" stroke-width="6" stroke-dasharray="14 14"/>
+        <path d="M145,430 L145,230 Q145,165 210,165 L580,165" fill="none" stroke="#E8002D" stroke-width="6" stroke-dasharray="14 14"/>
+        <circle cx="160" cy="178" r="9" fill="#FFB547"/><text x="176" y="204" fill="#FFB547" font-family="B" font-weight="700" font-size="14">APEX</text>
+        ${car(118, 236, 14, "#FFA51F", "")}
+        ${car(68, 248, 10, "#C8102E", "")}
+        <line x1="30" y1="244" x2="140" y2="226" stroke="#2FD27A" stroke-width="2" stroke-dasharray="4 4"/>
+        <text x="150" y="268" fill="#FFA51F" font-family="B" font-weight="700" font-size="13">YOU · inside</text>
+        <text x="8" y="312" fill="#E8EAF0" font-family="B" font-weight="700" font-size="13">VELOCE #16</text>
+        <text x="200" y="300" fill="#2FD27A" font-family="B" font-weight="600" font-size="15">Your front wheels are level with</text>
+        <text x="200" y="320" fill="#2FD27A" font-family="B" font-weight="600" font-size="15">their mirrors at the apex → they</text>
+        <text x="200" y="340" fill="#2FD27A" font-family="B" font-weight="600" font-size="15">must leave you a car's width.</text>
+      </svg>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div style="background:#12301F;border-radius:10px;padding:10px 12px"><b style="color:#6EE7A8">Overlap at apex: 64%</b><div style="font:500 13px B;color:#C3C9D4">Alongside: you're owed room</div></div>
+        <div style="background:#181C25;border-radius:10px;padding:10px 12px"><b>Going round the outside?</b><div style="font:500 13px B;color:#C3C9D4">You need to be ahead at the apex</div></div>
+      </div>
+      <div class="k" style="margin-top:6px">In the race: a live bar while you're side by side</div>
+      <div style="background:rgba(11,13,18,.9);border:1px solid #262B36;border-radius:12px;padding:10px 14px;display:flex;gap:14px;align-items:center"><span class="k" style="color:#E8EAF0">Overlap</span><div style="flex:1;height:10px;border-radius:5px;background:#232836;position:relative"><i style="position:absolute;left:0;top:0;bottom:0;width:64%;border-radius:5px;background:#2FD27A"></i><i style="position:absolute;left:50%;top:-4px;bottom:-4px;width:2px;background:#E8EAF0"></i></div><b class="mono" style="color:#6EE7A8">64%</b><span class="chip" style="background:#12301F;color:#6EE7A8">ALONGSIDE</span></div>
+      <div style="font:500 13px B;color:#9AA3B2">The white mark is the "level with their mirrors" point. Past it you're owed room; short of it you have to back out or go round.</div>
+    </div>
+    <div class="panel" style="display:grid;gap:10px">
+      <div class="row" style="justify-content:space-between"><h2 style="margin:0">Stewards' decision</h2><span class="chip" style="background:#2A2310;color:#FFB547">Lap 18 · Turn 5</span></div>
+      <div style="display:grid;grid-template-columns:240px 1fr;gap:14px">
+        <div style="height:135px;border-radius:10px;background:url(./bg-real.png) center/cover;position:relative"><span class="chip" style="position:absolute;left:8px;bottom:8px">▶ Replay from 3 angles</span></div>
+        <div style="display:grid;gap:6px;align-content:start;font:600 14px B">
+          <div>Incident: <b>Car 16 (VELOCE)</b> forced <b>Car 27 (you)</b> off the track</div>
+          <div style="color:#9AA3B2;font-weight:500">You were alongside at the apex (64% overlap). Car 16 didn't leave a car's width.</div>
+          <div style="background:#2A1517;color:#FF9A9A;border-radius:8px;padding:8px 10px">Car 16: <b>5 second time penalty</b> · 2 penalty points</div>
+          <div style="color:#9AA3B2;font-weight:500">Decided in 40 s game time. You can appeal once per race.</div>
+        </div>
+      </div>
+    </div>
+    <div class="panel" style="display:grid;gap:4px;align-content:start">
+      <h2>Penalties</h2>
+      ${[["Track limits", "3 warnings, then the black-and-white flag, then 5 s", "#FFB547"], ["Leaving the track and gaining a place", "Give the place back or get 5 s / 10 s", "#FFB547"], ["Causing a collision", "5 s or 10 s, depending on how bad", "#FF6B6B"], ["Moving under braking / weaving", "Warning, then 5 s", "#FFB547"], ["Ignoring blue flags", "After 3 blue flags: drive-through", "#5AA9FF"], ["Overtaking under yellow or safety car", "Give it back or 10 s", "#FFD21F"], ["Unsafe release / pit-lane speeding", "5 s · 10 s · drive-through", "#FF6B6B"], ["False start", "Drive-through", "#FF6B6B"]].map(([a, b, c]) => `<div class="row" style="justify-content:space-between;border-top:1px solid #1F2430;padding:7px 0"><span style="display:flex;gap:8px;align-items:center"><i style="width:4px;height:16px;border-radius:2px;background:${c}"></i><b style="font:600 14px B">${a}</b></span><span style="font:500 13px B;color:#C3C9D4">${b}</span></div>`).join("")}
+      <div class="row" style="gap:8px;margin-top:6px"><span class="chip">Strictness: Real · Relaxed · Off</span><span class="chip">Penalty points build up over a season</span></div>
+    </div>
+  </div><div class="concept">Design concept · overtaking rules and stewards</div>`;
+}
+
+if (screen === "controls") {
+  const rows = [
+    ["Driving", [["Steer", `${key("A")} ${key("D")}`, pad("L stick"), "Wheel"], ["Throttle / brake", `${key("W")} ${key("S")}`, `${pad("RT")} ${pad("LT")}`, "Pedals"], ["Shift up / down", `${key("E")} ${key("Q")}`, `${pad("A", "#2FD27A", "#0B0D12")} ${pad("X", "#2D6BFF")}`, "Paddles"]]],
+    ["Buttons on the wheel", [["DRS / aero override", key("F"), pad("Y", "#FFD23F", "#0B0D12"), wb("DRS", "#2D6BFF")], ["Overtake (extra power)", key("Space", 64), pad("RB"), wb("OT", "#FF8A1F")], ["Pit limiter", key("L"), `${pad("LB")} + ${pad("A", "#2FD27A", "#0B0D12")}`, wb("PL", "#FFD23F")], ["Radio", key("R"), `${pad("LB")} + ${pad("Y", "#FFD23F", "#0B0D12")}`, wb("RADIO", "#FFD23F")], ["Box this lap", key("B"), `${pad("LB")} + ${pad("B", "#E8002D")}`, wb("BOX", "#E8002D")]]],
+    ["Dials (change while driving)", [["Brake bias + / −", `${key("[")} ${key("]")}`, "D-pad ← →", wb("BB", "#2D6BFF")], ["Engine / energy mode", `${key("1")}–${key("8")}`, "D-pad ↑ ↓", "MODE rotary"], ["Deploy plan", key("Tab"), "View button", "STRATEGY dial"], ["Diff", `${key("Z")} ${key("X")}`, "Quick menu", "ENTRY / EXIT"]]],
+  ];
+  root.innerHTML = top("Settings · <b>Controls</b>", `<span class="chip">Every button on the wheel has a key</span><span class="btn">Change a key</span>`) + `
+  <div class="grid" style="grid-template-columns:1fr 420px;height:836px">
+    <div class="panel" style="display:grid;gap:4px;align-content:start">
+      <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr;gap:10px;padding:0 6px 8px" class="k"><span>Action</span><span>Keyboard</span><span>Controller</span><span>Real wheel</span></div>
+      ${rows.map(([title, list]) => `<div class="k" style="color:#FFB547;margin:10px 6px 2px">${title}</div>` + list.map(([a, k, c, w]) => `<div style="display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr;gap:10px;align-items:center;border-top:1px solid #1F2430;padding:8px 6px;font:600 14px B"><span>${a}</span><span>${k}</span><span>${c}</span><span>${w}</span></div>`).join("")).join("")}
+    </div>
+    <div style="display:grid;gap:16px;grid-template-rows:auto 1fr">
+      <div class="panel" style="display:grid;gap:10px;justify-items:center">
+        <div class="k" style="justify-self:start">Quick menu · hold ${key("Shift", 52)} or ${pad("LB")}</div>
+        <svg width="300" height="300" viewBox="-150 -150 300 300">
+          ${["Brake bias", "Diff", "Engine", "Deploy", "Pit plan", "Radio"].map((t, i) => { const a0 = (i / 6) * Math.PI * 2 - Math.PI / 2 - Math.PI / 6, a1 = a0 + Math.PI / 3 - 0.04, R = 140, r = 62; const p = (a, rr) => `${Math.cos(a) * rr},${Math.sin(a) * rr}`; const mid = (a0 + a1) / 2; return `<path d="M${p(a0, r)} L${p(a0, R)} A${R},${R} 0 0 1 ${p(a1, R)} L${p(a1, r)} A${r},${r} 0 0 0 ${p(a0, r)}Z" fill="${i === 0 ? "#2A2310" : "#181C25"}" stroke="${i === 0 ? "#FFB547" : "#262B36"}" stroke-width="2"/><text x="${Math.cos(mid) * 101}" y="${Math.sin(mid) * 101 + 5}" text-anchor="middle" fill="${i === 0 ? "#FFB547" : "#E8EAF0"}" font-family="B" font-weight="600" font-size="14">${t}</text>`; }).join("")}
+          <circle r="54" fill="#0E1117" stroke="#262B36"/><text y="-4" text-anchor="middle" fill="#9AA3B2" font-family="B" font-weight="600" font-size="11">BRAKE BIAS</text><text y="20" text-anchor="middle" fill="#E8EAF0" font-family="JB" font-weight="600" font-size="22">56.5</text>
+        </svg>
+        <div style="font:500 13px B;color:#9AA3B2;text-align:center">Flick the stick or mouse to a slice, then use ← → to change it. The race keeps going.</div>
+      </div>
+      <div class="panel" style="display:grid;gap:8px;align-content:start">
+        <h2>Three ways to use the wheel</h2>
+        ${[["Keyboard", "One key per button, plus the quick menu for the dials. Keys show on the HUD so you learn them."], ["Controller", "Most-used buttons on face buttons; hold LB for a second layer; dials on the D-pad."], ["Real wheel", "Each button on your wheel maps to one on the car's wheel. Set it once in Settings."], ["Mouse in cockpit view", "Hover the 3D wheel and click its buttons, like the real thing."]].map(([a, b]) => `<div style="background:#181C25;border-radius:10px;padding:9px 12px"><b>${a}</b><div style="font:500 13px B;color:#C3C9D4">${b}</div></div>`).join("")}
+      </div>
+    </div>
+  </div><div class="concept">Design concept · controls</div>`;
+}
+document.title = "done";
+</script></body></html>

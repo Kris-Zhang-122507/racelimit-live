@@ -1,0 +1,238 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: BC; font-weight: 700; src: url(../node_modules/@fontsource/barlow-condensed/files/barlow-condensed-latin-700-normal.woff2); }
+@font-face { font-family: BC; font-weight: 600; src: url(../node_modules/@fontsource/barlow-condensed/files/barlow-condensed-latin-600-normal.woff2); }
+@font-face { font-family: B; font-weight: 500; src: url(../node_modules/@fontsource/barlow/files/barlow-latin-500-normal.woff2); }
+@font-face { font-family: B; font-weight: 600; src: url(../node_modules/@fontsource/barlow/files/barlow-latin-600-normal.woff2); }
+@font-face { font-family: JB; font-weight: 600; src: url(../node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-600-normal.woff2); }
+:root { --bg: #0B0D12; --card: #13161D; --card2: #1A1E27; --line: #262B36; --text: #E8EAF0; --soft: #C3C9D4; --muted: #9AA3B2; --faint: #6B7383; --accent: #FFB547; --good: #2FD27A; --bad: #FF6B6B; --blue: #5AA9FF; }
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 1600px; height: 900px; overflow: hidden; background: var(--bg); color: var(--text); font: 500 14px/1.4 B; }
+.top { height: 64px; display: flex; align-items: center; gap: 18px; padding: 0 28px; border-bottom: 1px solid var(--line); background: #0E1117; }
+.brand { font: 700 24px BC; letter-spacing: .05em; color: var(--accent); } .brand small { font: 700 11px B; letter-spacing: .14em; color: var(--faint); border: 1px solid var(--line); border-radius: 4px; padding: 3px 7px; margin-left: 8px; vertical-align: middle; }
+.crumbs { font: 600 18px BC; letter-spacing: .04em; color: var(--muted); } .crumbs b { color: var(--text); } .sp { flex: 1; }
+.btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); font: 600 14px B; color: var(--text); white-space: nowrap; } .btn.primary { background: var(--accent); border-color: var(--accent); color: #17120A; }
+.k { font: 600 11px B; letter-spacing: .12em; color: var(--muted); text-transform: uppercase; }
+.panel { background: var(--card); border: 1px solid #1C2029; border-radius: 12px; padding: 16px 18px; min-width: 0; }
+h2 { margin: 0 0 8px; font: 600 22px BC; letter-spacing: .03em; }
+.chip { display: inline-flex; gap: 6px; align-items: center; padding: 4px 10px; border-radius: 14px; background: #1C2230; font: 600 12px B; color: var(--soft); white-space: nowrap; }
+.mono { font-family: JB; font-weight: 600; }
+.bar { height: 8px; border-radius: 4px; background: #232836; overflow: hidden; } .bar i { display: block; height: 100%; border-radius: 4px; }
+.row { display: flex; align-items: center; gap: 10px; }
+.concept { position: absolute; right: 18px; bottom: 10px; font: 600 10px B; letter-spacing: .14em; color: rgba(232,234,240,.4); text-transform: uppercase; }
+.grid { display: grid; gap: 16px; padding: 18px 24px; }
+table { border-collapse: collapse; width: 100%; } td { padding: 7px 6px; border-top: 1px solid #1F2430; font: 600 14px B; } td.r { text-align: right; }
+.slider { display: grid; grid-template-columns: 130px 1fr 54px; gap: 12px; align-items: center; font: 600 13px B; color: var(--soft); }
+.slider .track { height: 6px; border-radius: 3px; background: #2A2F3B; position: relative; } .slider .track i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--accent); } .slider .track b { position: absolute; top: 50%; width: 16px; height: 16px; border-radius: 50%; background: #E8EAF0; transform: translate(-50%, -50%); box-shadow: 0 0 0 3px rgba(0,0,0,.4); }
+.key { font: 600 11px JB; color: #0B0D12; background: #C3C9D4; border-radius: 3px; padding: 2px 6px; }
+</style>
+</head><body><div id="root"></div>
+<script type="module">
+const screen = new URLSearchParams(location.search).get("screen") || "beat";
+const root = document.getElementById("root");
+const top = (crumb, right = "") => `<div class="top"><div class="brand">RACELIMIT<small>RACE</small></div><div class="crumbs">${crumb}</div><div class="sp"></div>${right}</div>`;
+const slider = (label, v, txt) => `<div class="slider"><span>${label}</span><div class="track"><i style="width:${v}%"></i><b style="left:${v}%"></b></div><span class="mono" style="text-align:right">${txt}</span></div>`;
+
+async function track(name) {
+  const d = await (await fetch(`./${name}.json`)).json();
+  const pts = d.points; const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  const minX = Math.min(...xs), minY = Math.min(...ys), sz = Math.max(Math.max(...xs) - minX, Math.max(...ys) - minY);
+  const maxY = Math.max(...ys); return { pts: pts.map(([x, y]) => [(x - minX) / sz, (maxY - y) / sz]), corners: d.corners ?? [], raw: d, minX, minY, sz };
+}
+const pathOf = (pts, w, h, pad = 20) => { const s = Math.min(w, h) - pad * 2; return pts.map(([x, y], i) => `${i ? "L" : "M"}${(pad + x * s).toFixed(1)},${(pad + y * s).toFixed(1)}`).join("") + "Z"; };
+
+// a lap simulation from the track's curvature: speed limited by grip, then by acceleration and braking
+function lapSim(t, { grip = 4.6, brake = 45, acc = 13 } = {}) {
+  const LAP = t.lap ?? 7004, N = 700, P = [];
+  // resample to N points by distance
+  const pts = t.pts, seg = []; let tot = 0; for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[(i + 1) % pts.length]; const d = Math.hypot(b[0] - a[0], b[1] - a[1]); seg.push(d); tot += d; }
+  for (let k = 0; k < N; k++) { let want = (k / N) * tot, i = 0; while (want > seg[i]) { want -= seg[i]; i++; } const a = pts[i], b = pts[(i + 1) % pts.length], f = want / seg[i]; P.push([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]); }
+  const ds = LAP / N, curv = P.map((p, k) => { const a = P[(k - 6 + N) % N], b = P[(k + 6) % N]; const h1 = Math.atan2(p[1] - a[1], p[0] - a[0]), h2 = Math.atan2(b[1] - p[1], b[0] - p[0]); let d = h2 - h1; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return Math.abs(d) / (12 * ds); });
+  const vmax = curv.map((c) => Math.min(92, Math.sqrt((grip * 9.81) / Math.max(c, 1e-5))));
+  const v = vmax.slice();
+  for (let r = 0; r < 2; r++) { for (let k = 1; k < 2 * N; k++) { const i = k % N, j = (k - 1) % N; v[i] = Math.min(v[i], Math.sqrt(v[j] ** 2 + 2 * acc * (1 - v[j] / 100) * ds)); } for (let k = 2 * N - 2; k >= 0; k--) { const i = k % N, j = (k + 1) % N; v[i] = Math.min(v[i], Math.sqrt(v[j] ** 2 + 2 * brake * ds)); } }
+  const thr = v.map((s, i) => { const n = v[(i + 1) % N]; return n < s - 0.05 ? 0 : s >= vmax[i] - 0.5 && s < 90 ? 55 : 100; });
+  const brk = v.map((s, i) => (v[(i + 1) % N] < s - 0.05 ? 100 : 0));
+  const time = []; let T = 0; for (let i = 0; i < N; i++) { time.push(T); T += ds / v[i]; }
+  return { P, v: v.map((s) => s * 3.6), thr, brk, time, total: T, N };
+}
+const fmt = (t) => `${Math.floor(t / 60)}:${(t % 60).toFixed(3).padStart(6, "0")}`;
+function lines(series, w, h, { min = 0, max = 350, colors = [], fill = false, zero = false } = {}) {
+  const N = series[0].length, X = (i) => (i / (N - 1)) * w, Y = (v) => h - ((v - min) / (max - min)) * h;
+  return `<svg width="${w}" height="${h}" style="display:block;overflow:visible">${zero ? `<line x1="0" x2="${w}" y1="${Y(0)}" y2="${Y(0)}" stroke="#3A4150" stroke-dasharray="4 4"/>` : ""}${series.map((s, k) => `<path d="${s.map((v, i) => `${i ? "L" : "M"}${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join("")}" fill="none" stroke="${colors[k]}" stroke-width="${k ? 1.6 : 2}" ${fill ? "" : ""}/>`).join("")}</svg>`;
+}
+
+if (screen === "beat") {
+  const t = await track("spa"); t.lap = 7004;
+  const pro = lapSim(t, { grip: 4.8, brake: 47, acc: 13.5 }), me = lapSim(t, { grip: 4.45, brake: 39, acc: 13.2 });
+  const K = 104.92 / pro.total; for (const r of [pro, me]) { r.time = r.time.map((x) => x * K); r.total *= K; }
+  const delta = me.time.map((x, i) => x - pro.time[i]);
+  const gain = delta.map((d, i) => d - (delta[i - 1] ?? 0));
+  const W = 520, s = W - 40, X = (p) => 20 + p[0] * s, Y = (p) => 20 + p[1] * s;
+  const seg = pro.P.map((p, i) => { const q = pro.P[(i + 1) % pro.N], g = gain[i] * 900; const c = g > 0.25 ? "#FF6B6B" : g < -0.25 ? "#2FD27A" : "#5A6273"; return `<line x1="${X(p)}" y1="${Y(p)}" x2="${X(q)}" y2="${Y(q)}" stroke="${c}" stroke-width="7" stroke-linecap="round"/>`; }).join("");
+  const corners = (t.raw.corners ?? []).filter((c) => [1, 2, 3, 5, 8, 10, 12, 15, 18, 19].includes(c.n)).map((c) => { const x = 20 + ((c.p[0] - 0) / 1) * 0; return c; });
+  const cx = (c) => 20 + ((c.p[0] * t.raw.cv?.s ?? c.p[0])); void cx; void corners;
+  root.innerHTML = top("Beat the driver · Spa-Francorchamps · <b>Your best vs VER's fastest race lap</b>", `<span class="btn">Watch their lap as a ghost</span><span class="btn primary">Race the ghost again</span>`) + `
+  <div class="grid" style="grid-template-columns:560px 1fr;height:836px">
+    <div class="panel" style="display:grid;gap:12px;align-content:start">
+      <div class="row" style="justify-content:space-between"><div><div class="k">You</div><div class="mono" style="font-size:30px">${fmt(me.total)}</div></div><div style="text-align:center"><div class="k">Gap</div><div class="mono" style="font-size:30px;color:#FF6B6B">+${(me.total - pro.total).toFixed(3)}</div></div><div style="text-align:right"><div class="k">VER · real telemetry</div><div class="mono" style="font-size:30px;color:#5AA9FF">${fmt(pro.total)}</div></div></div>
+      <svg width="${W}" height="${W - 10}" viewBox="0 0 ${W} ${W}">${seg}</svg>
+      <div class="row" style="gap:16px;font:600 12px B;color:#9AA3B2"><span><i style="display:inline-block;width:18px;height:6px;border-radius:3px;background:#2FD27A;vertical-align:middle"></i> you're faster</span><span><i style="display:inline-block;width:18px;height:6px;border-radius:3px;background:#FF6B6B;vertical-align:middle"></i> you lose time</span><span><i style="display:inline-block;width:18px;height:6px;border-radius:3px;background:#5A6273;vertical-align:middle"></i> about even</span></div>
+    </div>
+    <div style="display:grid;gap:16px;grid-template-rows:auto auto auto 1fr;min-width:0">
+      <div class="panel"><div class="row" style="justify-content:space-between;margin-bottom:8px"><span class="k">Gap over the lap (s)</span><span class="k" style="color:#FF6B6B">+ = behind</span></div>${lines([delta], 930, 90, { min: Math.min(0, ...delta) - 0.05, max: Math.max(...delta) + 0.05, colors: ["#FFB547"], zero: true })}</div>
+      <div class="panel"><div class="row" style="gap:18px;margin-bottom:8px"><span class="k">Speed (km/h)</span><span class="chip" style="background:#2A2310;color:#FFB547">— You</span><span class="chip" style="background:#10213A;color:#5AA9FF">— VER</span></div>${lines([me.v, pro.v], 930, 150, { min: 60, max: 340, colors: ["#FFB547", "#5AA9FF"] })}</div>
+      <div class="panel" style="display:grid;grid-template-columns:1fr 1fr;gap:18px"><div><div class="k" style="margin-bottom:6px">Throttle %</div>${lines([me.thr, pro.thr], 445, 60, { min: 0, max: 105, colors: ["#FFB547", "#5AA9FF"] })}</div><div><div class="k" style="margin-bottom:6px">Brake</div>${lines([me.brk, pro.brk], 445, 60, { min: 0, max: 105, colors: ["#FFB547", "#5AA9FF"] })}</div></div>
+      <div class="panel"><div class="k" style="margin-bottom:8px">Where the time goes</div>
+        ${[["La Source", "You brake 22 m earlier", "−0.14 s"], ["Eau Rouge / Raidillon", "Min speed 9 km/h lower — lift is too big", "−0.21 s"], ["Bus Stop", "Good: later braking than VER", "+0.05 s"], ["Pouhon", "Back on throttle 0.3 s later", "−0.12 s"]].map(([c, w, d]) => `<div class="row" style="padding:7px 0;border-top:1px solid #1F2430"><b style="width:190px">${c}</b><span style="flex:1;color:#C3C9D4">${w}</span><span class="mono" style="color:${d.startsWith("+") ? "#2FD27A" : "#FF6B6B"}">${d}</span></div>`).join("")}
+      </div>
+    </div>
+  </div><div class="concept">Design concept · Beat the driver (example data)</div>`;
+}
+
+if (screen === "career") {
+  root.innerHTML = top("Career · <b>Season 2 · Round 15 of 24</b>", `<span class="chip">RaceLimit Racing · P8 in constructors</span><span class="btn primary">Go to Monza →</span>`) + `
+  <div class="grid" style="grid-template-columns:1.25fr 1fr 1fr;grid-template-rows:auto 1fr;height:836px">
+    <div class="panel" style="grid-row:span 2;display:grid;gap:14px;align-content:start">
+      <h2>Car development</h2>
+      <div class="row" style="justify-content:space-between"><span class="k">Budget cap</span><span class="mono">$96.4M <span style="color:#6B7383">/ $135M</span></span></div>
+      <div class="bar"><i style="width:71%;background:linear-gradient(90deg,#FFB547,#FF8A3D)"></i></div>
+      <div style="font:500 13px B;color:#9AA3B2;margin-top:-6px">Go over and you lose development time next season.</div>
+      ${[["Floor v3", "Aero · +0.18 s/lap", 62, "In production · ready at Monza", "#2FD27A"], ["Low-drag rear wing", "Aero · for Monza and Las Vegas", 100, "Ready · fitted", "#5AA9FF"], ["Sidepod rework", "Aero + cooling · +0.11 s/lap", 24, "In the wind tunnel · 3 races", "#FFB547"], ["Brake cooling", "Reliability · fewer DNFs in heat", 0, "Not started · $3.2M", "#6B7383"], ["Lighter gearbox casing", "Weight · −2.1 kg", 0, "Not started · $4.8M", "#6B7383"]].map(([n, d, p, st, c]) => `<div style="background:#181C25;border-radius:10px;padding:12px 14px;display:grid;gap:6px"><div class="row" style="justify-content:space-between"><b style="font:600 16px B">${n}</b><span style="font:600 12px B;color:${c}">${st}</span></div><div style="font:500 13px B;color:#9AA3B2">${d}</div><div class="bar" style="height:6px"><i style="width:${p}%;background:${c}"></i></div></div>`).join("")}
+      <div class="row" style="gap:8px;flex-wrap:wrap"><span class="chip">Wind tunnel hours: 312 / 360 this period</span><span class="chip">P8 = more tunnel time than the top teams</span></div>
+    </div>
+    <div class="panel" style="display:grid;gap:10px;align-content:start">
+      <h2>Power unit allocation</h2>
+      ${[["Engine (ICE)", 3, 4], ["Turbo", 3, 4], ["MGU-K", 2, 4], ["Energy store", 2, 2], ["Control electronics", 1, 2]].map(([n, u, m]) => `<div class="row"><span style="width:150px;font:600 14px B">${n}</span><span style="display:flex;gap:4px;flex:1">${Array.from({ length: m }, (_, i) => `<i style="flex:1;height:10px;border-radius:3px;background:${i < u ? (u >= m ? "#FF6B6B" : "#FFB547") : "#262B36"}"></i>`).join("")}</span><span class="mono" style="width:40px;text-align:right">${u}/${m}</span></div>`).join("")}
+      <div style="font:500 13px B;color:#FFB0B0;background:#2A1517;border-radius:8px;padding:8px 10px">Energy store is at the limit: one more = 10-place grid penalty. Take it at Monza where overtaking is easy?</div>
+    </div>
+    <div class="panel" style="display:grid;gap:10px;align-content:start">
+      <h2>Drivers & offers</h2>
+      ${[["You", "P11 in standings · 34 pts", "Contract to end of season 3", "#FFB547"], ["Team-mate · M. Okafor", "P14 · 21 pts · you lead qualifying 9–5", "Contract ends this year", "#9AA3B2"]].map(([n, a, b, c]) => `<div style="background:#181C25;border-radius:10px;padding:10px 12px"><b style="color:${c}">${n}</b><div style="font:500 13px B;color:#C3C9D4">${a}</div><div style="font:500 12px B;color:#6B7383">${b}</div></div>`).join("")}
+      <div style="background:#10213A;border:1px solid #2A4A7A;border-radius:10px;padding:10px 12px"><div class="k" style="color:#5AA9FF">New offer</div><b>AXIOM wants you for next year</b><div style="font:500 13px B;color:#C3C9D4">2-year deal · their car is ~0.4 s/lap faster · decide before Round 18</div></div>
+    </div>
+    <div class="panel" style="grid-column:span 2;display:grid;grid-template-columns:1fr 1fr;gap:20px">
+      <div><h2>Next: Italian Grand Prix</h2><div style="font:500 14px B;color:#C3C9D4">Monza · low downforce · 53 laps</div>
+        <div style="display:grid;gap:6px;margin-top:10px">${[["Board's target", "Points finish (top 10)"], ["Weather", "Dry, 27 °C · 10% chance of rain on Sunday"], ["Tyres", "C3 · C4 · C5"], ["Sprint weekend", "No"]].map(([a, b]) => `<div class="row"><span class="k" style="width:130px">${a}</span><span style="font:600 14px B">${b}</span></div>`).join("")}</div></div>
+      <div><h2>Constructors</h2><table>${[["6", "VELOCE", 141], ["7", "KESTREL", 102], ["8", "RACELIMIT", 55, 1], ["9", "NOVA", 49], ["10", "HALCYON", 18]].map(([p, n, pts, me]) => `<tr style="${me ? "color:#FFB547" : ""}"><td class="mono" style="width:30px">${p}</td><td>${n}</td><td class="r mono">${pts}</td></tr>`).join("")}</table></div>
+    </div>
+  </div><div class="concept">Design concept · Career mode</div>`;
+}
+
+if (screen === "moments") {
+  const M = [
+    ["2000", "Belgium · Spa", "Pass for the lead on Kemmel", "Häkkinen went one side of a backmarker and Schumacher the other. You have 4 laps to make the same move.", 3, "#FF8000", "V10 era", "t-spa"],
+    ["2008", "Brazil · Interlagos", "The last two corners", "Rain on the final lap and the title depends on one place. Get past the car on dry tyres before the line.", 3, "#E8002D", "V8 era", "t-interlagos"],
+    ["2011", "Canada · Montréal", "From last to the win", "After six pit stops and a two-hour red flag you're at the back. 30 laps, a drying track — win it.", 3, "#E8002D", "KERS & DRS", null],
+    ["2016", "Brazil · Interlagos", "Master of the wet", "Heavy rain, late stop for intermediates, 16th with 16 laps left. Finish on the podium.", 2, "#3671C6", "Hybrid turbo", "t-interlagos"],
+    ["2020", "Italy · Monza", "Hold on for the first win", "You're leading with a faster car right behind and 6 laps to go. Defend without making a mistake.", 2, "#5AA9FF", "Wide & fast", "t-monza"],
+    ["2020", "Sakhir · Outer loop", "Last on lap 1, first at the flag", "Contact at Turn 4 drops you to last. 87 laps on the short outer loop to come back and win.", 2, "#FF6EB4", "Wide & fast", null],
+  ];
+  const maps = {}; for (const m of M) if (m[7] && !maps[m[7]]) maps[m[7]] = await track(m[7]);
+  root.innerHTML = top("<b>Famous moments</b> · jump into real races at the moment that mattered", `<span class="chip">14 of 40 completed</span><span class="btn">Filter by era</span>`) + `
+  <div class="grid" style="grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);height:836px">
+  ${M.map(([y, place, t, d, stars, c, era, map]) => `<div class="panel" style="display:grid;grid-template-rows:auto 1fr auto;gap:10px;position:relative;overflow:hidden;background:linear-gradient(160deg,${c}22,#13161D 55%)">
+    ${map ? `<svg style="position:absolute;right:-10px;top:30px;opacity:.22" width="230" height="230"><path d="${pathOf(maps[map].pts, 230, 230)}" fill="none" stroke="${c}" stroke-width="5" stroke-linejoin="round"/></svg>` : ""}
+    <div><div class="row" style="justify-content:space-between"><span style="font:700 46px/1 BC;color:${c}">${y}</span><span class="chip">${era}</span></div><div class="k" style="margin-top:4px">${place}</div></div>
+    <div style="position:relative"><h2 style="font-size:26px;margin-bottom:6px">${t}</h2><div style="font:500 14px/1.45 B;color:#C3C9D4;max-width:360px">${d}</div></div>
+    <div class="row" style="justify-content:space-between"><span style="color:#FFB547;letter-spacing:2px">${"★".repeat(stars)}<span style="color:#3A4150">${"★".repeat(3 - stars)}</span></span><span class="btn" style="height:34px">Play</span></div></div>`).join("")}
+  </div><div class="concept">Design concept · Famous moments — challenges inspired by real races</div>`;
+}
+
+if (screen === "friends") {
+  const P = [["kris", "Host · wheel", "#FFB547", "Ready"], ["mila_r", "Controller", "#5AA9FF", "Ready"], ["T0BY", "Keyboard", "#2FD27A", "Picking car…"], ["jaxon.f1", "Wheel", "#FF6EB4", "Ready"], ["ari", "Controller", "#C3C9D4", "Ready"], ["+ 3 AI cars", "fill the grid", "#6B7383", ""]];
+  root.innerHTML = top("With friends · <b>Room RL-7K2Q</b>", `<span class="btn">Copy invite link</span><span class="btn primary">Start race (5/8 ready)</span>`) + `
+  <div class="grid" style="grid-template-columns:1fr 1fr 420px;height:836px">
+    <div class="panel" style="display:grid;gap:10px;align-content:start">
+      <h2>Drivers</h2>
+      ${P.map(([n, d, c, st]) => `<div class="row" style="background:#181C25;border-radius:10px;padding:10px 12px"><span style="width:36px;height:36px;border-radius:50%;background:${c}33;color:${c};display:grid;place-items:center;font:700 16px BC">${n[0].toUpperCase()}</span><div style="flex:1"><b>${n}</b><div style="font:500 12px B;color:#9AA3B2">${d}</div></div><span style="font:600 13px B;color:${st === "Ready" ? "#2FD27A" : "#FFB547"}">${st}</span></div>`).join("")}
+      <div style="background:#181C25;border:1px dashed #3A4150;border-radius:10px;padding:14px;text-align:center"><div class="k">Room code</div><div class="mono" style="font-size:34px;letter-spacing:.12em;color:#FFB547">RL-7K2Q</div><div style="font:500 13px B;color:#9AA3B2">or send the link — no account needed</div></div>
+    </div>
+    <div class="panel" style="display:grid;gap:12px;align-content:start">
+      <h2>Race settings</h2>
+      ${[["Track", "Suzuka"], ["Season / cars", "2024 · everyone in equal cars"], ["Length", "12 laps"], ["Weather", "Dynamic · 30% rain"], ["Damage", "Full · Tecpro walls stay dented"], ["Tyre wear", "×2 (forces a pit stop)"], ["Race control", "Flags, VSC and safety car on"], ["Collisions", "On · ghosting in the pit lane"], ["Assists", "Players choose"]].map(([a, b]) => `<div class="row" style="justify-content:space-between;border-top:1px solid #1F2430;padding-top:9px"><span class="k">${a}</span><span style="font:600 15px B">${b} <span style="color:#6B7383">▾</span></span></div>`).join("")}
+    </div>
+    <div style="display:grid;gap:16px;grid-template-rows:1fr auto">
+      <div class="panel" style="display:grid;grid-template-rows:auto 1fr auto;gap:10px"><h2>Chat</h2>
+        <div style="display:grid;gap:8px;align-content:end;font:500 14px B">${[["mila_r", "#5AA9FF", "suzuka again?? 😭"], ["kris", "#FFB547", "yes. rain this time"], ["jaxon.f1", "#FF6EB4", "no ramming at the hairpin pls"], ["T0BY", "#2FD27A", "1 sec choosing livery"]].map(([n, c, t]) => `<div><b style="color:${c}">${n}</b> <span style="color:#C3C9D4">${t}</span></div>`).join("")}</div>
+        <div style="background:#0E1117;border:1px solid #262B36;border-radius:8px;padding:10px 12px;color:#6B7383">Say something…</div></div>
+      <div class="panel"><div class="k" style="color:#FFB547">This week's ghost challenge</div><h2 style="margin:4px 0">Spa · 2004 car · dry</h2><div style="font:500 13px B;color:#C3C9D4">Fastest among your friends: <b class="mono">2:01.884</b> by mila_r. Share a link to your lap and they race your ghost.</div></div>
+    </div>
+  </div><div class="concept">Design concept · With friends (lobby)</div>`;
+}
+
+if (screen === "photo") {
+  root.innerHTML = `<div style="position:absolute;inset:0;background:url(./bg-real.png) center/cover"></div>
+  <div style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(11,13,18,.92) 0,rgba(11,13,18,.75) 360px,transparent 520px)"></div>
+  <svg style="position:absolute;left:0;top:0" width="1600" height="900"><g stroke="rgba(255,255,255,.28)" stroke-width="1"><line x1="533" x2="533" y1="0" y2="900"/><line x1="1067" x2="1067" y1="0" y2="900"/><line x1="0" x2="1600" y1="300" y2="300"/><line x1="0" x2="1600" y1="600" y2="600"/></g><rect x="700" y="330" width="180" height="120" fill="none" stroke="#FFB547" stroke-width="2" stroke-dasharray="6 5"/><text x="706" y="324" fill="#FFB547" font-family="B" font-weight="600" font-size="12">FOCUS</text></svg>
+  <div style="position:absolute;left:24px;top:22px;bottom:22px;width:400px;display:grid;gap:14px;align-content:start">
+    <div class="row"><span style="font:700 26px BC;letter-spacing:.04em">PHOTO MODE</span><span class="chip" style="margin-left:auto">Race paused</span></div>
+    <div class="row" style="gap:6px">${["Free cam", "TV", "Onboard", "Helicopter", "Trackside"].map((c, i) => `<span class="chip" style="${i === 0 ? "background:#FFB547;color:#17120A" : ""}">${c}</span>`).join("")}</div>
+    <div class="k" style="margin-top:6px">Lens</div>
+    ${slider("Field of view", 30, "34°")}${slider("Focus distance", 42, "11.2 m")}${slider("Aperture (blur)", 70, "f/2.0")}${slider("Tilt", 50, "0°")}
+    <div class="k" style="margin-top:6px">Light & look</div>
+    ${slider("Exposure", 55, "+0.3")}${slider("Time of day", 72, "17:40")}${slider("Motion blur", 60, "1/60 s")}${slider("Vignette", 25, "25%")}
+    <div class="row" style="gap:6px;flex-wrap:wrap">${["None", "Film", "Mono", "Warm", "Broadcast"].map((c, i) => `<span class="chip" style="${i === 1 ? "background:#2A2310;color:#FFB547" : ""}">${c}</span>`).join("")}</div>
+    <div class="k" style="margin-top:6px">Show</div>
+    <div class="row" style="gap:6px;flex-wrap:wrap">${["Driver ✓", "Other cars ✓", "Marshals ✓", "Tyre smoke", "HUD"].map((c) => `<span class="chip">${c}</span>`).join("")}</div>
+  </div>
+  <div style="position:absolute;left:460px;right:24px;bottom:22px;display:grid;gap:10px">
+    <div class="row" style="background:rgba(11,13,18,.8);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:10px 14px;gap:14px"><span class="mono">◀◀</span><span class="mono" style="color:#FFB547">❚❚</span><span class="mono">▶▶</span><span class="mono" style="font-size:13px">Lap 11 · 1:42.3</span><div style="flex:1;height:6px;border-radius:3px;background:#2A2F3B;position:relative"><i style="position:absolute;left:0;top:0;bottom:0;width:46%;border-radius:3px;background:#FFB547"></i>${[18, 33, 46, 71].map((x) => `<i style="position:absolute;left:${x}%;top:-4px;width:2px;height:14px;background:#E8EAF0"></i>`).join("")}</div><span style="font:600 12px B;color:#9AA3B2">markers: overtakes & incidents</span></div>
+    <div class="row" style="justify-content:flex-end;gap:10px"><span class="btn"><span class="key">H</span> Hide UI</span><span class="btn">Copy to clipboard</span><span class="btn primary">Save photo (4K PNG)</span></div>
+  </div>
+  <div class="concept">Design concept · Replays & photo mode</div>`;
+}
+
+if (screen === "daily") {
+  const t = await track("t-suzuka");
+  const LB = [["1", "nikoW", "1:31.842"], ["2", "mila_r", "1:32.017"], ["3", "spoonfan", "1:32.230"], ["4", "T0BY", "1:32.551"], ["…", "", ""], ["212", "kris (you)", "1:33.904", 1], ["…", "", ""]];
+  root.innerHTML = top("<b>Daily challenge</b> · Sunday 18 October", `<span class="chip">🔥 6-day streak</span><span class="chip">New challenge in 12 h 14 m</span><span class="btn primary">Try again (attempt 4)</span>`) + `
+  <div class="grid" style="grid-template-columns:1.1fr 1fr 380px;height:836px">
+    <div class="panel" style="display:grid;gap:12px;align-content:start;background:linear-gradient(160deg,#2A1E10,#13161D 60%)">
+      <div class="k" style="color:#FFB547">Today</div>
+      <h2 style="font-size:40px;margin:0">Suzuka · 2005 car · damp</h2>
+      <div style="font:500 15px B;color:#C3C9D4">One flying lap in a V10 car on a drying track. No assists except automatic gears. Everyone gets the same conditions.</div>
+      <svg width="560" height="470" viewBox="0 40 560 470"><path d="${pathOf(t.pts, 560, 560, 30)}" fill="none" stroke="#3A4150" stroke-width="16" stroke-linejoin="round"/><path d="${pathOf(t.pts, 560, 560, 30)}" fill="none" stroke="#FFB547" stroke-width="4" stroke-linejoin="round"/></svg>
+      <div class="row" style="gap:8px;flex-wrap:wrap"><span class="chip">🌧 Damp — dry line forming</span><span class="chip">Intermediates</span><span class="chip">Grooved tyres</span><span class="chip">1 flying lap</span></div>
+    </div>
+    <div class="panel" style="display:grid;gap:14px;align-content:start">
+      <h2>Targets</h2>
+      ${[["Gold", "1:32.400", "#FFD23F", false], ["Silver", "1:33.300", "#C9CED6", false], ["Bronze", "1:34.500", "#D08A4E", true]].map(([n, tm, c, got]) => `<div class="row" style="background:#181C25;border-radius:10px;padding:12px 14px"><span style="width:34px;height:34px;border-radius:50%;background:${c};opacity:${got ? 1 : 0.35};display:grid;place-items:center;color:#0B0D12;font:700 14px BC">${got ? "✓" : ""}</span><b style="flex:1;font:600 18px B">${n}</b><span class="mono" style="font-size:20px">${tm}</span></div>`).join("")}
+      <div style="background:#181C25;border-radius:10px;padding:12px 14px"><div class="k">Your best today</div><div class="mono" style="font-size:36px;color:#FFB547">1:33.904</div><div style="font:500 13px B;color:#9AA3B2">0.604 s off silver · lost most in the Esses and at Spoon</div></div>
+      <div class="row" style="gap:8px"><span class="btn">Race the gold ghost</span><span class="btn">Share result</span></div>
+    </div>
+    <div class="panel"><h2>Leaderboard</h2><div class="row" style="gap:6px;margin-bottom:8px"><span class="chip" style="background:#2A2310;color:#FFB547">Everyone</span><span class="chip">Friends</span><span class="chip">New Zealand</span></div>
+      <table>${LB.map(([p, n, tm, me]) => `<tr style="${me ? "color:#FFB547;background:#2A231066" : ""}"><td class="mono" style="width:44px;color:${me ? "#FFB547" : "#9AA3B2"}">${p}</td><td>${n}</td><td class="r mono">${tm}</td></tr>`).join("")}</table>
+      <div style="font:500 13px B;color:#9AA3B2;margin-top:12px">4,318 drivers today · top 5%</div></div>
+  </div><div class="concept">Design concept · Daily challenge</div>`;
+}
+
+if (screen === "wheel") {
+  const wheelSvg = `<svg width="360" height="300" viewBox="-180 -150 360 300"><g transform="rotate(-38)"><rect x="-150" y="-70" width="300" height="140" rx="60" fill="#1A1D24" stroke="#3A4150" stroke-width="3"/><rect x="-62" y="-52" width="124" height="70" rx="10" fill="#0B0D12" stroke="#262B36"/><text x="0" y="-12" fill="#FFB547" font-family="JB" font-weight="600" font-size="28" text-anchor="middle">7</text><text x="0" y="10" fill="#9AA3B2" font-family="B" font-weight="600" font-size="11" text-anchor="middle">291 km/h</text>${[-110, -85, 85, 110].map((x, i) => `<circle cx="${x}" cy="${i % 2 ? -20 : 15}" r="11" fill="${["#E8002D", "#2FD27A", "#5AA9FF", "#FFB547"][i]}"/>`).join("")}<rect x="-38" y="38" width="76" height="12" rx="4" fill="#262B36"/><rect x="-6" y="-70" width="12" height="16" fill="#FFB547"/></g></svg>`;
+  root.innerHTML = top("Settings · <b>Wheel & pedals</b>", `<span class="chip" style="background:#12301F;color:#6EE7A8">● USB wheel connected</span><span class="btn">Reset to defaults</span><span class="btn primary">Save</span>`) + `
+  <div class="grid" style="grid-template-columns:420px 1fr 1fr;height:836px">
+    <div class="panel" style="display:grid;gap:12px;align-content:start;justify-items:center">
+      <div class="k" style="justify-self:start">Live input — turn the wheel to test</div>
+      ${wheelSvg}
+      <div class="mono" style="font-size:28px">−171° <span style="color:#6B7383;font-size:16px">of ±450°</span></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;width:100%;margin-top:8px">${[["Throttle", 78, "#2FD27A"], ["Brake", 0, "#FF6B6B"], ["Clutch", 0, "#5AA9FF"]].map(([n, v, c]) => `<div style="display:grid;gap:6px;justify-items:center"><div style="width:44px;height:170px;border-radius:8px;background:#232836;position:relative;overflow:hidden"><i style="position:absolute;left:0;right:0;bottom:0;height:${v}%;background:${c}"></i></div><b style="font:600 13px B">${n}</b><span class="mono" style="color:#9AA3B2">${v}%</span></div>`).join("")}</div>
+      <div style="font:500 12px B;color:#9AA3B2;text-align:center">Works in the browser with most USB wheels (Logitech, Thrustmaster, Fanatec, Moza) through the Gamepad API</div>
+    </div>
+    <div class="panel" style="display:grid;gap:16px;align-content:start">
+      <h2>Steering</h2>
+      ${slider("Rotation", 60, "900°")}${slider("Linearity", 50, "1.00")}${slider("Deadzone", 4, "1%")}${slider("Steering lock (car)", 45, "Real")}
+      <h2 style="margin-top:8px">Force feedback</h2>
+      ${slider("Strength", 68, "68%")}${slider("Kerbs & bumps", 55, "55%")}${slider("Tyre slip", 72, "72%")}${slider("Collisions", 80, "80%")}${slider("Damping", 20, "20%")}
+      <div style="font:500 13px B;color:#9AA3B2">Force feedback in a browser is limited: it would use WebHID on wheels that allow it. Steering and pedals work either way.</div>
+    </div>
+    <div class="panel" style="display:grid;gap:8px;align-content:start">
+      <h2>Buttons</h2>
+      ${[["Overtake / DRS", "Paddle R + red"], ["Pit plan menu", "Green"], ["Change pit plan option", "D-pad"], ["Pit limiter", "Blue"], ["Radio: talk to engineer", "Yellow"], ["Brake bias + / −", "Rotary 1"], ["Engine / energy mode", "Rotary 2"], ["Look left / right", "Not set"], ["Pause / photo mode", "Start"]].map(([a, b]) => `<div class="row" style="justify-content:space-between;border-top:1px solid #1F2430;padding:9px 0"><span style="font:600 14px B">${a}</span><span class="chip" style="${b === "Not set" ? "background:#2A1517;color:#FF9A9A" : ""}">${b}</span></div>`).join("")}
+      <div class="k" style="margin-top:8px">Pedals</div>
+      ${slider("Brake curve", 40, "Firm")}${slider("Brake max force", 85, "85%")}
+    </div>
+  </div><div class="concept">Design concept · Wheel & pedals</div>`;
+}
+document.title = "done";
+</script></body></html>

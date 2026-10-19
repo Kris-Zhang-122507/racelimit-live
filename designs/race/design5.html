@@ -1,0 +1,116 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: BC; font-weight: 700; src: url(../node_modules/@fontsource/barlow-condensed/files/barlow-condensed-latin-700-normal.woff2); }
+@font-face { font-family: BC; font-weight: 600; src: url(../node_modules/@fontsource/barlow-condensed/files/barlow-condensed-latin-600-normal.woff2); }
+@font-face { font-family: B; font-weight: 500; src: url(../node_modules/@fontsource/barlow/files/barlow-latin-500-normal.woff2); }
+@font-face { font-family: B; font-weight: 600; src: url(../node_modules/@fontsource/barlow/files/barlow-latin-600-normal.woff2); }
+@font-face { font-family: JB; font-weight: 600; src: url(../node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-600-normal.woff2); }
+:root { --bg: #0B0D12; --card: #13161D; --card2: #1A1E27; --line: #262B36; --text: #E8EAF0; --soft: #C3C9D4; --muted: #9AA3B2; --faint: #6B7383; --accent: #FFB547; --good: #2FD27A; --bad: #FF6B6B; --blue: #5AA9FF; }
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 1600px; height: 900px; overflow: hidden; background: var(--bg); color: var(--text); font: 500 14px/1.4 B; }
+.top { height: 64px; display: flex; align-items: center; gap: 18px; padding: 0 28px; border-bottom: 1px solid var(--line); background: #0E1117; }
+.brand { font: 700 24px BC; letter-spacing: .05em; color: var(--accent); } .brand small { font: 700 11px B; letter-spacing: .14em; color: var(--faint); border: 1px solid var(--line); border-radius: 4px; padding: 3px 7px; margin-left: 8px; vertical-align: middle; }
+.crumbs { font: 600 18px BC; letter-spacing: .04em; color: var(--muted); } .crumbs b { color: var(--text); } .sp { flex: 1; }
+.btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); font: 600 14px B; color: var(--text); white-space: nowrap; } .btn.primary { background: var(--accent); border-color: var(--accent); color: #17120A; }
+.k { font: 600 11px B; letter-spacing: .12em; color: var(--muted); text-transform: uppercase; }
+.panel { background: var(--card); border: 1px solid #1C2029; border-radius: 12px; padding: 16px 18px; min-width: 0; }
+h2 { margin: 0 0 8px; font: 600 22px BC; letter-spacing: .03em; }
+.chip { display: inline-flex; gap: 6px; align-items: center; padding: 4px 10px; border-radius: 14px; background: #1C2230; font: 600 12px B; color: var(--soft); white-space: nowrap; }
+.mono { font-family: JB; font-weight: 600; }
+.bar { height: 8px; border-radius: 4px; background: #232836; overflow: hidden; } .bar i { display: block; height: 100%; border-radius: 4px; }
+.row { display: flex; align-items: center; gap: 10px; }
+.concept { position: absolute; right: 18px; bottom: 10px; font: 600 10px B; letter-spacing: .14em; color: rgba(232,234,240,.4); text-transform: uppercase; }
+.grid { display: grid; gap: 16px; padding: 18px 24px; }
+table { border-collapse: collapse; width: 100%; } td { padding: 7px 6px; border-top: 1px solid #1F2430; font: 600 14px B; } td.r { text-align: right; }
+.slider { display: grid; grid-template-columns: 130px 1fr 54px; gap: 12px; align-items: center; font: 600 13px B; color: var(--soft); }
+.slider .track { height: 6px; border-radius: 3px; background: #2A2F3B; position: relative; } .slider .track i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--accent); } .slider .track b { position: absolute; top: 50%; width: 16px; height: 16px; border-radius: 50%; background: #E8EAF0; transform: translate(-50%, -50%); box-shadow: 0 0 0 3px rgba(0,0,0,.4); }
+.key { font: 600 11px JB; color: #0B0D12; background: #C3C9D4; border-radius: 3px; padding: 2px 6px; }
+</style>
+</head><body><div id="root"></div>
+<script type="module">
+const screen = new URLSearchParams(location.search).get("screen") || "wheel";
+const root = document.getElementById("root");
+const top = (crumb, right = "") => `<div class="top"><div class="brand">RACELIMIT<small>RACE</small></div><div class="crumbs">${crumb}</div><div class="sp"></div>${right}</div>`;
+const slider = (label, v, txt) => `<div class="slider"><span>${label}</span><div class="track"><i style="width:${v}%"></i><b style="left:${v}%"></b></div><span class="mono" style="text-align:right">${txt}</span></div>`;
+
+
+if (screen === "wheel") {
+  // wheel image is 840x520, drawn at (380, 150) inside the svg (which starts 64px down the page)
+  const OX = 380, OY = 150, sc = 1.0, P = (x, y) => [OX + x * sc, OY + y * sc];
+  const L = [["Shift lights", "Green → red → blue: change up on blue", [320, 50]], ["Radio", "Hold to talk to your engineer", [153, 77]], ["DRS / wing override", "2022–25: open DRS · 2026: force the wing mode", [108, 94]], ["Box", "Tell the team you're coming in this lap", [236, 99]], ["Neutral", "For a spin, or stopping out on track", [180, 149]], ["Page + / −", "Step through the screen pages", [236, 199]], ["Brake bias − / +", "Move braking to the rear or front", [163, 216]], ["Torque toggle", "Thumb switch: wet or dry torque map", [147, 274]], ["Strategy dial", "Engine and energy plan, 1–8", [308, 340]]];
+  const R = [["Mark", "Bookmark a moment for the replay", [686, 77]], ["Overtake", "Extra electric power when you're within 1 s", [730, 94]], ["OK", "Confirm what the engineer asks", [603, 99]], ["Pit limiter", "Hold to 80 km/h in the pit lane", [660, 149]], ["Screen", "Lap, delta, gear, speed, battery, bias, diff, fuel, position", [560, 150]], ["Engine toggle", "Thumb switch: engine braking", [692, 274]], ["Mode dial", "The big one: Race · Push · Save · Charge · Quali · Safety car", [420, 350]], ["Diff dial", "Entry, mid-corner and exit diff", [532, 340]], ["Grips & paddles", "Upshift, downshift and clutch paddles behind", [760, 420]]];
+  const callout = ([t, d, [x, y]], side, i) => { const [px, py] = P(x, y), ly = 60 + i * 70, lx = side < 0 ? 330 : 1270; return `<line x1="${px}" y1="${py}" x2="${lx}" y2="${ly + 14}" stroke="#FFB547" stroke-width="1.2" opacity=".7"/><circle cx="${px}" cy="${py}" r="5" fill="none" stroke="#FFB547" stroke-width="2"/><foreignObject x="${side < 0 ? 24 : 1276}" y="${ly}" width="300" height="80"><div xmlns="http://www.w3.org/1999/xhtml" style="text-align:${side < 0 ? "right" : "left"}"><b style="font:600 16px B;color:#E8EAF0">${t}</b><div style="font:500 13px/1.35 B;color:#9AA3B2">${d}</div></div></foreignObject>`; };
+  const pages = [["RACE", "Lap time, delta, gear, speed, battery, brake bias, tyre temp, diff, fuel, position"], ["TYRES", "Temperatures and pressures for all four, wear %, laps on this set, predicted stint"], ["ENERGY", "Battery %, what's left this lap, deploy plan and where it switches on track"], ["SETUP", "Brake migration, engine braking, diff maps, fuel target, warnings and faults"]];
+  root.innerHTML = top("Cockpit · <b>Steering wheel</b>", `<span class="chip">Works with keyboard, controller or a real wheel</span>`) + `
+  <svg width="1600" height="836" style="position:absolute;left:0;top:64px">
+    <image href="wheel-face.png" x="${OX}" y="${OY}" width="${840 * sc}" height="${520 * sc}"/>
+    ${L.map((c, i) => callout(c, -1, i)).join("")}${R.map((c, i) => callout(c, 1, i)).join("")}
+  </svg>
+  <div style="position:absolute;left:380px;width:840px;top:740px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+    ${pages.map(([t, d], i) => `<div style="background:#13161D;border:1px solid ${i ? "#1C2029" : "#FFB547"};border-radius:10px;padding:8px 10px"><b style="font:600 13px B;color:${i ? "#E8EAF0" : "#FFB547"}">${t} page</b><div style="font:500 11.5px/1.35 B;color:#9AA3B2">${d}</div></div>`).join("")}
+  </div>
+  <div class="concept">Design concept · steering wheel (shown on the car in cockpit view)</div>`;
+}
+
+if (screen === "wheel26") {
+  const OX = 400, OY = 30, P = (x, y) => [OX + x, OY + y];
+  const L = [["Shift lights", "Green → red → blue: change up on blue", [400, 50]], ["DRS / Aero", "2022–25: open DRS · 2026: override wing mode", [111, 104]], ["Neutral", "For a spin or stopping on track", [172, 131]], ["Pit limiter", "Hold to 80 km/h in the pit lane", [78, 170]], ["Radio", "Hold to talk to your engineer", [144, 193]], ["Box", "Tell the team you're coming in", [88, 243]], ["OK", "Confirm a message or setting", [155, 265]], ["Charge", "Harvest more energy this lap", [121, 321]], ["Mode rotary", "Engine and energy mode 1–8", [293, 360]], ["Strategy dial", "Race, quali, safety car, pit, overtake, defend, wet…", [400, 376]]];
+  const R = [["Overtake", "Extra electric power (2026) / ERS boost", [688, 104]], ["Pit confirm", "Accept the pit plan", [627, 131]], ["Screen", "Lap time, delta, gear, tyre temps, battery", [520, 150]], ["Mark", "Bookmark a moment for the replay", [721, 171]], ["+1 / −1", "Step through the screen pages", [655, 193]], ["Brake bias", "Hold and use the paddles to move it", [644, 265]], ["Entry / exit", "Quick diff tweaks for corners", [572, 298]], ["Diff", "Switch diff map for wet or dry", [678, 321]], ["Torque rotary", "How hard the power comes in, 1–8", [506, 360]], ["Grips & paddles", "Upshift / downshift behind; clutch paddles below", [726, 480]]];
+  const callout = ([t, d, [x, y]], side, i) => { const [px, py] = P(x, y), ly = 56 + i * 72, lx = side < 0 ? 330 : 1270; return `<line x1="${px}" y1="${py}" x2="${lx}" y2="${ly + 14}" stroke="#FFB547" stroke-width="1.2" opacity=".65"/><circle cx="${px}" cy="${py}" r="6" fill="none" stroke="#FFB547" stroke-width="2"/><foreignObject x="${side < 0 ? 24 : 1276}" y="${ly}" width="300" height="76"><div xmlns="http://www.w3.org/1999/xhtml" style="text-align:${side < 0 ? "right" : "left"}"><b style="font:600 16px B;color:#E8EAF0">${t}</b><div style="font:500 13px/1.35 B;color:#9AA3B2">${d}</div></div></foreignObject>`; };
+  const pages = [["RACE", "Lap time, delta, gear, position, brake bias, tyre temps, battery"], ["TYRES", "Temperatures and pressures, wear %, laps on this set"], ["ENERGY", "Battery %, energy left this lap, deploy plan for each straight"], ["SETUP", "Brake migration, engine braking, diff maps, warnings"]];
+  root.innerHTML = top("Cockpit · <b>Steering wheel (2026 style)</b>", `<span class="chip">Works with keyboard, controller or a real wheel</span>`) + `
+  <svg width="1600" height="836" style="position:absolute;left:0;top:64px">
+    <image href="wheel26-face.png" x="${OX}" y="${OY}" width="800" height="620"/>
+    ${L.map((c, i) => callout(c, -1, i)).join("")}${R.map((c, i) => callout(c, 1, i)).join("")}
+  </svg>
+  <div style="position:absolute;left:400px;width:800px;top:730px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+    ${pages.map(([t, d], i) => `<div style="background:#13161D;border:1px solid ${i ? "#1C2029" : "#FFB547"};border-radius:10px;padding:8px 10px"><b style="font:600 13px B;color:${i ? "#E8EAF0" : "#FFB547"}">${t} page</b><div style="font:500 11.5px/1.35 B;color:#9AA3B2">${d}</div></div>`).join("")}
+  </div>
+  <div class="concept">Design concept · steering wheel, based on the shape of 2026 wheels</div>`;
+}
+
+if (screen === "start") {
+  const opt = (t, d, on) => `<div style="background:${on ? "#2A2310" : "#181C25"};border:1px solid ${on ? "#FFB547" : "transparent"};border-radius:10px;padding:12px 14px"><div class="row" style="justify-content:space-between"><b style="font:600 17px B;color:${on ? "#FFB547" : "#E8EAF0"}">${t}</b>${on ? `<span class="chip" style="background:#FFB547;color:#17120A">Selected</span>` : ""}</div><div style="font:500 13px/1.4 B;color:#9AA3B2;margin-top:4px">${d}</div></div>`;
+  // clutch / rpm trace for a launch
+  const Wd = 760, Hd = 150, N = 120;
+  const rpm = Array.from({ length: N }, (_, i) => { const t = i / N * 3; return t < 1.0 ? 10200 + Math.sin(t * 30) * 300 : t < 1.15 ? 10200 - (t - 1.0) / 0.15 * 1400 : Math.min(11800, 8800 + (t - 1.15) * 2600); });
+  const clutch = Array.from({ length: N }, (_, i) => { const t = i / N * 3; return t < 1.0 ? 100 : t < 1.05 ? 100 - (t - 1) / 0.05 * 55 : t < 1.6 ? 45 - (t - 1.05) / 0.55 * 45 : 0; });
+  const path = (a, mn, mx) => a.map((v, i) => `${i ? "L" : "M"}${(i / (N - 1)) * Wd},${Hd - ((v - mn) / (mx - mn)) * Hd}`).join("");
+  root.innerHTML = top("Race settings · <b>Starts</b>", `<span class="btn">Practice starts</span><span class="btn primary">Save</span>`) + `
+  <div class="grid" style="grid-template-columns:1fr 1fr;grid-template-rows:auto 1fr;height:836px">
+    <div class="panel" style="display:grid;gap:10px;align-content:start">
+      <h2>Clutch at the start</h2>
+      ${opt("Automatic", "Hold throttle and brake, let go of the brake when the lights go out. The car manages the clutch and wheelspin for you. Your reaction time still counts.", false)}
+      ${opt("Assisted", "Pull the clutch paddle in, then let it out when the lights go out. The game helps you find the bite point and stops you stalling.", true)}
+      ${opt("Manual", "Like the real thing: find the bite point on the formation lap, hold the revs in the window, and release the paddle yourself. Too fast = wheelspin, too slow = bog down.", false)}
+      <div class="row" style="gap:8px;flex-wrap:wrap"><span class="chip">Works on keyboard, controller and wheel</span><span class="chip">Off by default for new players</span></div>
+    </div>
+    <div class="panel" style="display:grid;gap:10px;align-content:start">
+      <h2>Formation lap</h2>
+      ${[["Formation lap", "Full lap · Skip · Only for long races", "Full lap"], ["Warm the tyres", "Weave and do practice starts out of the last corner", "On"], ["Grid slot", "Stop on your box line — too far over = penalty", "Assisted"], ["False start detection", "Moving before the lights go out = 5 s penalty", "On"], ["Start type", "Standing · Rolling (safety car or wet)", "Standing"]].map(([a, b, v]) => `<div class="row" style="justify-content:space-between;border-top:1px solid #1F2430;padding-top:9px"><div><b style="font:600 15px B">${a}</b><div style="font:500 12px B;color:#9AA3B2">${b}</div></div><span class="chip">${v} ▾</span></div>`).join("")}
+    </div>
+    <div class="panel" style="grid-column:span 2;display:grid;grid-template-columns:420px 1fr;gap:24px;align-items:start">
+      <div style="display:grid;gap:10px">
+        <h2>On the grid</h2>
+        <div style="background:#0B0D12;border-radius:12px;padding:16px;display:grid;gap:12px;justify-items:center">
+          <div style="display:flex;gap:10px">${[1, 1, 1, 1, 1].map(() => `<div style="display:grid;gap:6px;background:#111317;border-radius:8px;padding:6px"><i style="width:26px;height:26px;border-radius:50%;background:#FF2B2B;box-shadow:0 0 14px #FF2B2B"></i><i style="width:26px;height:26px;border-radius:50%;background:#FF2B2B;box-shadow:0 0 14px #FF2B2B"></i></div>`).join("")}</div>
+          <div style="width:100%;display:grid;gap:6px">
+            <div class="row" style="justify-content:space-between"><span class="k">Revs</span><span class="mono" style="color:#2FD27A">10,200 rpm · in the window</span></div>
+            <div style="height:18px;border-radius:6px;background:#232836;position:relative;overflow:hidden"><i style="position:absolute;left:58%;width:16%;top:0;bottom:0;background:#12301F"></i><i style="position:absolute;left:0;width:66%;top:3px;bottom:3px;border-radius:4px;background:#2FD27A"></i></div>
+            <div class="row" style="justify-content:space-between"><span class="k">Clutch</span><span class="mono">100% · bite point 45%</span></div>
+            <div style="height:18px;border-radius:6px;background:#232836;position:relative"><i style="position:absolute;left:0;right:0;top:3px;bottom:3px;border-radius:4px;background:#5AA9FF"></i><i style="position:absolute;left:45%;top:-3px;bottom:-3px;width:2px;background:#FFB547"></i></div>
+          </div>
+          <div style="font:600 14px B;color:#C3C9D4">Lights out → let the paddle out to the line, then all the way</div>
+        </div>
+      </div>
+      <div style="display:grid;gap:8px">
+        <div class="row" style="justify-content:space-between"><h2 style="margin:0">After the start: how did it go?</h2><span class="chip">Reaction <b class="mono" style="color:#2FD27A">0.21 s</b></span></div>
+        <svg width="${Wd}" height="${Hd + 40}" style="overflow:visible"><rect x="${Wd / 3}" y="0" width="${Wd * 0.05}" height="${Hd}" fill="#2A1517"/><text x="${Wd / 3 + 4}" y="14" fill="#FF9A9A" font-family="B" font-size="11" font-weight="600">LIGHTS OUT</text><path d="${path(rpm, 6000, 12500)}" fill="none" stroke="#FFB547" stroke-width="2.2"/><path d="${path(clutch, 0, 100)}" fill="none" stroke="#5AA9FF" stroke-width="2.2"/><text x="0" y="${Hd + 24}" fill="#FFB547" font-family="B" font-size="12" font-weight="600">— revs</text><text x="70" y="${Hd + 24}" fill="#5AA9FF" font-family="B" font-size="12" font-weight="600">— clutch</text></svg>
+        <div class="row" style="gap:8px;flex-wrap:wrap"><span class="chip">Revs in the window ✓</span><span class="chip">Small wheelspin in 1st</span><span class="chip">P8 → P6 by Turn 1</span><span class="chip" style="background:#12301F;color:#6EE7A8">Great start · +2 places</span></div>
+      </div>
+    </div>
+  </div><div class="concept">Design concept · race starts (clutch control is optional)</div>`;
+}
+document.title = "done";
+</script></body></html>

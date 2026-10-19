@@ -1,0 +1,110 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: BC; font-weight: 700; src: url(../node_modules/@fontsource/barlow-condensed/files/barlow-condensed-latin-700-normal.woff2); }
+@font-face { font-family: BC; font-weight: 600; src: url(../node_modules/@fontsource/barlow-condensed/files/barlow-condensed-latin-600-normal.woff2); }
+@font-face { font-family: B; font-weight: 500; src: url(../node_modules/@fontsource/barlow/files/barlow-latin-500-normal.woff2); }
+@font-face { font-family: B; font-weight: 600; src: url(../node_modules/@fontsource/barlow/files/barlow-latin-600-normal.woff2); }
+@font-face { font-family: JB; font-weight: 600; src: url(../node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-600-normal.woff2); }
+:root { --bg: #0B0D12; --card: #13161D; --card2: #1A1E27; --line: #262B36; --text: #E8EAF0; --soft: #C3C9D4; --muted: #9AA3B2; --faint: #6B7383; --accent: #FFB547; --good: #2FD27A; --bad: #FF6B6B; --blue: #5AA9FF; }
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 1600px; height: 900px; overflow: hidden; background: var(--bg); color: var(--text); font: 500 14px/1.4 B; }
+.top { height: 64px; display: flex; align-items: center; gap: 18px; padding: 0 28px; border-bottom: 1px solid var(--line); background: #0E1117; }
+.brand { font: 700 24px BC; letter-spacing: .05em; color: var(--accent); } .brand small { font: 700 11px B; letter-spacing: .14em; color: var(--faint); border: 1px solid var(--line); border-radius: 4px; padding: 3px 7px; margin-left: 8px; vertical-align: middle; }
+.crumbs { font: 600 18px BC; letter-spacing: .04em; color: var(--muted); } .crumbs b { color: var(--text); } .sp { flex: 1; }
+.btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); font: 600 14px B; color: var(--text); white-space: nowrap; } .btn.primary { background: var(--accent); border-color: var(--accent); color: #17120A; }
+.k { font: 600 11px B; letter-spacing: .12em; color: var(--muted); text-transform: uppercase; }
+.panel { background: var(--card); border: 1px solid #1C2029; border-radius: 12px; padding: 16px 18px; min-width: 0; }
+h2 { margin: 0 0 8px; font: 600 22px BC; letter-spacing: .03em; }
+.chip { display: inline-flex; gap: 6px; align-items: center; padding: 4px 10px; border-radius: 14px; background: #1C2230; font: 600 12px B; color: var(--soft); white-space: nowrap; }
+.mono { font-family: JB; font-weight: 600; }
+.bar { height: 8px; border-radius: 4px; background: #232836; overflow: hidden; } .bar i { display: block; height: 100%; border-radius: 4px; }
+.row { display: flex; align-items: center; gap: 10px; }
+.concept { position: absolute; right: 18px; bottom: 10px; font: 600 10px B; letter-spacing: .14em; color: rgba(232,234,240,.4); text-transform: uppercase; }
+.grid { display: grid; gap: 16px; padding: 18px 24px; }
+table { border-collapse: collapse; width: 100%; } td { padding: 7px 6px; border-top: 1px solid #1F2430; font: 600 14px B; } td.r { text-align: right; }
+.slider { display: grid; grid-template-columns: 130px 1fr 54px; gap: 12px; align-items: center; font: 600 13px B; color: var(--soft); }
+.slider .track { height: 6px; border-radius: 3px; background: #2A2F3B; position: relative; } .slider .track i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--accent); } .slider .track b { position: absolute; top: 50%; width: 16px; height: 16px; border-radius: 50%; background: #E8EAF0; transform: translate(-50%, -50%); box-shadow: 0 0 0 3px rgba(0,0,0,.4); }
+.key { font: 600 11px JB; color: #0B0D12; background: #C3C9D4; border-radius: 3px; padding: 2px 6px; }
+</style>
+</head><body><div id="root"></div>
+<script type="module">
+const root = document.getElementById("root");
+const top = (crumb, right = "") => `<div class="top"><div class="brand">RACELIMIT<small>RACE</small></div><div class="crumbs">${crumb}</div><div class="sp"></div>${right}</div>`;
+const slider = (label, v, txt) => `<div class="slider"><span>${label}</span><div class="track"><i style="width:${v}%"></i><b style="left:${v}%"></b></div><span class="mono" style="text-align:right">${txt}</span></div>`;
+
+async function track(name) {
+  const d = await (await fetch(`./${name}.json`)).json();
+  const pts = d.points; const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  const minX = Math.min(...xs), minY = Math.min(...ys), sz = Math.max(Math.max(...xs) - minX, Math.max(...ys) - minY);
+  const maxY = Math.max(...ys); return { pts: pts.map(([x, y]) => [(x - minX) / sz, (maxY - y) / sz]), corners: d.corners ?? [], raw: d, minX, minY, sz };
+}
+const pathOf = (pts, w, h, pad = 20) => { const s = Math.min(w, h) - pad * 2; return pts.map(([x, y], i) => `${i ? "L" : "M"}${(pad + x * s).toFixed(1)},${(pad + y * s).toFixed(1)}`).join("") + "Z"; };
+
+// a lap simulation from the track's curvature: speed limited by grip, then by acceleration and braking
+function lapSim(t, { grip = 4.6, brake = 45, acc = 13 } = {}) {
+  const LAP = t.lap ?? 7004, N = 700, P = [];
+  // resample to N points by distance
+  const pts = t.pts, seg = []; let tot = 0; for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[(i + 1) % pts.length]; const d = Math.hypot(b[0] - a[0], b[1] - a[1]); seg.push(d); tot += d; }
+  for (let k = 0; k < N; k++) { let want = (k / N) * tot, i = 0; while (want > seg[i]) { want -= seg[i]; i++; } const a = pts[i], b = pts[(i + 1) % pts.length], f = want / seg[i]; P.push([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]); }
+  const ds = LAP / N, curv = P.map((p, k) => { const a = P[(k - 6 + N) % N], b = P[(k + 6) % N]; const h1 = Math.atan2(p[1] - a[1], p[0] - a[0]), h2 = Math.atan2(b[1] - p[1], b[0] - p[0]); let d = h2 - h1; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return Math.abs(d) / (12 * ds); });
+  const vmax = curv.map((c) => Math.min(92, Math.sqrt((grip * 9.81) / Math.max(c, 1e-5))));
+  const v = vmax.slice();
+  for (let r = 0; r < 2; r++) { for (let k = 1; k < 2 * N; k++) { const i = k % N, j = (k - 1) % N; v[i] = Math.min(v[i], Math.sqrt(v[j] ** 2 + 2 * acc * (1 - v[j] / 100) * ds)); } for (let k = 2 * N - 2; k >= 0; k--) { const i = k % N, j = (k + 1) % N; v[i] = Math.min(v[i], Math.sqrt(v[j] ** 2 + 2 * brake * ds)); } }
+  const thr = v.map((s, i) => { const n = v[(i + 1) % N]; return n < s - 0.05 ? 0 : s >= vmax[i] - 0.5 && s < 90 ? 55 : 100; });
+  const brk = v.map((s, i) => (v[(i + 1) % N] < s - 0.05 ? 100 : 0));
+  const time = []; let T = 0; for (let i = 0; i < N; i++) { time.push(T); T += ds / v[i]; }
+  return { P, v: v.map((s) => s * 3.6), thr, brk, time, total: T, N };
+}
+const fmt = (t) => `${Math.floor(t / 60)}:${(t % 60).toFixed(3).padStart(6, "0")}`;
+function lines(series, w, h, { min = 0, max = 350, colors = [], fill = false, zero = false } = {}) {
+  const N = series[0].length, X = (i) => (i / (N - 1)) * w, Y = (v) => h - ((v - min) / (max - min)) * h;
+  return `<svg width="${w}" height="${h}" style="display:block;overflow:visible">${zero ? `<line x1="0" x2="${w}" y1="${Y(0)}" y2="${Y(0)}" stroke="#3A4150" stroke-dasharray="4 4"/>` : ""}${series.map((s, k) => `<path d="${s.map((v, i) => `${i ? "L" : "M"}${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join("")}" fill="none" stroke="${colors[k]}" stroke-width="${k ? 1.6 : 2}" ${fill ? "" : ""}/>`).join("")}</svg>`;
+}
+
+
+const t = await track("spa"); t.lap = 7004;
+const sim = lapSim(t, { grip: 4.8, brake: 47, acc: 13.5 }), N = sim.N;
+// energy plan "Attack": full deploy on throttle, harvest under braking, taper ("clipping") at the end of long straights
+// full-throttle runs: id and total length for each point
+const runId = new Array(N).fill(-1), runs = []; { let start = sim.thr.findIndex((x) => x < 100); for (let k = 1; k <= N; k++) { const i = (start + k) % N; if (sim.thr[i] === 100) { if (runId[(i - 1 + N) % N] < 0) runs.push({ s: i, len: 0 }); runId[i] = runs.length - 1; runs[runs.length - 1].len++; } } }
+const pos = new Array(N).fill(0); runs.forEach((r) => { for (let k = 0; k < r.len; k++) pos[(r.s + k) % N] = k / r.len; });
+const dep = sim.v.map((v, i) => { if (sim.brk[i]) return -1; if (runId[i] < 0) return 0; const r = runs[runId[i]]; if (r.len < 45) return 0.25; return pos[i] > 0.82 ? 0.35 : 1; });
+const raw = []; { let x = 0.85; for (let i = 0; i < N; i++) { const d = dep[i]; x += d >= 0.9 ? -0.0042 : d > 0.3 ? -0.0016 : d > 0 ? -0.0008 : d < 0 ? 0.0125 : 0.0002; raw.push(x); } }
+const SOC = raw.map((x, i) => Math.max(0.05, Math.min(1, x + (0.78 - raw[N - 1]) * (i / (N - 1)))));
+const W = 600, s = W - 60, X = (p) => 30 + p[0] * s, Y = (p) => 20 + p[1] * s;
+const segs = sim.P.map((p, i) => { const q = sim.P[(i + 1) % N], d = dep[i]; const c = d < 0 ? "#5AA9FF" : d >= 0.9 ? "#FFB547" : d > 0.3 ? "rgba(255,181,71,.55)" : "#3A4150"; return `<line x1="${X(p)}" y1="${Y(p)}" x2="${X(q)}" y2="${Y(q)}" stroke="${c}" stroke-width="${d >= 0.9 ? 9 : 7}" stroke-linecap="round"/>`; }).join("");
+const cs = (t.raw.corners ?? []).filter((c) => [1, 3, 5, 8, 10, 12, 15, 19].includes(c.n)).map((c) => { const maxY = Math.max(...t.raw.points.map((p) => p[1])); const pp = [(c.p[0] - t.minX) / t.sz, (maxY - c.p[1]) / t.sz]; return `<g><circle cx="${X(pp)}" cy="${Y(pp)}" r="11" fill="#0B0D12" stroke="#5A6273"/><text x="${X(pp)}" y="${Y(pp) + 4}" fill="#C3C9D4" font-family="JB" font-weight="600" font-size="10" text-anchor="middle">${c.n}</text></g>`; }).join("");
+// lap strip
+const SW = 850, SH = 170, bins = 140, bx = (i) => (i / bins) * SW;
+let bars = ""; for (let b = 0; b < bins; b++) { const i0 = Math.floor((b / bins) * N), i1 = Math.floor(((b + 1) / bins) * N); let m = 0; for (let i = i0; i < i1; i++) m += dep[i]; m /= i1 - i0; const h = Math.abs(m) * 62; bars += m >= 0 ? `<rect x="${bx(b) + 0.5}" y="${85 - h}" width="${SW / bins - 1}" height="${h}" fill="${m > 0.9 ? "#FFB547" : "rgba(255,181,71,.5)"}"/>` : `<rect x="${bx(b) + 0.5}" y="85" width="${SW / bins - 1}" height="${h}" fill="#5AA9FF"/>`; }
+const socPath = SOC.map((v, i) => `${i ? "L" : "M"}${((i / (N - 1)) * SW).toFixed(1)},${(160 - v * 150).toFixed(1)}`).join("");
+const handles = [0.18, 0.33, 0.57, 0.82].map((f) => `<g><line x1="${f * SW}" x2="${f * SW}" y1="10" y2="160" stroke="#E8EAF0" stroke-dasharray="3 4" opacity=".5"/><circle cx="${f * SW}" cy="12" r="7" fill="#E8EAF0"/></g>`).join("");
+const presets = [["Balanced", "Even all lap, battery stays level", "0.00", "±0%"], ["Attack", "All on the long straights, more harvest in braking", "−0.21", "−7%", 1], ["Defend", "Saves energy for where you're likely to be passed", "+0.09", "+2%"], ["Qualifying", "Everything on one lap — empty at the line", "−0.48", "−60%"], ["Charge", "Harvests to fill the battery for later", "+0.55", "+18%"], ["Custom", "Your own plan from the strip below", "−0.17", "−5%"]];
+root.innerHTML = top("Garage · Energy · <b>Spa-Francorchamps</b>", `<span class="chip">2026 rules · electric motor up to 350 kW</span><span class="btn">Test on track</span><span class="btn primary">Save plan</span>`) + `
+<div class="grid" style="grid-template-columns:640px 1fr;grid-template-rows:auto auto;height:836px">
+  <div class="panel" style="display:grid;gap:8px;align-content:start">
+    <div class="row" style="justify-content:space-between"><h2 style="margin:0">Where the battery is used</h2><span class="chip" style="background:#2A2310;color:#FFB547">Preset: Attack</span></div>
+    <svg width="${W}" height="${W - 40}" viewBox="0 0 ${W} ${W - 20}">${segs}${cs}</svg>
+    <div class="row" style="gap:18px;font:600 12px B;color:#9AA3B2"><span><i style="display:inline-block;width:20px;height:7px;border-radius:3px;background:#FFB547;vertical-align:middle"></i> full deploy</span><span><i style="display:inline-block;width:20px;height:7px;border-radius:3px;background:rgba(255,181,71,.55);vertical-align:middle"></i> partial / tapering off</span><span><i style="display:inline-block;width:20px;height:7px;border-radius:3px;background:#5AA9FF;vertical-align:middle"></i> charging (braking)</span><span><i style="display:inline-block;width:20px;height:7px;border-radius:3px;background:#3A4150;vertical-align:middle"></i> off</span></div>
+  </div>
+  <div style="display:grid;gap:16px;grid-template-rows:auto 1fr;min-width:0">
+    <div class="panel" style="display:grid;gap:10px">
+      <div class="row" style="justify-content:space-between"><h2 style="margin:0">How it's controlled</h2><div class="row" style="gap:6px">${["Presets", "Manual", "Mixed"].map((m, i) => `<span class="chip" style="${i === 2 ? "background:#FFB547;color:#17120A" : ""}">${m}</span>`).join("")}</div></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">${presets.map(([n, d, lt, b, on]) => `<div style="background:${on ? "#2A2310" : "#181C25"};border:1px solid ${on ? "#FFB547" : "transparent"};border-radius:10px;padding:9px 11px"><div class="row" style="justify-content:space-between"><b style="font:600 15px B;color:${on ? "#FFB547" : "#E8EAF0"}">${n}</b><span class="mono" style="font-size:12px;color:${lt.startsWith("−") ? "#2FD27A" : lt === "0.00" ? "#9AA3B2" : "#FF6B6B"}">${lt} s</span></div><div style="font:500 12px B;color:#9AA3B2;margin:2px 0 4px">${d}</div><div style="font:600 11px B;color:#C3C9D4">Battery over a lap: <span class="mono">${b}</span></div></div>`).join("")}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font:600 13px B">
+        <div style="background:#181C25;border-radius:10px;padding:10px 12px;display:grid;gap:6px"><span class="k">Manual, on the wheel</span><span>Overtake button <span class="key">O</span> — everything now</span><span>Rotary <span class="key">E</span> — switch preset 1–6 mid-lap</span><span>Hold paddle — boost while held</span></div>
+        <div style="background:#181C25;border-radius:10px;padding:10px 12px;display:grid;gap:6px"><span class="k">Smart rules (Mixed)</span><span style="color:#6EE7A8">✓ Defend when a car is within 1.0 s behind</span><span style="color:#6EE7A8">✓ Overtake mode when within 1.0 s ahead</span><span style="color:#9AA3B2">○ Save 20% for the last lap</span></div>
+      </div>
+    </div>
+    <div class="panel" style="display:grid;gap:8px;align-content:start">
+      <div class="row" style="justify-content:space-between"><h2 style="margin:0">Lap plan · drag to edit</h2><span class="k">▲ deploy · ▼ charge · <span style="color:#6EE7A8">— battery</span></span></div>
+      <svg width="${SW}" height="${SH}" style="overflow:visible"><line x1="0" x2="${SW}" y1="85" y2="85" stroke="#3A4150"/>${bars}<path d="${socPath}" fill="none" stroke="#6EE7A8" stroke-width="2.2"/>${handles}<text x="${SW}" y="${160 - SOC[N - 1] * 150 - 6}" fill="#6EE7A8" font-family="JB" font-size="12" text-anchor="end">${Math.round(SOC[N - 1] * 100)}%</text><text x="0" y="${160 - SOC[0] * 150 - 6}" fill="#6EE7A8" font-family="JB" font-size="12">85%</text></svg>
+      <div class="row" style="justify-content:space-between;font:600 11px JB;color:#6B7383"><span>0 m</span><span>1750</span><span>3500</span><span>5250</span><span>7004 m</span></div>
+      <div class="row" style="gap:10px;flex-wrap:wrap;margin-top:4px"><span class="chip">Lap time vs Balanced <b class="mono" style="color:#2FD27A">−0.21 s</b></span><span class="chip">Battery after this lap <b class="mono">78%</b></span><span class="chip">Can repeat for ~9 laps before you must charge</span><span class="chip" style="background:#2A1517;color:#FF9A9A">Tapers at the end of long straights</span></div>
+      <div style="font:500 12px B;color:#9AA3B2;margin-top:4px">Older seasons use their own rules: 2009–13 KERS is a 60 kW button for about 6.7 s a lap; 2014–25 the electric motor gives up to 120 kW; 2026 up to 350 kW.</div>
+    </div>
+  </div>
+</div><div class="concept">Design concept · Battery deployment (example plan)</div>`;
+document.title = "done";
+</script></body></html>

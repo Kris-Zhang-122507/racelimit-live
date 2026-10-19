@@ -1,0 +1,253 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: BC; font-weight: 700; src: url(../node_modules/@fontsource/barlow-condensed/files/barlow-condensed-latin-700-normal.woff2); }
+@font-face { font-family: BC; font-weight: 600; src: url(../node_modules/@fontsource/barlow-condensed/files/barlow-condensed-latin-600-normal.woff2); }
+@font-face { font-family: B; font-weight: 500; src: url(../node_modules/@fontsource/barlow/files/barlow-latin-500-normal.woff2); }
+@font-face { font-family: B; font-weight: 600; src: url(../node_modules/@fontsource/barlow/files/barlow-latin-600-normal.woff2); }
+@font-face { font-family: JB; font-weight: 600; src: url(../node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-600-normal.woff2); }
+:root { --bg: #0B0D12; --card: #13161D; --card2: #1A1E27; --line: #262B36; --text: #E8EAF0; --soft: #C3C9D4; --muted: #9AA3B2; --faint: #6B7383; --accent: #FFB547; --good: #2FD27A; --bad: #FF6B6B; --blue: #5AA9FF; }
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 1600px; height: 900px; overflow: hidden; background: var(--bg); color: var(--text); font: 500 14px/1.4 B; }
+.top { height: 64px; display: flex; align-items: center; gap: 18px; padding: 0 28px; border-bottom: 1px solid var(--line); background: #0E1117; }
+.brand { font: 700 24px BC; letter-spacing: .05em; color: var(--accent); } .brand small { font: 700 11px B; letter-spacing: .14em; color: var(--faint); border: 1px solid var(--line); border-radius: 4px; padding: 3px 7px; margin-left: 8px; vertical-align: middle; }
+.crumbs { font: 600 18px BC; letter-spacing: .04em; color: var(--muted); } .crumbs b { color: var(--text); } .sp { flex: 1; }
+.btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); font: 600 14px B; color: var(--text); white-space: nowrap; } .btn.primary { background: var(--accent); border-color: var(--accent); color: #17120A; }
+.k { font: 600 11px B; letter-spacing: .12em; color: var(--muted); text-transform: uppercase; }
+.panel { background: var(--card); border: 1px solid #1C2029; border-radius: 12px; padding: 16px 18px; min-width: 0; }
+h2 { margin: 0 0 8px; font: 600 22px BC; letter-spacing: .03em; }
+.chip { display: inline-flex; gap: 6px; align-items: center; padding: 4px 10px; border-radius: 14px; background: #1C2230; font: 600 12px B; color: var(--soft); white-space: nowrap; }
+.mono { font-family: JB; font-weight: 600; }
+.bar { height: 8px; border-radius: 4px; background: #232836; overflow: hidden; } .bar i { display: block; height: 100%; border-radius: 4px; }
+.row { display: flex; align-items: center; gap: 10px; }
+.concept { position: absolute; right: 18px; bottom: 10px; font: 600 10px B; letter-spacing: .14em; color: rgba(232,234,240,.4); text-transform: uppercase; }
+.grid { display: grid; gap: 16px; padding: 18px 24px; }
+table { border-collapse: collapse; width: 100%; } td { padding: 7px 6px; border-top: 1px solid #1F2430; font: 600 14px B; } td.r { text-align: right; }
+.slider { display: grid; grid-template-columns: 130px 1fr 54px; gap: 12px; align-items: center; font: 600 13px B; color: var(--soft); }
+.slider .track { height: 6px; border-radius: 3px; background: #2A2F3B; position: relative; } .slider .track i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--accent); } .slider .track b { position: absolute; top: 50%; width: 16px; height: 16px; border-radius: 50%; background: #E8EAF0; transform: translate(-50%, -50%); box-shadow: 0 0 0 3px rgba(0,0,0,.4); }
+.key { font: 600 11px JB; color: #0B0D12; background: #C3C9D4; border-radius: 3px; padding: 2px 6px; }
+.bgimg{position:absolute;inset:0;background-size:cover;background-position:center}
+.hudbox{position:absolute;background:rgba(11,13,18,.8);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:10px 14px}
+.lbl2{font:600 10px B;letter-spacing:.14em;color:#9AA3B2;text-transform:uppercase}
+.pill{display:inline-block;padding:3px 9px;border-radius:12px;font:700 11px B;letter-spacing:.06em}
+.sl{display:grid;grid-template-columns:120px 1fr 60px;gap:10px;align-items:center;font:600 13px B;color:#C3C9D4}
+.sl .tr{height:6px;border-radius:3px;background:#2A2F3B;position:relative}.sl .tr i{position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:#FFB547}.sl .tr b{position:absolute;top:50%;width:15px;height:15px;border-radius:50%;background:#E8EAF0;transform:translate(-50%,-50%)}
+.tg{display:flex;gap:4px;flex-wrap:wrap}.tg span{padding:4px 9px;border-radius:12px;background:#1C2230;font:600 12px B;color:#C3C9D4}.tg span.on{background:#2A2310;color:#FFB547;box-shadow:inset 0 0 0 1px #FFB547}
+</style>
+</head><body><div id="root"></div>
+<script type="module">
+const screen = new URLSearchParams(location.search).get("screen") || "slip";
+const root = document.getElementById("root");
+const top = (crumb, right = "") => `<div class="top"><div class="brand">RACELIMIT<small>RACE</small></div><div class="crumbs">${crumb}</div><div class="sp"></div>${right}</div>`;
+const sl = (label, v, txt) => `<div class="sl"><span>${label}</span><div class="tr"><i style="width:${v}%"></i><b style="left:${v}%"></b></div><span class="mono" style="text-align:right">${txt}</span></div>`;
+const tg = (opts, on) => `<div class="tg">${opts.map((o, i) => `<span class="${i === on ? "on" : ""}">${o}</span>`).join("")}</div>`;
+const hb = (cells) => `<div class="hudbox" style="left:50%;bottom:16px;transform:translateX(-50%);display:flex;gap:0;padding:0;overflow:hidden;white-space:nowrap">${cells.map((c, i) => `<div style="padding:10px 16px;${i ? "border-left:1px solid rgba(255,255,255,.07)" : ""};display:grid;gap:2px;align-content:center">${c}</div>`).join("")}</div>`;
+const gear = (g, v) => `<div style="display:flex;gap:10px;align-items:end"><span style="font:700 46px/0.8 BC;color:#FFB547">${g}</span><div><div class="mono" style="font-size:22px">${v}</div><div class="lbl2">km/h</div></div></div>`;
+const t2 = (a, b) => `<div style="font:600 13px B">${a}</div><div style="font:600 11px B;color:#9AA3B2">${b}</div>`;
+const note = (k, title, lines, pos = "left:18px;top:18px") => `<div class="hudbox" style="${pos};width:420px"><div class="lbl2" style="color:#FFB547">${k}</div><div style="font:700 25px BC;margin:3px 0 6px">${title}</div><div style="display:grid;gap:5px;font:500 14px/1.4 B;color:#C3C9D4">${lines.map((l) => `<div>${l}</div>`).join("")}</div></div>`;
+const concept = (t) => `<div class="concept" style="text-shadow:0 1px 4px #000">${t}</div>`;
+let html = "";
+
+if (screen === "slip") {
+  html = `<div class="bgimg" style="background-image:url(x-slip.png)"></div>
+  <div style="position:absolute;left:870px;top:410px;transform:translate(-50%,-100%)" class="hudbox"><span class="pill" style="background:#10213A;color:#7FC4FF">TOW</span> <b class="mono">+11 km/h</b> <span style="color:#9AA3B2;font:600 12px B">· 0.4 s behind</span></div>
+  ${note("Slipstream & dirty air", "Close behind = faster on straights, slower in corners", ["On a straight the car in front punches a hole in the air: you get up to <b style='color:#7FC4FF'>+12 km/h</b> when you're within about 1 s.", "In corners the turbulent air behind it takes away grip, mostly at the front: the car understeers and the tyres heat up.", "So you hang back a little through the corners, then close in for the straight."])}
+  <div class="hudbox" style="right:18px;top:18px;width:330px"><div class="lbl2" style="margin-bottom:8px">Air you're in</div>
+    <svg width="300" height="190" viewBox="0 0 300 190"><rect x="0" y="0" width="300" height="190" rx="10" fill="#0E1117"/>
+      <path d="M150,30 L120,180 L180,180 Z" fill="#5AA9FF" opacity=".25"/><text x="188" y="150" fill="#7FC4FF" font-family="B" font-weight="700" font-size="12">TOW (straight)</text>
+      <path d="M150,30 C110,70 70,100 30,150 L70,175 C100,130 130,90 150,60Z" fill="#FF6B6B" opacity=".25"/><text x="20" y="128" fill="#FF8A8A" font-family="B" font-weight="700" font-size="12">DIRTY AIR</text><text x="20" y="143" fill="#FF8A8A" font-family="B" font-weight="700" font-size="12">(corners)</text>
+      <rect x="141" y="8" width="18" height="32" rx="5" fill="#16245C" stroke="#7FC4FF"/><rect x="141" y="120" width="18" height="32" rx="5" fill="#FFA51F"/><text x="165" y="141" fill="#FFB547" font-family="B" font-weight="700" font-size="12">YOU</text></svg>
+    <div style="display:grid;gap:6px;margin-top:8px;font:600 13px B"><div style="display:flex;justify-content:space-between"><span>Top speed</span><b style="color:#7FC4FF">+11 km/h</b></div><div style="display:flex;justify-content:space-between"><span>Front grip</span><b style="color:#9AA3B2">—  (straight)</b></div><div style="display:flex;justify-content:space-between"><span>In the next corner</span><b style="color:#FF8A8A">−18% front grip</b></div></div></div>
+  ${hb([gear(8, 318), `<div class="lbl2">Air</div><div style="width:160px;height:8px;border-radius:4px;background:linear-gradient(90deg,#FF6B6B,#3A4150 45%,#3A4150 55%,#5AA9FF);position:relative"><i style="position:absolute;left:84%;top:-4px;bottom:-4px;width:3px;background:#E8EAF0;border-radius:2px"></i></div><div style="display:flex;justify-content:space-between;width:160px;font:600 10px B;color:#9AA3B2"><span>dirty</span><span>clean</span><span>tow</span></div>`, t2("Gap ahead <span class=mono>0.41</span>", "AXIOM #1 · overtake mode ready"), `<span class="pill" style="background:#2A2310;color:#FFB547">OT READY</span><div style="font:600 11px B;color:#9AA3B2">press O at the end of the straight</div>`])}
+  ${concept("Concept render · slipstream and dirty air")}`;
+}
+
+if (screen === "lift") {
+  html = `<div class="bgimg" style="background-image:url(x-lift.png)"></div>
+  <div style="position:absolute;left:712px;top:438px;transform:translate(-50%,-100%)" class="hudbox"><span class="pill" style="background:#10213A;color:#7FC4FF">LIFT HERE</span> <span style="font:600 12px B;color:#9AA3B2">then coast to the 100 board</span></div>
+  ${note("Lift and coast", "Ease off early to save fuel and battery", ["A blue line on the track shows where to lift off the throttle. You coast to the braking point, then brake as normal.", "Three short beeps count you down to the line; one long beep means lift now.", "Each lift costs about 0.05 s but saves fuel and charges the battery a little."])}
+  <div class="hudbox" style="right:18px;top:18px;width:320px"><div class="lbl2" style="margin-bottom:8px">This lap</div>
+    <div style="display:grid;gap:7px;font:600 13px B"><div style="display:flex;justify-content:space-between"><span>Fuel target</span><b style="color:#FFB547">−0.3 laps</b></div><div style="display:flex;justify-content:space-between"><span>Lift points</span><b>4 of 6 done</b></div><div style="display:flex;justify-content:space-between"><span>Saved so far</span><b style="color:#6EE7A8">0.12 kg · 140 kJ</b></div><div style="display:flex;justify-content:space-between"><span>Time cost</span><b class="mono">+0.18 s</b></div></div>
+    <div class="lbl2" style="margin:12px 0 6px">Show it as</div>${tg(["Off", "Line on track", "Line + beeps", "Beeps only"], 2)}
+    <div class="lbl2" style="margin:12px 0 6px">When</div>${tg(["Only when short", "Always", "Engineer decides"], 0)}</div>
+  ${hb([gear(8, 312), `<div class="lbl2">Lift in</div><div style="display:flex;gap:8px;align-items:center"><b class="mono" style="font-size:20px;color:#7FC4FF">45 m</b><span style="display:flex;gap:3px">${[1, 1, 0].map((on) => `<i style="width:10px;height:10px;border-radius:50%;background:${on ? "#7FC4FF" : "#2A2F3B"}"></i>`).join("")}</span><span>🔊</span></div>`, t2("Fuel <span class=mono style='color:#FF8A8A'>−0.3</span> lap", "need to save 0.3 laps by the end"), t2("Battery <span class=mono>61%</span>", "coasting charges it")])}
+  ${concept("Concept render · lift and coast")}`;
+}
+
+if (screen === "glow") {
+  const bt = [["FL", 980, "#FFD08A"], ["FR", 960, "#FFC070"], ["RL", 640, "#FF8A3A"], ["RR", 620, "#FF8A3A"]];
+  html = `<div class="bgimg" style="background-image:url(x-glow.png)"></div>
+  ${note("Brake glow", "The discs glow when they're hot", ["Carbon brakes run at 400–1000 °C. Under heavy braking they glow orange, brightest at night or onboard.", "The glow fades down the next straight as they cool.", "Too cold and they don't grip; too hot and they fade. Brake cooling is a setting in the garage."], "left:18px;top:18px")}
+  <div class="hudbox" style="right:18px;top:18px;width:300px"><div class="lbl2" style="margin-bottom:8px">Brake temperatures</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${bt.map(([n, t, c]) => `<div style="border-radius:10px;padding:8px;text-align:center;background:${c}22;box-shadow:inset 0 0 0 1px ${c}"><b>${n}</b><div class="mono" style="font-size:18px;color:${c}">${t}°</div></div>`).join("")}</div>
+    <div style="margin-top:10px;height:8px;border-radius:4px;background:linear-gradient(90deg,#3A3632,#7A2A10 35%,#FF6A1A 70%,#FFE0A0)"></div><div style="display:flex;justify-content:space-between;font:600 10px B;color:#9AA3B2;margin-top:3px"><span>200°</span><span>600°</span><span>1000°</span></div>
+    <div class="lbl2" style="margin:12px 0 6px">Brake cooling (setup)</div>${tg(["Small", "Medium", "Large"], 1)}</div>
+  ${hb([gear(3, 98), t2("Braking <span class=mono>4.8 g</span>", "Turn 1 · La Source"), `<span class="pill" style="background:#2A1A10;color:#FFB060">FRONT BRAKES HOT</span><div style="font:600 11px B;color:#9AA3B2">980° · OK for one more lap</div>`])}
+  ${concept("Concept render · brake glow at night")}`;
+}
+
+if (screen === "tod") {
+  const pics = [["x-day.png", "19:40", "Race start", "Bright sun, track 41°, most grip"], ["x-sunset.png", "20:25", "Sunset", "Sun low in your eyes on some straights, track cools, grip goes up a little"], ["clean-night.png", "20:55", "Night", "Floodlights on, track 29°, sparks and brake glow easy to see"]];
+  html = top("Race settings · <b>Time of day</b>", `<span class="chip">Lights switch on by themselves as it gets dark</span>`) + `
+  <div class="grid" style="grid-template-columns:repeat(3,1fr);grid-template-rows:auto 1fr;height:836px">
+    ${pics.map(([f, t, a, b]) => `<div class="panel" style="padding:0;overflow:hidden"><div style="height:330px;background:url(${f}) center/cover"></div><div style="padding:12px 16px"><div style="display:flex;gap:10px;align-items:baseline"><b class="mono" style="font-size:22px;color:#FFB547">${t}</b><b style="font:600 18px B">${a}</b></div><div style="font:500 14px B;color:#C3C9D4;margin-top:4px">${b}</div></div></div>`).join("")}
+    <div class="panel" style="grid-column:span 3;display:grid;grid-template-columns:1.4fr 1fr;gap:26px">
+      <div style="display:grid;gap:10px;align-content:start"><h2 style="margin:0">During the race</h2>
+        <div style="position:relative;height:56px;border-radius:12px;background:linear-gradient(90deg,#9CC6EA 0%,#F2C27A 48%,#E06A3A 60%,#2A2550 72%,#0A0E1A 100%)">${[["19:40", 0, "start", 0], ["20:25", 50, "sunset", 0], ["20:31", 57, "track lights on", 1], ["21:10", 100, "finish", 0]].map(([t, x, l, r2]) => `<div style="position:absolute;left:${x}%;top:-6px;bottom:${r2 ? -26 : -6}px;width:2px;background:#E8EAF0;transform:translateX(${x === 100 ? -2 : 0}px)"></div><div style="position:absolute;left:${x}%;top:${r2 ? 84 : 64}px;${r2 ? "padding-left:8px;" : ""}transform:translateX(${x === 100 ? "-100%" : x === 0 || r2 ? "0" : "-50%"});font:600 12px B;color:#C3C9D4;white-space:nowrap"><b class="mono" style="color:#E8EAF0">${t}</b> ${l}</div>`).join("")}</div>
+        <div style="height:40px"></div>
+        <svg width="100%" height="120" viewBox="0 0 860 120" preserveAspectRatio="none" style="display:block"><g stroke="#262B36"><line x1="0" x2="860" y1="20" y2="20"/><line x1="0" x2="860" y1="60" y2="60"/><line x1="0" x2="860" y1="100" y2="100"/></g>
+          <path d="M0,22 C200,26 360,40 430,58 C520,80 640,92 860,98" fill="none" stroke="#FF8A3A" stroke-width="3"/><path d="M0,96 C220,94 380,86 430,78 C520,64 640,50 860,44" fill="none" stroke="#6EE7A8" stroke-width="3" stroke-dasharray="7 5"/>
+          <text x="6" y="14" fill="#FF8A3A" font-family="B" font-weight="600" font-size="13">Track 41°</text><text x="780" y="92" fill="#FF8A3A" font-family="B" font-weight="600" font-size="13">29°</text><text x="700" y="38" fill="#6EE7A8" font-family="B" font-weight="600" font-size="13">grip +3%</text></svg>
+        <div style="font:500 14px B;color:#C3C9D4">Track temperature drops as the sun goes down, so tyre grip and wear change during the race. Your engineer warns you when the sun will be in your eyes.</div></div>
+      <div style="display:grid;gap:10px;align-content:start"><h2 style="margin:0">Settings</h2>
+        <div class="lbl2">Start time</div>${tg(["Real time for that race", "Morning", "Afternoon", "Before sunset", "Night"], 3)}
+        <div class="lbl2">Time speed</div>${tg(["Real", "×2", "×4", "×10", "Frozen"], 2)}
+        <div class="lbl2">Sun in your eyes</div>${tg(["Real glare", "Softer", "Off"], 0)}
+        <div class="lbl2">Track lights</div>${tg(["Come on when it gets dark", "Always on", "Off"], 0)}
+        <div style="font:500 13px B;color:#9AA3B2;margin-top:4px">At ×4 the clock runs four times faster, so a 25-minute race covers 90 minutes: daylight to full dark. Lights fade up over about 30 seconds, pole by pole.</div></div>
+    </div></div>${concept("Concept renders · time of day")}`;
+}
+
+if (screen === "camedit") {
+  html = top("Settings · <b>Camera editor</b>", `<span class="chip">Changes show live · saved per car era</span><span class="btn">Reset</span><span class="btn primary">Save</span>`) + `
+  <div style="position:absolute;left:24px;top:82px;width:1040px;height:585px;border-radius:12px;overflow:hidden;background:url(x-ck.png) center/cover;box-shadow:0 0 0 1px #262B36">
+    <svg width="1040" height="585" style="position:absolute;inset:0"><g stroke="rgba(255,255,255,.22)"><line x1="347" x2="347" y1="0" y2="585"/><line x1="693" x2="693" y1="0" y2="585"/><line x1="0" x2="1040" y1="195" y2="195"/><line x1="0" x2="1040" y1="390" y2="390"/></g><g stroke="#FFB547" stroke-width="2"><line x1="510" x2="530" y1="292" y2="292"/><line x1="520" x2="520" y1="282" y2="302"/></g></svg>
+    <div class="hudbox" style="left:14px;top:14px;padding:6px 12px;font:600 12px B">Cockpit · 2026 cars · <span style="color:#FFB547">editing</span></div>
+    <div class="hudbox" style="right:14px;bottom:14px;padding:6px 12px;font:600 12px B;color:#C3C9D4">Drag to move the seat · scroll for field of view · WASD to nudge</div>
+  </div>
+  <div style="position:absolute;left:24px;top:682px;width:1040px;display:grid;grid-template-columns:repeat(5,1fr);gap:10px">
+    ${[["Cockpit", 112, 36, 1, "edited"], ["T-cam", 104, 22, 0, "default"], ["Nose", 172, 44, 0, "default"], ["Near chase", 30, 18, 0, "edited"], ["Far chase", 8, 6, 0, "default"]].map(([t, cx, cy, on, st]) => `<div class="panel" style="padding:0;overflow:hidden;${on ? "box-shadow:0 0 0 2px #FFB547" : ""}"><svg width="100%" height="100" viewBox="0 0 196 70" style="display:block;background:#0E1117"><path d="M38,54 L44,44 L70,42 L86,38 L100,30 L112,30 L120,38 L150,40 L172,44 L186,50 L186,54 Z" fill="#2A2F3B"/><rect x="36" y="30" width="6" height="16" fill="#2A2F3B"/><circle cx="62" cy="52" r="10" fill="#1A1D24" stroke="#3A4150" stroke-width="2"/><circle cx="160" cy="52" r="10" fill="#1A1D24" stroke="#3A4150" stroke-width="2"/><line x1="0" x2="196" y1="62.5" y2="62.5" stroke="#262B36"/><circle cx="${cx}" cy="${cy}" r="5" fill="${on ? "#FFB547" : "#7FC4FF"}"/><circle cx="${cx}" cy="${cy}" r="9" fill="none" stroke="${on ? "#FFB547" : "#7FC4FF"}" opacity=".4"/></svg><div style="padding:7px 10px;display:flex;justify-content:space-between;font:600 13px B;color:${on ? "#FFB547" : "#E8EAF0"}"><span>${t}</span><span style="font:600 11px B;color:#9AA3B2">${st}</span></div></div>`).join("")}
+  </div>
+  <div class="panel" style="position:absolute;right:24px;top:82px;width:480px;bottom:20px;display:grid;gap:9px;align-content:start;overflow:hidden">
+    <div class="lbl2">Quick presets</div>${tg(["Driver's eyes", "Higher view", "TV onboard", "Wide (sense of speed)"], 0)}
+    <div class="lbl2" style="margin-top:6px">Seat position</div>
+    ${sl("Forward / back", 46, "−14 cm")}${sl("Up / down", 38, "−4 cm")}${sl("Left / right", 50, "0 cm")}
+    <div class="lbl2" style="margin-top:6px">Lens</div>
+    ${sl("Field of view", 58, "66°")}${sl("Tilt", 44, "−3°")}
+    <div class="lbl2" style="margin-top:6px">Head movement</div>
+    ${sl("Leans in corners", 60, "60%")}${sl("Shakes on kerbs", 40, "40%")}${sl("Looks to the apex", 30, "30%")}
+    <div class="lbl2" style="margin-top:6px">Show</div>
+    <div style="display:grid;grid-template-columns:110px 1fr;gap:8px;align-items:center;font:600 13px B">
+      <span>Steering wheel</span>${tg(["On", "Off"], 0)}<span>Hands</span>${tg(["On", "Off"], 0)}<span>Mirrors</span>${tg(["Real", "Off"], 0)}<span>Halo</span>${tg(["Solid", "Thin", "See-through"], 0)}</div>
+    <div class="lbl2" style="margin-top:6px">Looking around</div>
+    <div style="display:grid;grid-template-columns:110px 1fr;gap:8px;align-items:center;font:600 13px B"><span>Look left / right</span><span style="color:#C3C9D4">hold <b class="mono">Q</b> / <b class="mono">E</b> · or right stick</span><span>Look back</span><span style="color:#C3C9D4">hold <b class="mono">B</b></span><span>Mouse look</span>${tg(["Off", "While held", "Always"], 1)}</div>
+    <div style="display:flex;gap:8px;margin-top:8px"><span class="chip">Copy to every era</span><span class="chip">Share as a code</span><span class="chip">Back to default</span></div>
+  </div>${concept("Design concept · camera editor")}`;
+}
+
+if (screen === "champ") {
+  const TR = [["Spa", "t-spa", "Belgium", "#FFB547"], ["Monza", "t-monza", "Italy", "#E8EAF0"], ["Suzuka", "t-suzuka", "Japan", "#E8EAF0"], ["Silverstone", "t-silverstone", "Britain", "#E8EAF0"], ["Interlagos", "t-interlagos", "Brazil", "#E8EAF0"], ["Monaco", "t-monte-carlo", "Monaco", "#E8EAF0"], ["Singapore", "t-singapore", "Singapore · night", "#5AA9FF"], ["Zandvoort", "t-zandvoort", "Netherlands", "#E8EAF0"]];
+  const outlines = await Promise.all(TR.map(async ([, f]) => { try { const d = await (await fetch(`./${f}.json`)).json(); const xs = d.points.map((p) => p[0]), ys = d.points.map((p) => p[1]); const mx = Math.min(...xs), my = Math.min(...ys), sz = Math.max(Math.max(...xs) - mx, Math.max(...ys) - my), M = Math.max(...ys); return d.points.map(([x, y], i) => `${i ? "L" : "M"}${(6 + ((x - mx) / sz) * 108).toFixed(1)},${(6 + ((M - y) / sz) * 108).toFixed(1)}`).join("") + "Z"; } catch { return ""; } }));
+  html = top("<b>Custom championship</b> · build your own season", `<span class="chip">Share code <b class="mono" style="color:#FFB547">RL-CH-7KQ2-9XF</b></span><span class="btn">Copy link</span><span class="btn primary">Start season →</span>`) + `
+  <div class="grid" style="grid-template-columns:420px 1fr;height:836px">
+    <div class="panel" style="display:grid;gap:9px;align-content:start">
+      <div class="lbl2">Name</div><div style="background:#0E1117;border:1px solid #262B36;border-radius:8px;padding:9px 12px;font:600 16px B">Year 13 Cup ✏️</div>
+      <div class="lbl2">Cars</div>${tg(["2026", "2022–25", "2017–21", "2014–16", "2009–13", "1998–2008", "Mixed"], 0)}
+      <div class="lbl2">Points</div>${tg(["25-18-15… (2010+)", "10-8-6… (2003–09)", "10-6-4… (1990s)", "Winner takes all", "Custom"], 0)}
+      <div class="lbl2">Race length</div>${tg(["3 laps", "25%", "50%", "100%"], 1)}
+      <div class="lbl2">Weekend</div>${tg(["Race only", "Quali + race", "Full weekend", "Sprints"], 1)}
+      <div class="lbl2">Rules</div>
+      <div style="display:grid;grid-template-columns:120px 1fr;gap:6px 10px;align-items:center;font:600 13px B"><span>Refuelling</span>${tg(["Off", "On"], 0)}<span>Tyre rules</span>${tg(["Free", "2 compounds", "1 set only"], 1)}<span>Damage</span>${tg(["Visual", "Reduced", "Full"], 2)}<span>Weather</span>${tg(["Dry", "Real", "Random"], 2)}<span>AI</span>${tg(["Easy", "72", "Hard"], 1)}<span>Reverse grid</span>${tg(["Off", "Top 10"], 0)}</div>
+      <div style="font:500 12px B;color:#9AA3B2">Friends can join with the code and race the same season against the AI; points tables are shared.</div>
+    </div>
+    <div style="display:grid;gap:16px;grid-template-rows:1fr auto">
+      <div class="panel" style="display:grid;gap:10px;align-content:start"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Calendar · 8 rounds</h2><span class="chip">Drag to reorder · + Add track</span></div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">${TR.map(([n, , c, col], i) => `<div style="background:#181C25;border-radius:12px;padding:12px 14px;display:grid;gap:6px;justify-items:center;${i === 0 ? "box-shadow:inset 0 0 0 1px #FFB54766" : ""}"><div style="justify-self:stretch;display:flex;justify-content:space-between"><div><div class="lbl2">Round ${i + 1}</div><b style="font:600 17px B">${n}</b><div style="font:500 12px B;color:#9AA3B2">${c}</div></div><span style="font:600 11px B;color:#9AA3B2">${["25%", "25%", "25%", "25%", "25%", "25%", "25%", "25%"][i]}<br>${i === 6 ? "night" : i === 2 ? "wet?" : "dry"}</span></div><svg width="150" height="150" viewBox="0 0 120 120"><path d="${outlines[i]}" fill="none" stroke="${col}" stroke-width="6" stroke-linejoin="round"/></svg></div>`).join("")}</div></div>
+      <div class="panel" style="display:grid;grid-template-columns:1fr 1fr;gap:20px"><div><h2>Standings after round 3</h2><table>${[["1", "mila_r", 61], ["2", "You", 58, 1], ["3", "T0BY", 40], ["4", "VELOCE (AI)", 37]].map(([p, n, pt, me]) => `<tr style="${me ? "color:#FFB547" : ""}"><td class="mono" style="width:30px">${p}</td><td>${n}</td><td class="mono" style="text-align:right">${pt}</td></tr>`).join("")}</table></div>
+        <div><h2>Share it</h2><div style="background:#0E1117;border:1px dashed #3A4150;border-radius:12px;padding:14px;text-align:center"><div class="mono" style="font-size:26px;letter-spacing:.08em;color:#FFB547">RL-CH-7KQ2-9XF</div><div style="font:500 13px B;color:#9AA3B2;margin-top:4px">Everything above fits in this code</div></div></div></div>
+    </div>
+  </div>${concept("Design concept · custom championships")}`;
+}
+
+if (screen === "highlights") {
+  const clips = [["Lap 1", "P8 → P6 into La Source", "clean-blue.png", "0:09"], ["Lap 12", "Overtake on AXIOM at the end of Kemmel", "x-slip.png", "0:11"], ["Lap 19", "Safety car: debris at Turn 5", "scclean-wing.png", "0:07"], ["Lap 27", "Puncture! Limping back to the pits", "clean-damage.png", "0:14"], ["Lap 44", "Win, and donuts", "clean-burnout.png", "0:16"]];
+  html = top("Race finished · <b>Your highlights</b>", `<span class="chip">Made automatically · 1:24</span><span class="btn">Edit</span><span class="btn">Share link</span><span class="btn primary">Save video</span>`) + `
+  <div class="grid" style="grid-template-columns:1fr 440px;height:836px">
+    <div class="panel" style="padding:0;overflow:hidden;display:grid;grid-template-rows:1fr auto">
+      <div style="background:url(x-slip.png) center/cover;position:relative"><div class="hudbox" style="left:18px;top:18px;padding:8px 12px"><span class="lbl2" style="color:#FFB547">Lap 12 · Overtake</span><div style="font:700 22px BC">YOU pass AXIOM #1 for P4</div></div><div class="hudbox" style="right:18px;top:18px;padding:6px 12px;font:600 12px B">TV camera · slow-mo ×0.5</div></div>
+      <div style="padding:12px 16px;display:grid;gap:8px"><div style="position:relative;height:8px;border-radius:4px;background:#262B36"><i style="position:absolute;left:0;top:0;bottom:0;width:28%;border-radius:4px;background:#FFB547"></i>${[0, 11, 24, 33, 50].map((x) => `<i style="position:absolute;left:${x}%;top:-4px;width:3px;height:16px;background:#E8EAF0;border-radius:2px"></i>`).join("")}</div>
+        <div class="row" style="justify-content:space-between;font:600 13px B"><span style="display:flex;gap:14px;font-size:18px"><span>⏮</span><span style="color:#FFB547">⏸</span><span>⏭</span></span><span class="mono">0:24 / 1:24</span><span style="display:flex;gap:6px">${["TV", "Onboard", "Heli", "Music ♪"].map((t, i) => `<span class="chip" style="${i === 0 ? "background:#2A2310;color:#FFB547" : ""}">${t}</span>`).join("")}</span></div></div>
+    </div>
+    <div class="panel" style="display:grid;gap:8px;align-content:start"><h2 style="margin:0 0 4px">Clips</h2>
+      ${clips.map(([l, t, f, d], i) => `<div style="display:grid;grid-template-columns:130px 1fr;gap:10px;background:${i === 1 ? "#2A2310" : "#181C25"};border-radius:10px;padding:8px"><div style="height:74px;border-radius:6px;background:url(${f}) center/cover;position:relative"><span style="position:absolute;right:4px;bottom:4px;background:#000a;border-radius:4px;padding:1px 5px;font:600 11px JB">${d}</span></div><div><div class="lbl2" style="color:${i === 1 ? "#FFB547" : "#9AA3B2"}">${l}</div><b style="font:600 14px B">${t}</b><div style="font:500 12px B;color:#9AA3B2">✓ in the reel</div></div></div>`).join("")}
+      <div class="lbl2" style="margin-top:8px">Reel length</div>${tg(["30 s", "1:30", "3 min", "Every clip"], 1)}
+      <div class="lbl2">Include</div><div class="tg">${["Overtakes", "Being overtaken", "Contact", "Safety car", "Pit stops", "Fastest lap", "Start", "Finish"].map((t, i) => `<span class="${[0, 2, 3, 5, 6, 7].includes(i) ? "on" : ""}">${t}</span>`).join("")}</div>
+      <div style="font:500 12px B;color:#9AA3B2">The game marks overtakes, contact, big moments (safety car, puncture, fastest lap) and the finish. Untick any clip, or add your own markers with the MARK button on the wheel.</div>
+    </div>
+  </div>${concept("Design concept · automatic highlights")}`;
+}
+
+if (screen === "setup") {
+  const S = [["Front wing", "6", "7"], ["Rear wing", "4", "4"], ["Diff on throttle", "65%", "60%"], ["Brake bias", "56.5%", "57.5%"], ["Front ride height", "+1", "0"], ["Front tyre pressure", "22.5 psi", "23.0 psi"], ["Brake cooling", "Medium", "Medium"], ["Energy plan", "Attack", "Balanced"]];
+  html = top("Garage · <b>Share a setup</b>", `<span class="chip">Spa-Francorchamps · 2026 cars · dry</span>`) + `
+  <div class="grid" style="grid-template-columns:1fr 1fr;height:836px">
+    <div class="panel" style="display:grid;gap:12px;align-content:start">
+      <h2 style="margin:0">Your setup: "Spa low drag"</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${S.map(([a, b]) => `<div style="background:#181C25;border-radius:8px;padding:8px 10px;display:flex;justify-content:space-between;font:600 14px B"><span style="color:#9AA3B2">${a}</span><b>${b}</b></div>`).join("")}</div>
+      <div style="display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:center;background:#0E1117;border:1px dashed #3A4150;border-radius:14px;padding:16px">
+        <svg width="120" height="120" style="background:#fff;border-radius:8px;padding:8px;box-sizing:content-box"><g fill="#0B0D12">${(() => { let c = "", sd = 3; const r = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; }; for (let y = 0; y < 21; y++) for (let x = 0; x < 21; x++) { const f = (a, b) => x >= a && x < a + 7 && y >= b && y < b + 7; const inF = f(0, 0) || f(14, 0) || f(0, 14); let on; if (inF) { const fx = x < 7 ? x : x - 14, fy = y < 7 ? y : y - 14; on = fx === 0 || fx === 6 || fy === 0 || fy === 6 || (fx >= 2 && fx <= 4 && fy >= 2 && fy <= 4); } else on = r() < 0.5; if (on) c += `<rect x="${x * 5.7}" y="${y * 5.7}" width="5.7" height="5.7"/>`; } return c; })()}</g></svg>
+        <div><div class="lbl2">Setup code</div><div class="mono" style="font-size:30px;letter-spacing:.08em;color:#FFB547">SPA-26-K7Q9</div><div style="font:500 13px B;color:#9AA3B2;margin:4px 0 10px">Best lap with it: <b class="mono" style="color:#E8EAF0">1:45.882</b> · dry · 2026</div><div style="display:flex;gap:8px"><span class="btn">Copy code</span><span class="btn">Send to friends</span></div></div>
+      </div>
+      <div class="lbl2" style="margin-top:4px">Your setups at Spa</div>
+      ${[["Spa low drag", "Dry · quali", "1:45.882", 1], ["Spa race (tyre saver)", "Dry · race", "1:47.310"], ["Spa wet", "Wet", "2:01.904"]].map(([a, b, c, on]) => `<div style="display:flex;justify-content:space-between;align-items:center;background:${on ? "#2A2310" : "#181C25"};border-radius:10px;padding:10px 12px"><div><b style="font:600 15px B;color:${on ? "#FFB547" : "#E8EAF0"}">${a}</b><div style="font:500 12px B;color:#9AA3B2">${b}</div></div><span class="mono">${c}</span></div>`).join("")}
+      <div style="font:500 12px B;color:#9AA3B2">A code holds the numbers only, so it works for any team's car in the same era. Codes from another era load as a starting point and are marked as "converted".</div>
+    </div>
+    <div class="panel" style="display:grid;gap:12px;align-content:start">
+      <h2 style="margin:0">Try a friend's setup</h2>
+      <div style="display:flex;gap:8px"><div style="flex:1;background:#0E1117;border:1px solid #FFB547;border-radius:8px;padding:10px 12px" class="mono">SPA-26-M3XR</div><span class="btn primary">Load</span></div>
+      <div style="background:#181C25;border-radius:12px;padding:12px 14px;display:grid;gap:6px"><div class="row" style="justify-content:space-between"><b style="font:600 16px B">"Spa quali" by mila_r</b><span class="chip">★ 4.6 · used by 12 friends</span></div><div style="font:500 13px B;color:#9AA3B2">Her best lap: <b class="mono" style="color:#E8EAF0">1:45.204</b> (0.68 s faster than yours)</div></div>
+      <table><tr><td class="lbl2">Setting</td><td class="lbl2" style="text-align:right">Yours</td><td class="lbl2" style="text-align:right">Hers</td></tr>${S.map(([a, b, c]) => `<tr><td>${a}</td><td class="mono" style="text-align:right;color:#9AA3B2">${b}</td><td class="mono" style="text-align:right;color:${b === c ? "#9AA3B2" : "#FFB547"}">${c}${b === c ? "" : " ●"}</td></tr>`).join("")}</table>
+      <div style="background:#181C25;border-radius:10px;padding:10px 12px;font:500 13px/1.45 B;color:#C3C9D4"><b style="color:#E8EAF0">In plain words:</b> more front wing, so the car turns in harder at La Source and the Bus Stop. A softer diff and a little more brake bias forward make it calmer under braking. Expect a bit less top speed on Kemmel.</div>
+      <div style="display:flex;gap:8px"><span class="btn primary">Use for this session</span><span class="btn">Save to garage</span><span class="btn">Race her ghost with it</span></div>
+    </div>
+  </div>${concept("Design concept · setup sharing")}`;
+}
+
+if (screen === "pitgame") {
+  const wheels = [["FL", "done"], ["FR", "done"], ["RL", "now"], ["RR", "wait"]];
+  html = `<div class="bgimg" style="background-image:url(pit2-stop.png);filter:brightness(.9)"></div>
+  <div class="hudbox" style="left:50%;top:18px;transform:translateX(-50%);display:flex;gap:14px;align-items:center;font:600 15px B"><span class="pill" style="background:#2A2310;color:#FFB547">PIT STOP MINI-GAME · optional</span>Box 4 · Hards</div>
+  <div class="hudbox" style="left:50%;bottom:22px;transform:translateX(-50%);width:600px;padding:18px 22px;display:grid;gap:12px;background:rgba(11,13,18,.88)">
+    <div class="row" style="justify-content:space-between"><b style="font:700 26px BC;letter-spacing:.03em">Do the stop yourself</b><b class="mono" style="font-size:34px;color:#FFB547">1.42</b></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">${wheels.map(([w, st]) => `<div style="border-radius:12px;padding:12px;text-align:center;background:${st === "done" ? "#12301F" : st === "now" ? "#2A2310" : "#181C25"};box-shadow:inset 0 0 0 ${st === "now" ? 2 : 1}px ${st === "done" ? "#2FD27A" : st === "now" ? "#FFB547" : "#262B36"}"><b style="font:700 20px BC">${w}</b><div style="font:600 12px B;color:${st === "done" ? "#6EE7A8" : st === "now" ? "#FFB547" : "#6B7383"}">${st === "done" ? "✓ on" : st === "now" ? "gun on!" : "waiting"}</div><div class="mono" style="font-size:12px;color:#9AA3B2;margin-top:4px">${["Q", "P", "Z", "M"][wheels.findIndex((x) => x[0] === w)]}</div></div>`).join("")}</div>
+    <div style="display:flex;justify-content:space-between;font:600 13px B;color:#C3C9D4"><span>Crew average <b class="mono" style="color:#E8EAF0">2.4 s</b></span><span>Your best <b class="mono" style="color:#6EE7A8">2.1 s</b></span><span>Fumble = <b style="color:#FF8A8A">+0.3 s</b></span></div>
+  </div>
+  <div class="hudbox" style="left:18px;top:18px;width:330px"><div class="lbl2" style="color:#FFB547">When you enter the pit lane</div><div style="font:600 17px B;margin:4px 0 8px">Do the stop yourself?</div><div style="display:flex;gap:8px;align-items:center;font:600 13px B"><span class="mono" style="background:#C3C9D4;color:#0B0D12;border-radius:4px;padding:2px 7px">SPACE</span> yes, I'll do it</div><div style="display:flex;gap:8px;align-items:center;font:600 13px B;color:#9AA3B2;margin-top:6px"><span style="width:44px;height:6px;border-radius:3px;background:linear-gradient(90deg,#FFB547 60%,#2A2F3B 60%)"></span> do nothing and the crew does it</div></div>
+  <div class="hudbox" style="right:18px;top:18px;width:330px"><div class="lbl2" style="margin-bottom:8px">Settings · Pit stop mini-game</div>${tg(["Off (default)", "Ask each time", "Always"], 1)}
+    <div style="font:500 13px/1.4 B;color:#C3C9D4;margin-top:10px">Off by default. When it's on, the game asks as you enter the pit lane: press <b>Space</b> to do it yourself, or do nothing and the crew does a normal stop.</div>
+    <div style="font:500 13px/1.4 B;color:#C3C9D4;margin-top:6px">A good stop saves a few tenths; a bad one costs about the same. Always off in online races unless the host turns it on.</div></div>
+  ${concept("Concept · optional pit stop mini-game")}`;
+}
+
+if (screen === "weekly") {
+  const LB = [["1", "nikoW", "1:58.204", "🥇"], ["2", "mila_r", "1:58.611", "🥈"], ["3", "kris (you)", "1:58.940", "🥉", 1], ["4", "T0BY", "1:59.502", ""], ["5", "jaxon.f1", "2:00.118", ""], ["6", "ari", "2:01.330", ""]];
+  html = top("<b>Weekly event</b> · Week 42", `<span class="chip">Ends in 3 d 14 h</span><span class="btn primary">Play (attempt 4)</span>`) + `
+  <div class="grid" style="grid-template-columns:1.2fr 1fr 360px;height:836px">
+    <div class="panel" style="padding:0;overflow:hidden;display:grid;grid-template-rows:330px auto">
+      <div style="background:url(clean-rain.png) center/cover;position:relative"><div class="hudbox" style="left:16px;bottom:16px"><span class="lbl2" style="color:#5AA9FF">This week</span><div style="font:700 30px BC">Rain at Spa · 2026 cars</div></div></div>
+      <div style="padding:16px 18px;display:grid;gap:10px;align-content:start"><div style="font:500 15px/1.45 B;color:#C3C9D4">Two laps from a standing start in heavy rain. Intermediates only, full damage, no rewinds. Same weather for everyone.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">${["🌧 Heavy rain", "2 laps", "Inters only", "No rewinds", "Assists: any (shown on the board)"].map((t) => `<span class="chip">${t}</span>`).join("")}</div>
+        <div class="lbl2" style="margin-top:6px">Rewards</div><div style="display:flex;gap:10px">${[["🥇", "Gold", "under 1:58.5", "#FFD23F"], ["🥈", "Silver", "under 1:59.5", "#C9CED6"], ["🥉", "Bronze", "finish", "#D08A4E"]].map(([e, a, b, c]) => `<div style="flex:1;background:#181C25;border-radius:10px;padding:10px;text-align:center"><div style="font-size:24px">${e}</div><b style="color:${c}">${a}</b><div style="font:500 12px B;color:#9AA3B2">${b}</div></div>`).join("")}</div>
+        <div style="font:500 13px B;color:#9AA3B2">Gold also unlocks this week's helmet design: "Storm".</div></div>
+    </div>
+    <div class="panel" style="display:grid;gap:8px;align-content:start"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Friends</h2>${tg(["Friends", "School", "Everyone"], 0)}</div>
+      <table>${LB.map(([p, n, t, m, me]) => `<tr style="${me ? "color:#FFB547;background:#2A231066" : ""}"><td class="mono" style="width:30px">${p}</td><td>${m} ${n}</td><td class="mono" style="text-align:right">${t}</td></tr>`).join("")}</table>
+      <div style="background:#181C25;border-radius:10px;padding:10px 12px;font:500 13px B;color:#C3C9D4">You're <b style="color:#E8EAF0">0.33 s</b> off silver. Race mila_r's ghost to see where she's faster.</div>
+      <div class="lbl2" style="margin-top:6px">Everyone</div><div style="font:600 14px B">You're in the <b style="color:#6EE7A8">top 8%</b> of 12,406 drivers</div>
+      <div class="lbl2" style="margin-top:10px">Where mila_r is faster</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">${[["Sector 1", "+0.02"], ["Sector 2", "+0.29"], ["Sector 3", "−0.02"]].map(([a, b]) => `<div style="background:#181C25;border-radius:10px;padding:10px;text-align:center"><div class="lbl2">${a}</div><b class="mono" style="font-size:18px;color:${b.startsWith("+") && b !== "+0.02" ? "#FF8A8A" : "#9AA3B2"}">${b}</b></div>`).join("")}</div>
+      <div style="font:500 13px B;color:#C3C9D4">Most of it is Pouhon: she lifts less in the rain.</div>
+      <div class="lbl2" style="margin-top:10px">Your attempts</div>
+      ${[["3", "1:58.940", "best"], ["2", "1:59.611", ""], ["1", "spun at Eau Rouge", ""]].map(([a, b, c]) => `<div style="display:flex;justify-content:space-between;background:#181C25;border-radius:8px;padding:8px 12px;font:600 13px B"><span style="color:#9AA3B2">Attempt ${a}</span><span class="mono" style="color:${c ? "#FFB547" : "#E8EAF0"}">${b}</span></div>`).join("")}
+    </div>
+    <div class="panel" style="display:grid;gap:8px;align-content:start"><h2 style="margin:0">Past weeks</h2>
+      ${[["41", "Monza · 2004 V10 · qualifying lap", "🥈"], ["40", "Safety car restart, Suzuka", "🥇"], ["39", "Save fuel: finish with 0.1 kg left", "🥉"], ["38", "Night at Singapore · tyres ×3", "—"], ["37", "Overtake 5 cars in 3 laps", "🥈"]].map(([w, t, m]) => `<div style="display:flex;justify-content:space-between;gap:8px;background:#181C25;border-radius:10px;padding:10px 12px"><div><div class="lbl2">Week ${w}</div><b style="font:600 13px B">${t}</b></div><span style="font-size:20px">${m}</span></div>`).join("")}
+      <div style="font:500 12px B;color:#9AA3B2">A new event every Monday at 8 am. Some are lap times, some are races, some are puzzles like fuel saving.</div>
+    </div>
+  </div>${concept("Design concept · weekly events")}`;
+}
+root.innerHTML = html;
+await Promise.all([...document.querySelectorAll(".bgimg,[style*='url(']")].map(() => null));
+await new Promise((r) => setTimeout(r, 600));
+document.title = "done";
+</script></body></html>
