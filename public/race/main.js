@@ -1,22 +1,22 @@
 // RaceLimit Race — step 1: one car at Spa. Drive with the keyboard or a controller.
 import * as THREE from "three";
 import { Sky } from "three/addons/objects/Sky.js";
-import { CIRCUITS, buildTrack, speedProfile, racingLine } from "./trackdata.js?v=mvdq8sd5";
-import { newCar, stepCar, resetCar, ENVELOPE } from "./physics.js?v=mvdq8sd5";
-import { buildCircuit } from "./trackmesh.js?v=mvdq8sd5";
-import { createInput } from "./input.js?v=mvdq8sd5";
-import { createHud } from "./hud.js?v=mvdq8sd5";
-import { createEngineAudio } from "./audio.js?v=mvdq8sd5";
-import { mergeCar } from "./optimize.js?v=mvdq8sd5";
-import { sfx } from "../games/sfx.js?v=mvdq8sd5";
-import { load, save } from "../games/common.js?v=mvdq8sd5";
+import { CIRCUITS, buildTrack, speedProfile, racingLine } from "./trackdata.js?v=mvfc9o8f";
+import { newCar, stepCar, resetCar, ENVELOPE } from "./physics.js?v=mvfc9o8f";
+import { buildCircuit } from "./trackmesh.js?v=mvfc9o8f";
+import { createInput } from "./input.js?v=mvfc9o8f";
+import { createHud } from "./hud.js?v=mvfc9o8f";
+import { createEngineAudio } from "./audio.js?v=mvfc9o8f";
+import { mergeCar } from "./optimize.js?v=mvfc9o8f";
+import { sfx } from "../games/sfx.js?v=mvfc9o8f";
+import { load, save } from "../games/common.js?v=mvfc9o8f";
 
 const q = new URLSearchParams(location.search);
 const circuitId = q.get("track") && CIRCUITS[q.get("track")] ? q.get("track") : "spa";
 const CFG = CIRCUITS[circuitId];
 const $ = (id) => document.getElementById(id);
 const status = (t) => { $("loadText").textContent = t; return new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0))); };
-const settings = Object.assign({ auto: true, abs: true, tc: true, line: "full", camera: "chase", quality: "high" }, load("race.settings", {}));
+const settings = Object.assign({ auto: true, abs: true, tc: true, stability: true, line: "full", camera: "chase", quality: "high" }, load("race.settings", {}));
 const saveSettings = () => save("race.settings", settings);
 
 // ---------- renderer, sky, light ----------
@@ -56,7 +56,7 @@ const tr = buildTrack(raw, CFG);
 const line = racingLine(tr);
 const vp = speedProfile({ ...tr, K: line.K }, ENVELOPE, 0.95);
 await status("Building the track…");
-buildCircuit(tr, scene, { profile: vp });
+const circuit = buildCircuit(tr, scene, { profile: vp });
 
 // racing line: a thin strip on the asphalt, coloured green / yellow / red by how fast you're going
 const crown = (o) => { const a = Math.abs(o), h = tr.half; return a < h / 2 ? 0.05 - (a / (h / 2)) * 0.015 : Math.max(0, 0.035 - ((a - h / 2) / (h / 2 + 0.6)) * 0.035); };
@@ -86,7 +86,7 @@ applyLineMode();
 
 // ---------- the car ----------
 await status("Building the car…");
-const { f1car } = await import("./car.js?v=mvdq8sd5");
+const { f1car } = await import("./car.js?v=mvfc9o8f");
 const livery = { era: 2026, team: "RACELIMIT", body: "#FFA51F", accent: "#16171B", stripe: "#F4F4F4", number: "27", helmet: ["#FFA51F", "#16171B"], tcam: "#111" };
 const car = f1car({ ...livery, aero: "corner" });
 {
@@ -104,7 +104,19 @@ const CK = car.userData.ck;
 car.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; if (m.material?.clearcoat !== undefined) { m.material.envMapIntensity = 0.4; m.material.clearcoat = Math.min(m.material.clearcoat, 0.3); } } });
 // wheels: a steering pivot around each wheel so the front ones can turn while they spin
 const wheels = (car.userData.wheels ?? []).map((w) => { const pivot = new THREE.Group(); pivot.position.copy(w.group.position); w.group.parent.add(pivot); pivot.add(w.group); w.group.position.set(0, 0, 0); return { ...w, pivot }; });
-const merged = mergeCar(car, [...wheels.map((w) => w.pivot), car.userData.steering]);
+// the driver's arms: each hangs from its shoulder and follows the glove on the steering wheel
+const arms = [];
+car.updateMatrixWorld(true);
+car.traverse((m) => { if (m.isMesh && m.userData.wheel && !isInside(m, car.userData.steering)) arms.push(m); });
+function isInside(o, root) { for (let p = o; p; p = p.parent) if (p === root) return true; return false; }
+const armRig = arms.map((m) => {
+  const len = m.geometry.parameters?.depth ?? 0.37, dir = new THREE.Vector3(0, 0, 1).applyQuaternion(m.quaternion);
+  const shoulder = m.position.clone().addScaledVector(dir, -len / 2), pivot = new THREE.Group();
+  pivot.position.copy(shoulder); car.add(pivot); pivot.add(m); m.position.set(0, 0, len / 2); m.quaternion.identity();
+  pivot.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
+  return { pivot, mesh: m, len, side: Math.sign(shoulder.x) };
+});
+const merged = mergeCar(car, [...wheels.map((w) => w.pivot), car.userData.steering, ...armRig.map((a) => a.pivot)]);
 for (const w of wheels) mergeCar(w.group); if (car.userData.steering) mergeCar(car.userData.steering);
 scene.add(car);
 let aeroShown = "corner";
@@ -126,7 +138,7 @@ let phase = "menu", lightsT = 0, lightsOutAt = 0, paused = false, lastS = c.s, w
 
 function startLights() {
   phase = "lights"; lightsT = 0; lightsOutAt = 5 + 0.4 + Math.random() * 2.2; hud.lights(0);
-  Object.assign(c, newCar(tr, tr.wrap(-14), tr.half * 0.45)); lastS = c.s;
+  Object.assign(c, newCar(tr, tr.wrap(-14), tr.half * 0.45)); lastS = c.s; circuit.barriers.reset();
   Object.assign(T, { lap: 1, running: false, lapStart: 0, invalid: false, sectors: [null, null, null], delta: null, trace: [], nextSec: 0, offT: 0, half: false, standing: true });
 }
 function lapDone() {
@@ -195,22 +207,23 @@ function autopilot() {
   const vt = vp[tr.wrap(c.idx + 3 + Math.round(c.u * 0.15))] * 0.97;
   return { steer: Math.max(-1, Math.min(1, delta / dMax)), throttle: Math.max(0, Math.min(1, (vt - c.u) * 0.6 + 0.2)), brake: Math.max(0, Math.min(1, (c.u - vt) * 0.8)), analog: true };
 }
-window.__cam = cam; window.__race = { c, tr, T, get phase() { return phase; }, autopilot: q.get("autopilot") === "1", view: (v) => (viewMode = v), frames: 0, ms: 0, merged };
+window.__cam = cam; window.__sw = car.userData.steering; window.__race = { c, tr, T, get phase() { return phase; }, autopilot: q.get("autopilot") === "1", view: (v) => (viewMode = v), frames: 0, ms: 0, merged };
 
 // ---------- loop ----------
 const tmpV = new THREE.Vector3(), tmpL = new THREE.Vector3(), camPos = new THREE.Vector3(), camLook = new THREE.Vector3();
 let camInit = false, lastT = performance.now(), acc = 0, prevGear = 1, simT = 0;
+const EYE = q.get("eye") ? q.get("eye").split(",").map(Number) : null; // testing: camera offset from the car
 const STEP = 1 / 240, WARP = +q.get("warp") || 0; // warp: seconds of simulation per frame (testing only)
 function frame(now) {
   requestAnimationFrame(frame);
   window.__race.frames++;
-  const dt = Math.min(0.1, (now - lastT) / 1000); lastT = now;
+  const dt = Math.max(0, Math.min(0.1, (now - lastT) / 1000)); lastT = now; // the first frame can be stamped before the page clock started
   const inp = input.poll();
   if (inp.pause && phase !== "menu") setPause(!paused);
   if (inp.mute && audio) { audio.setMuted(!audio.muted()); syncSettingsUI(); }
   if (inp.camera) { viewMode = VIEWS[(VIEWS.indexOf(viewMode) + 1) % VIEWS.length]; settings.camera = viewMode; saveSettings(); }
   if (inp.line) { settings.line = { full: "braking", braking: "off", off: "full" }[settings.line]; saveSettings(); applyLineMode(); hud.message(`Racing line: ${settings.line}`, 1.2); }
-  const opts = { auto: settings.auto, abs: settings.abs, tc: settings.tc, aeroAuto: true };
+  const opts = { auto: settings.auto, abs: settings.abs, tc: settings.tc, stability: settings.stability, aeroAuto: true };
   if (!paused && phase !== "menu") {
     // start lights
     if (phase === "lights") {
@@ -230,11 +243,11 @@ function frame(now) {
       stepCar(c, i2, tr, STEP, opts);
       if (phase === "lights") { c.u = Math.min(c.u, 0); c.v = 0; c.r = 0; lightsT += WARP ? STEP : 0; if (WARP && lightsT >= lightsOutAt) { phase = "race"; hud.lights(-1); T.running = true; T.lapStart = T.now; T.secStart = T.now; } }
       T.now += STEP; simT += STEP; timing(STEP);
-      if (c.impact > 3 && audio) audio.thump(c.impact);
+      if (c.hit) { circuit.barriers.hit(c.hit); if (c.impact > 3 && audio) audio.thump(c.impact); }
       acc -= STEP; n++;
     }
     if (!WARP && n >= 10) acc = 0;
-    if (c.gear !== prevGear) { audio?.shift(); prevGear = c.gear; }
+    if (c.gear !== prevGear) { audio?.shift(c.gear > prevGear); prevGear = c.gear; }
     // wrong way
     const along = Math.sin(c.yaw) * tr.TX[c.idx] + Math.cos(c.yaw) * tr.TZ[c.idx];
     wrongT = along < -0.3 && c.u > 3 ? wrongT + dt : 0;
@@ -248,7 +261,19 @@ function frame(now) {
   car.position.set(c.x, c.y + surfY + kerbJ, c.z);
   car.rotation.set(slopePitch + c.pitch, c.yaw, c.roll, "YXZ");
   for (const w of wheels) { w.group.rotation.x = c.wheelRot; if (w.front) w.pivot.rotation.y = c.steer; }
-  if (car.userData.steering) car.userData.steering.rotation.z = -c.steer * 4.2;
+  const sw = car.userData.steering;
+  if (sw) {
+    sw.rotation.z = c.steer * 4.2; // turning left turns the wheel anticlockwise
+    if (armRig.length && viewMode === "cockpit" && !inp.back) {
+      sw.updateMatrix(); car.updateMatrixWorld(true);
+      for (const a of armRig) {
+        // the glove on this side: the wheel is turned round to face the driver, so its x is mirrored
+        const wrist = sw.localToWorld(new THREE.Vector3(-a.side * 0.125, -0.13, -0.04)); car.worldToLocal(wrist);
+        const d = wrist.sub(a.pivot.position), L = d.length();
+        a.pivot.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), d.normalize()); a.mesh.scale.z = L / a.len; a.mesh.position.z = L / 2;
+      }
+    }
+  }
   showAero(c.aeroMode);
   // ----- camera -----
   const fwd = tmpV.set(Math.sin(c.yaw), 0, Math.cos(c.yaw));
@@ -271,12 +296,14 @@ function frame(now) {
     cam.lookAt(camLook);
     cam.fov = 56 + Math.min(10, Math.max(0, c.u) * 0.09); cam.near = 0.1;
   }
+  if (EYE) { cam.position.set(c.x + EYE[0], c.y + EYE[1], c.z + EYE[2]); cam.lookAt(c.x, c.y, c.z); cam.fov = 55; cam.near = 0.5; }
   cam.updateProjectionMatrix();
   // ----- light follows the car -----
   sun.target.position.set(c.x, c.y, c.z); sun.position.copy(sun.target.position).addScaledVector(sunDir, 120);
   if (lineMesh.visible) colourLine(c);
+  circuit.barriers.update(Math.min(dt, 0.05));
   hud.update(c, T, opts);
-  audio?.update(c, { paused: paused || phase === "menu", view: v });
+  audio?.update(c, { paused: paused || phase === "menu", view: v, dt });
   const r0 = performance.now(); renderer.render(scene, cam); window.__race.ms = performance.now() - r0; window.__race.info = { calls: renderer.info.render.calls, tris: renderer.info.render.triangles };
 }
 requestAnimationFrame(frame);

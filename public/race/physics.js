@@ -7,8 +7,8 @@ const G = 9.81, RHO = 1.225;
 // 2026 car, roughly: 768 kg minimum + fuel; about 1,000 hp when the battery is deploying
 export const CAR = {
   m: 800, a: 1.87, b: 1.53, h: 0.3, Iz: 1050,
-  aero: { corner: { cl: 5.2, cd: 1.3 }, straight: { cl: 3.4, cd: 0.78 } }, aeroFront: 0.43,
-  mu: 1.95, muRear: 1.05, Bf: 12, Br: 17, C: 1.45, // wider rear tyres: more grip and stiffer, so the car is stable
+  aero: { corner: { cl: 5.2, cd: 1.3 }, straight: { cl: 3.4, cd: 0.78 } }, aeroFront: 0.41,
+  mu: 1.95, muRear: 1.1, Bf: 12, Br: 17, Cf: 1.45, Cr: 1.22, // wider rear tyres: more grip, stiffer and more forgiving past the limit
   tops: [86, 128, 166, 200, 234, 266, 300, 346], // km/h in each gear at 12,000 rpm
   shiftRpm: 11800, limiter: 12500, idle: 4000,
   pIce: 400e3, pErs: 350e3, battery: 4e6, harvest: 350e3, eff: 0.92,
@@ -33,7 +33,7 @@ export function newCar(tr, i = 0, lat = 0, back = 0) {
     gear: 1, rpm: CAR.idle, ers: CAR.battery, idx: j, lat, s: tr.dist[j],
     steer: 0, throttle: 0, brake: 0, aeroMode: "corner", shiftT: 0, ax: 0, ay: 0, pitch: 0, roll: 0,
     surface: "track", kerb: false, spin: 0, lockF: false, lockR: false, impact: 0, reverse: false, wheelRot: 0, slipF: 0, slipR: 0,
-    deploying: false, harvesting: false, offTrack: false,
+    deploying: false, harvesting: false, offTrack: false, revT: 0, hit: null, assist: 0,
   };
 }
 
@@ -41,9 +41,9 @@ const iceShape = (rpm) => (rpm < 10500 ? clamp(0.3 + (0.7 * (rpm - 4000)) / 6500
 const rpmFor = (kmh, g) => (12000 * kmh) / CAR.tops[g - 1];
 
 // input: { throttle 0..1, brake 0..1, steer -1..1 (+ = left), up, down (one-shot gear requests) }
-// opts: { auto (gears), abs, tc, aeroAuto, steerAssist }
+// opts: { auto (gears), abs, tc, aeroAuto, stability (steering + slide help) }
 export function stepCar(c, input, tr, dt, opts = {}) {
-  const { auto = true, abs = true, tc = true, aeroAuto = true } = opts;
+  const { auto = true, abs = true, tc = true, aeroAuto = true, stability = true } = opts;
   const P = CAR;
   // ---- where are we on the track ----
   c.idx = tr.nearestFrom(c.x, c.z, c.idx, 30);
@@ -59,12 +59,26 @@ export function stepCar(c, input, tr, dt, opts = {}) {
 
   // ---- inputs, smoothed ----
   const thr = clamp(input.throttle, 0, 1), brk = clamp(input.brake, 0, 1);
-  c.throttle += (thr - c.throttle) * clamp(dt * 14, 0, 1);
+  const thrRate = thr > c.throttle ? (input.analog ? 14 : 5) : 16; // a keyboard can't feather, so it squeezes in over ~0.2 s
+  c.throttle += (thr - c.throttle) * clamp(dt * thrRate, 0, 1);
   c.brake += (brk - c.brake) * clamp(dt * 18, 0, 1);
   const u = c.u, speed = Math.hypot(c.u, c.v), kmh = Math.max(0, u) * 3.6;
   const dMax = P.steerLow / (1 + Math.max(0, u) / (input.analog ? 40 : 30));
-  const target = clamp(input.steer, -1, 1) * dMax;
-  const rate = (input.analog ? 3.5 : 1.6) * P.steerLow;
+  let target = clamp(input.steer, -1, 1) * dMax;
+  // steering help: never ask the front tyres for more than their best slip angle, measured from the
+  // direction the front of the car is really moving. When the rear slides this turns into countersteer.
+  c.assist = 0;
+  if (stability && u > 8) {
+    const beta = Math.atan2(c.v + P.a * c.r, u), aPk = 0.135;
+    const lo = beta - aPk, hi = beta + aPk, t0 = target;
+    target = clamp(target, Math.max(-dMax * 1.6, lo), Math.min(dMax * 1.6, hi));
+    if (input.steer === 0) { const rearSlide = Math.atan2(c.v - P.b * c.r, u); if (Math.abs(rearSlide) > 0.06) target += clamp(rearSlide * 0.6, -0.08, 0.08); }
+    c.assist = Math.abs(target - t0);
+  }
+  // keys turn the wheel at a steady rate that gets slower with speed (≈0.3 s to the limit), and let it
+  // come back to the middle twice as fast; a controller stick moves it directly
+  const back = Math.abs(target) < Math.abs(c.steer) || target * c.steer < 0;
+  const rate = input.analog ? 3.5 * P.steerLow : Math.max(0.3, 1.3 / (1 + Math.max(0, u) / 25)) * (back ? 2 : 1);
   c.steer += clamp(target - c.steer, -rate * dt, rate * dt);
   const delta = c.steer;
 
@@ -108,17 +122,29 @@ export function stepCar(c, input, tr, dt, opts = {}) {
   c.ers = Math.max(0, c.ers - pErs * dt);
   const clipCost = c.throttle > 0.9 && u > 305 / 3.6 && c.ers < 0.8 * P.battery ? 200e3 * clamp((u - 305 / 3.6) / 6, 0, 1) : 0;
   let Fdrive = c.shiftT > 0.02 ? 0 : (P.eff * (pIce + pErs - clipCost)) / Math.max(u, 4);
-  if (c.throttle < 0.05 && u > 2) Fdrive = -(700 + 2200 * (c.rpm / 12000)); // engine braking
+  if (c.throttle < 0.05 && u > 2) Fdrive = -(350 + 1100 * (c.rpm / 12000)); // engine braking (gentle, so lifting mid-corner doesn't spin you)
+
+  // ---- reverse: stop, keep holding the brake for a moment, then it backs up ----
+  if (!c.reverse && Math.abs(u) < 0.6 && c.brake > 0.5 && c.throttle < 0.05) { c.revT += dt; if (c.revT > 0.25) { c.reverse = true; c.gear = 1; } } else if (!c.reverse) c.revT = 0;
+  if (c.reverse && (c.throttle > 0.05 || u > 0.8)) { c.reverse = false; c.revT = 0; }
 
   // ---- longitudinal tyre forces (drive or engine braking + brakes), limited by grip ----
-  const Fb = u > 1 ? c.brake * (Df + Dr) : 0;
+  const Fb = Math.abs(u) > 0.6 && !c.reverse ? c.brake * (Df + Dr) * Math.sign(u) : 0;
   let Fxf = -Fb * P.bias, Fxr = Fdrive - Fb * (1 - P.bias);
   c.spin = 0; c.lockF = c.lockR = false;
-  // traction control and ABS leave room for the cornering force the tyre is already making
-  const roomR = Math.sqrt(Math.max(Dr * Dr - (c.fyr ?? 0) ** 2, (0.35 * Dr) ** 2)), roomF = Math.sqrt(Math.max(Df * Df - (c.fyf ?? 0) ** 2, (0.45 * Df) ** 2));
-  if (Fxr > roomR * 0.95) { if (tc) Fxr = roomR * 0.95; else if (Fxr > Dr) { c.spin = clamp((Fxr - Dr) / Dr, 0, 1); Fxr = Dr * 0.8; } }
-  if (-Fxf > Math.min(Df * 0.92, roomF)) { if (abs) Fxf = -Math.min(Df * 0.92, roomF); else if (-Fxf > Df) { Fxf = -Df * 0.85; c.lockF = true; } }
-  if (-Fxr > Math.min(Dr * 0.86, roomR * 0.9)) { if (abs) Fxr = -Math.min(Dr * 0.86, roomR * 0.9); else if (-Fxr > Dr) { Fxr = -Dr * 0.85; c.lockR = true; } }
+  // traction control and ABS always keep back enough grip for cornering: at least what the tyre is
+  // making now plus a margin, so getting on the power out of a corner can't snap the rear round
+  const fyrNow = Math.abs(c.fyr ?? 0), fyfNow = Math.abs(c.fyf ?? 0);
+  const keepR = Math.min(Dr * 0.97, Math.max(1.3 * fyrNow, 0.5 * Dr)), keepF = Math.min(Df * 0.97, Math.max(1.2 * fyfNow, 0.4 * Df));
+  const roomR = Math.sqrt(Math.max(0, Dr * Dr - keepR * keepR)), roomF = Math.sqrt(Math.max(0, Df * Df - keepF * keepF));
+  if (Fxr > 0) {
+    let lim = tc ? Math.max(roomR, 0.25 * Dr) : Dr;
+    // stability help: ease the power while the rear is sliding
+    if (stability) { const ar0 = Math.abs(Math.atan2(c.v - P.b * c.r, Math.max(Math.abs(u), 5))); lim *= clamp(1 - (ar0 - 0.07) * 7, 0.25, 1); }
+    if (Fxr > lim) { if (!tc && Fxr > Dr) c.spin = clamp((Fxr - Dr) / Dr, 0, 1); Fxr = c.spin ? Dr * 0.8 : lim; }
+  }
+  if (-Fxf > Df * 0.92 || (abs && -Fxf > Math.max(roomF, 0.6 * Df))) { if (abs) Fxf = -Math.min(Df * 0.92, Math.max(roomF, 0.6 * Df)); else if (-Fxf > Df) { Fxf = -Df * 0.85; c.lockF = true; } }
+  if (-Fxr > Dr * 0.86 || (abs && -Fxr > Math.max(roomR, 0.45 * Dr))) { if (abs) Fxr = -Math.min(Dr * 0.86, Math.max(roomR, 0.45 * Dr)); else if (-Fxr > Dr) { Fxr = -Dr * 0.85; c.lockR = true; } }
   const Fbr = Math.max(0, -Fxr);
   // battery charges under braking and when lifting
   // battery: charges under braking (the motor works as a generator), a little when lifting, and by
@@ -128,19 +154,17 @@ export function stepCar(c, input, tr, dt, opts = {}) {
   const pHarv = c.brake > 0.05 ? P.harvest * Math.min(1, c.brake * 2) : clip ? 200e3 * clamp((u - 305 / 3.6) / 6, 0, 1) : c.throttle < 0.05 ? 250e3 : c.throttle < 0.9 && u > 15 ? 120e3 : 0;
   if (c.harvesting) c.ers = Math.min(P.battery, c.ers + pHarv * dt);
 
-  // reverse: hold brake when stopped
-  if (u < 0.3 && c.brake > 0.5 && c.throttle < 0.05) c.reverse = true;
-  if (c.reverse && (c.throttle > 0.05 || u > 0.5)) c.reverse = false;
-  if (c.reverse) { Fxf = 0; Fxr = u > -4 ? -2600 * c.brake : 0; }
+  // reversing: about 0.8 g back to ~35 km/h (a real F1 reverse gear is slow, this is kinder)
+  if (c.reverse) { Fxf = 0; Fxr = u > -9.5 ? -6500 * c.brake : 0; }
 
   // ---- lateral tyre forces (slip angle, limited by what's left after braking/accelerating) ----
   const ue = Math.max(Math.abs(u), 5) * Math.sign(u || 1);
   const af = Math.atan2(c.v + P.a * c.r, Math.abs(ue)) - delta * Math.sign(ue);
   const ar = Math.atan2(c.v - P.b * c.r, Math.abs(ue));
-  const pac = (alpha, D, B) => D * Math.sin(P.C * Math.atan(B * alpha));
+  const pac = (alpha, D, B, C) => D * Math.sin(C * Math.atan(B * alpha));
   const Dyf = Math.sqrt(Math.max((c.lockF ? 0.15 : 1) * Df * Df - Fxf * Fxf, (0.12 * Df) ** 2));
   const Dyr = Math.sqrt(Math.max((c.lockR || c.spin > 0.2 ? 0.35 : 1) * Dr * Dr - Fxr * Fxr, (0.12 * Dr) ** 2));
-  const Fyf = -pac(af, Dyf, P.Bf), Fyr = -pac(ar, Dyr, P.Br);
+  const Fyf = -pac(af, Dyf, P.Bf, P.Cf), Fyr = -pac(ar, Dyr, P.Br, P.Cr);
   c.slipF = Math.abs(af); c.slipR = Math.abs(ar); c.fyf = Fyf; c.fyr = Fyr;
 
   // ---- slope, drag, rolling ----
@@ -153,10 +177,19 @@ export function stepCar(c, input, tr, dt, opts = {}) {
   const cd = Math.cos(delta), sd = Math.sin(delta);
   const FX = Fxf * cd - Fyf * sd + Fxr - Fres + Fgrav;
   const FY = Fyf * cd + Fxf * sd + Fyr;
-  const MZ = P.a * (Fyf * cd + Fxf * sd) - P.b * Fyr;
+  let MZ = P.a * (Fyf * cd + Fxf * sd) - P.b * Fyr;
+  // stability help (like the assist in racing games): if the car starts rotating faster than its grip
+  // allows, or the rear slides, a correcting turn force calms it down — so a quick flick doesn't spin you
+  if (stability && u > 8) {
+    const rLim = (0.95 * (17.5 + 0.006 * u * u)) / u, rRef = clamp((u * Math.tan(delta)) / L, -rLim, rLim);
+    const err = c.r - rRef, slide = Math.abs(ar) > 0.08 || Math.abs(c.r) > rLim;
+    if (slide) MZ -= clamp(err * P.Iz * 9, -9000, 9000);
+  }
   const w = smooth(3, 9, Math.abs(u)); // below ~30 km/h blend into a simple no-slip model
   let du = FX / P.m + c.r * c.v, dv = FY / P.m - c.r * u, dr = MZ / P.Iz;
   c.u += du * dt;
+  // brakes hold the car at walking pace instead of letting it creep
+  if (!c.reverse && c.brake > 0.1 && Math.abs(c.u) < 0.6) c.u -= Math.sign(c.u) * Math.min(Math.abs(c.u), 6 * c.brake * dt);
   if (!c.reverse && c.u < 0 && c.brake > 0 && Fdrive <= 0) c.u = Math.max(c.u, 0);
   c.v = w * (c.v + dv * dt) + (1 - w) * c.v * Math.max(0, 1 - dt * 8);
   const rKin = (c.u * Math.tan(delta)) / L;
@@ -169,18 +202,22 @@ export function stepCar(c, input, tr, dt, opts = {}) {
   c.x += (nfx * c.u + lx * c.v) * dt; c.z += (nfz * c.u + lz * c.v) * dt;
 
   // ---- walls ----
-  c.impact = 0;
-  const wall = half + run - 1.0;
-  const f2 = tr.frame(c.x, c.z, c.idx);
+  c.impact = 0; c.hit = null;
+  const f2 = tr.frame(c.x, c.z, c.idx), side = f2.lat >= 0 ? 0 : 1;
+  // how far the car's outline reaches towards the wall (nose 3.3 m ahead of the centre, tail 2.4 m behind, 1 m each side)
+  const sgn0 = Math.sign(f2.lat) || 1, oX = sgn0 * tr.LX[c.idx], oZ = sgn0 * tr.LZ[c.idx];
+  const dF = nfx * oX + nfz * oZ, dL = lx * oX + lz * oZ, reach = Math.max(3.3 * dF, -2.4 * dF) + 1.0 * Math.abs(dL);
+  const wall = (tr.wall ? tr.wall[side][c.idx] : half + run + 0.6) - Math.max(1.0, reach), soft = tr.wallType?.[side][c.idx] === 1;
   if (Math.abs(f2.lat) > wall) {
     const sgn = Math.sign(f2.lat), nX = -sgn * tr.LX[c.idx], nZ = -sgn * tr.LZ[c.idx]; // points back to the track
     const push = Math.abs(f2.lat) - wall; c.x += nX * push; c.z += nZ * push;
     let VX = nfx * c.u + lx * c.v, VZ = nfz * c.u + lz * c.v;
     const vn = VX * nX + VZ * nZ;
     if (vn < 0) {
-      c.impact = -vn;
-      VX -= 1.3 * vn * nX; VZ -= 1.3 * vn * nZ;
-      const scrub = Math.max(0.55, 1 - 0.04 * -vn); VX *= scrub; VZ *= scrub;
+      c.impact = -vn; c.hit = { idx: c.idx, side, speed: -vn, along: VX * tr.TX[c.idx] + VZ * tr.TZ[c.idx], soft };
+      // Tecpro blocks absorb the hit (little bounce, more slowing); armco and concrete bounce more
+      const e = soft ? 0.08 : 0.3; VX -= (1 + e) * vn * nX; VZ -= (1 + e) * vn * nZ;
+      const scrub = Math.max(soft ? 0.4 : 0.55, 1 - (soft ? 0.06 : 0.04) * -vn); VX *= scrub; VZ *= scrub;
       c.u = VX * nfx + VZ * nfz; c.v = VX * lx + VZ * lz; c.r *= 0.4;
     }
   }
@@ -196,5 +233,5 @@ const CAR_R = 0.352;
 // reset onto the track centre, pointing the right way
 export function resetCar(c, tr) {
   const j = c.idx; c.x = tr.X[j]; c.z = tr.Z[j]; c.yaw = Math.atan2(tr.TX[j], tr.TZ[j]);
-  c.u = c.v = c.r = 0; c.gear = 1; c.reverse = false; c.steer = 0;
+  c.u = c.v = c.r = 0; c.gear = 1; c.reverse = false; c.steer = 0; c.revT = 0;
 }

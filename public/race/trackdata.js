@@ -10,6 +10,10 @@ export const CIRCUITS = {
     elev: [[0, 0], [1, 3], [2, -19], [3, -4], [4, 16], [5, 40], [8, 20], [10, -8], [12, -24], [14, -60], [15, -63], [17, -40], [18, -6]],
     names: { 1: "La Source", 2: "Eau Rouge", 3: "Raidillon", 5: "Les Combes", 8: "Bruxelles", 10: "Pouhon", 12: "Fagnes", 14: "Stavelot", 17: "Blanchimont", 18: "Bus Stop" },
     sectors: [0.32, 0.71], scenery: "forest", half: 7.5, run: 13,
+    // pit lane: on the right of the start/finish straight, in the infield towards La Source
+    // (metres from the start line; the pit exit runs on past La Source in real life)
+    // (pit entry is in the middle of the Bus Stop chicane; the garages line the straight where the grid is)
+    pit: { side: "right", from: -235, to: 300, garages: [-185, 140] },
   },
 };
 
@@ -123,7 +127,44 @@ export function buildTrack(raw, cfg) {
     return { lat: dx * LX[i] + dz * LZ[i], along, y, s: dist[i] + along };
   };
 
-  return { cfg, N, len, X, Y, Z, TX, TZ, LX, LZ, K, slope, dist, kerb, corners, cIdx, half: cfg.half ?? 7.5, run: cfg.run ?? 13, nearestGlobal, nearestFrom, frame, wrap: (i) => wrap(i, N) };
+  const tr = { cfg, N, len, X, Y, Z, TX, TZ, LX, LZ, K, slope, dist, kerb, corners, cIdx, half: cfg.half ?? 7.5, run: cfg.run ?? 13, nearestGlobal, nearestFrom, frame, wrap: (i) => wrap(i, N) };
+  computeWalls(tr);
+  return tr;
+}
+
+// Where the barriers are on each side (distance from the centre line, per metre of track) and what
+// kind they are: 1 = Tecpro blocks (soft, in the corners), 0 = armco (straights), 2 = pit wall.
+// Where two parts of the track run close together, the barrier sits half-way between them.
+function computeWalls(tr) {
+  const { N, X, Z, LX, LZ, kerb } = tr, half = tr.half, def = half + tr.run + 0.6;
+  const wall = [new Float32Array(N).fill(def), new Float32Array(N).fill(def)]; // [left, right]
+  const type = [new Uint8Array(N), new Uint8Array(N)];
+  const lapGap = (a, b) => { const d = Math.abs(a - b); return Math.min(d, N - d); };
+  for (let i = 0; i < N; i += 2) {
+    for (const [k, s] of [[0, 1], [1, -1]]) {
+      for (let o = half + 2; o < def * 2 + half; o += 1.5) {
+        const n = tr.nearestGlobal(X[i] + LX[i] * o * s, Z[i] + LZ[i] * o * s, 1);
+        if (n.i >= 0 && lapGap(n.i, i) > 120 && n.d2 < half * half) { const w = Math.max(half + 2, (o + half) / 2 - 0.5); wall[k][i] = Math.min(wall[k][i], w); break; }
+      }
+      if (i + 1 < N) wall[k][i + 1] = wall[k][i];
+    }
+  }
+  // no sudden steps: take the closest wall nearby, then smooth it
+  for (const w of wall) {
+    const m = Float32Array.from(w); for (let i = 0; i < N; i++) { let v = m[i]; for (let k = -25; k <= 25; k++) v = Math.min(v, m[wrap(i + k, N)]); w[i] = v; }
+    for (let pass = 0; pass < 2; pass++) { const c = Float32Array.from(w); for (let i = 0; i < N; i++) { let a = 0; for (let k = -12; k <= 12; k++) a += c[wrap(i + k, N)]; w[i] = Math.min(c[i], a / 25); } }
+  }
+  // Tecpro where a car would go off: within 60 m of a kerbed corner
+  for (let i = 0; i < N; i++) { let near = false; for (let k = -60; k <= 60 && !near; k += 10) if (kerb[wrap(i + k, N)]) near = true; if (near) type[0][i] = type[1][i] = 1; }
+  // the pit wall
+  const pit = tr.cfg.pit;
+  if (pit) {
+    const k = pit.side === "left" ? 0 : 1;
+    for (let d = pit.from; d <= pit.to; d++) { const i = wrap(d, N); wall[k][i] = half + 3; type[k][i] = 2; }
+    tr.pit = { side: k === 0 ? 1 : -1, k, from: pit.from, to: pit.to, garages: pit.garages, wallOff: half + 3, laneIn: half + 3.6, laneOut: half + 17 };
+  }
+  tr.wall = wall; tr.wallType = type;
+  tr.wallAt = (i, lat) => wall[lat >= 0 ? 0 : 1][i];
 }
 
 // The fastest speed (m/s) the car can take at each sample, from the corner's curvature and the car's

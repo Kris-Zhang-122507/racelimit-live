@@ -46,7 +46,7 @@ export function createHud(root, tr) {
     update(c, t, opts) {
       if (msgUntil && performance.now() > msgUntil) { el.msg.hidden = true; msgUntil = 0; }
       put("gear", el.gear, c.reverse ? "R" : c.u < 0.5 && c.throttle < 0.05 && !t.running ? "N" : String(c.gear));
-      put("speed", el.speed, String(Math.round(Math.max(0, c.u) * 3.6)));
+      put("speed", el.speed, String(Math.round(Math.abs(c.u) * 3.6)));
       const r = Math.min(1, (c.rpm - 4000) / 8500);
       el.rpm.style.transform = `scaleX(${Math.max(0, r)})`; put("rpmT", el.rpmT, (Math.round(c.rpm / 100) * 100).toLocaleString());
       // shift lights: green, red, then all blue at the shift point (solid, no flashing)
