@@ -69,13 +69,19 @@ for (const file of readdirSync(TRACKS).filter((f) => f.endsWith(".json"))) {
     // the fastest few laps, from different drivers
     const picked = [], seen = new Set();
     for (const l of laps) { if (seen.has(l.driver_number)) continue; seen.add(l.driver_number); picked.push(l); if (picked.length === 3) break; }
+    // position data is sometimes patchy (jumps, gaps): only keep laps that are one clean loop
+    const clean = (pts) => { let len = 0; for (let k = 1; k < pts.length; k++) { const d = Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]) / 10; if (d > 120 || pts[k][3] < pts[k - 1][3]) return 0; len += d; } return len; };
     const lapData = [];
     for (const l of picked) {
       const t0 = Date.parse(l.date_start + (l.date_start.endsWith("Z") || l.date_start.includes("+") ? "" : "Z"));
       const pts = await locations(s.session_key, l.driver_number, t0 - 1500, t0 + l.lap_duration * 1000 + 1500);
-      if (pts.length > 100) lapData.push({ driver: l.driver_number, lap: l.lap_number, time: l.lap_duration, startAt: 1.5, pts });
+      const len = clean(pts);
+      if (pts.length > 100 && len > 0) lapData.push({ driver: l.driver_number, lap: l.lap_number, time: l.lap_duration, startAt: 1.5, pts, len: Math.round(len) });
+      else console.log(`  lap by #${l.driver_number} has patchy positions`);
     }
-    if (!lapData.length) { console.log("  no position data"); continue; }
+    if (!lapData.length) { console.log("  no clean position data"); continue; }
+    const lens = lapData.map((l) => l.len).sort((a, b) => a - b), mid = lens[Math.floor(lens.length / 2)];
+    if (lapData.some((l) => Math.abs(l.len / mid - 1) > 0.06)) { console.log(`  laps disagree on length (${lens.join("/")} m)`); continue; }
     // normal pit stops (not the odd long one), different drivers
     const pits = ((await json(`https://api.openf1.org/v1/pit?session_key=${s.session_key}`)) ?? []).filter((p) => p.pit_duration > 5 && p.pit_duration < 60 && p.date);
     const med = pits.map((p) => p.pit_duration).sort((a, b) => a - b)[Math.floor(pits.length / 2)] ?? 0;
