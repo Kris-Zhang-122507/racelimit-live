@@ -1,4 +1,4 @@
-import { stewards, driverStewarding } from "./stewards.js?v=mvfc9o8f";
+import { stewards, driverStewarding } from "./stewards.js?v=mvfe7n37";
 // Turns raw timing state into what the page shows: a tidy driver list, battles,
 // a "what just happened" story and race control messages with plain-English notes.
 

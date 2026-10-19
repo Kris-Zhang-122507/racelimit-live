@@ -1,5 +1,5 @@
 // Builds the 3D circuit from the track data: asphalt, white lines, kerbs, run-off, barriers
-// (Tecpro blocks that get pushed back when you hit them, armco, the pit wall), catch fencing,
+// (Tecpro rows that squash and stay dented when you hit them, armco, the pit wall), catch fencing,
 // terrain that follows the track's height, trees, grandstands, the pit lane and garages, the
 // start gantry and brake boards. Everything is generated, nothing is downloaded.
 import * as THREE from "three";
@@ -99,44 +99,115 @@ export function buildCircuit(tr, scene, { profile } = {}) {
 
   // ---------- barriers ----------
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), col = new THREE.Color();
-  // Tecpro: rounded plastic blocks strapped together, two rows deep, alternating colours
-  // blocks are grouped into short sections (one instanced mesh each) so only the sections in view get drawn
-  const tec = { blocks: [], chunks: [], active: new Set() };
+  const _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _s = new THREE.Vector3(), _e = new THREE.Euler(0, 0, 0, "YXZ");
+  // Tecpro, like the real thing: grey "pill" modules (rounded ends, an oval dip in the top) about 1.5 m
+  // long, 0.5 m deep and 1.1 m tall, lined up in rows with red spacers between the rows and a sponsor
+  // banner across the front. Three rows on the outside of corners, two elsewhere, a concrete wall behind.
+  // When a car goes in, the rows get pushed back and squashed and stay that way (tr.dent, shared with
+  // the physics). Modules are grouped into ~120 m sections, one instanced mesh each, so only the
+  // sections in view (and near the camera) get drawn.
+  const ROWD = 0.5, GAP = 0.16, PITCH = ROWD + GAP, MODL = 1.5, MODH = 1.1;
+  tr.dent = [new Float32Array(N), new Float32Array(N)]; tr.crush = [new Float32Array(N), new Float32Array(N)];
+  const tecRows = [new Uint8Array(N), new Uint8Array(N)];
+  for (const k of [0, 1]) for (let i = 0; i < N; i++) {
+    if (WT[k][i] !== 1) continue;
+    let out = false; for (let j = -40; j <= 40 && !out; j += 4) { const kk = tr.K[at(i + j)]; if ((k === 1 && kk < -0.002) || (k === 0 && kk > 0.002)) out = true; /* K > 0 turns right, so its outside is the left */ }
+    tecRows[k][i] = out ? 3 : 2; tr.crush[k][i] = tecRows[k][i] * ROWD * 0.62 + (tecRows[k][i] - 1) * GAP; // how far the rows can be squashed
+  }
+  const tecBack = (k, i) => (tecRows[k][i] || 2) * PITCH - GAP; // depth of the rows
+  const tec = { blocks: [], chunks: [], banners: [], dirty: new Set(), cullR: 480 };
   {
-    const blockG = new RoundedBoxGeometry(1.46, 1.02, 0.78, 1, 0.12);
-    const strapG = (() => { const parts = [new THREE.BoxGeometry(1.48, 0.07, 0.8), new THREE.BoxGeometry(1.48, 0.07, 0.8)]; parts[0].translate(0, 0.28, 0); parts[1].translate(0, -0.22, 0); const g = new THREE.BufferGeometry(); const pos = [], nor = [], idx = []; let base = 0; for (const p of parts) { pos.push(...p.attributes.position.array); nor.push(...p.attributes.normal.array); for (const v of p.index.array) idx.push(v + base); base += p.attributes.position.count; } g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3)); g.setIndex(idx); return g; })();
-    const MAX = 12000, blockM = new THREE.MeshStandardMaterial({ roughness: 0.45, metalness: 0.0 }), strapM = new THREE.MeshStandardMaterial({ color: 0x1A1B1F, roughness: 0.8 });
-    const palette = [0xEDEFF2, 0x1F4FB4, 0xEDEFF2, 0xC8202A];
+    // one module: an extruded "stadium" outline plus a darker oval on top (vertex colours; each block's
+    // instance colour tints it)
+    const moduleG = (() => {
+      const r = ROWD / 2, L = MODL, sh = new THREE.Shape();
+      sh.moveTo(-L / 2 + r, -r); sh.lineTo(L / 2 - r, -r); sh.absarc(L / 2 - r, 0, r, -Math.PI / 2, Math.PI / 2, false); sh.lineTo(-L / 2 + r, r); sh.absarc(-L / 2 + r, 0, r, Math.PI / 2, Math.PI * 1.5, false);
+      const body = new THREE.ExtrudeGeometry(sh, { depth: MODH, bevelEnabled: false, curveSegments: 4 }); // already non-indexed body.rotateX(-Math.PI / 2);
+      const dip = new THREE.CircleGeometry(1, 12).toNonIndexed(); dip.rotateX(-Math.PI / 2); dip.scale(L * 0.33, 1, r * 0.62); dip.translate(0, MODH + 0.004, 0);
+      const parts = [[body, [1, 1, 1]], [dip, [0.5, 0.5, 0.53]]], pos = [], nor = [], colA = [];
+      for (const [g, c] of parts) { pos.push(...g.attributes.position.array); nor.push(...g.attributes.normal.array); for (let v = 0; v < g.attributes.position.count; v++) colA.push(...c); }
+      const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute("color", new THREE.Float32BufferAttribute(colA, 3));
+      return g;
+    })();
+    const spacerG = new RoundedBoxGeometry(0.34, 1.0, GAP + 0.02, 1, 0.04); spacerG.translate(0, 0.5 + 0.04, 0);
+    const modM = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62, metalness: 0 }), spacerM = new THREE.MeshStandardMaterial({ color: 0xC4262B, roughness: 0.55 });
+    const MAX = 16000;
     for (const s of [1, -1]) {
       const k = sideK(s);
       for (const [a, b] of runs((i) => WT[k][i] === 1, 2)) {
-        // space the blocks along the barrier itself (on the outside of a hairpin it is much longer than the centre line)
-        let lx = Infinity, lz = Infinity;
-        for (let kk = a; kk < b; kk++) {
-          const i = at(kk), d = dist[i] + (kk >= N ? tr.len : 0), ox = X[i] + LX[i] * s * W[k][i], oz = Z[i] + LZ[i] * s * W[k][i];
-          if ((ox - lx) ** 2 + (oz - lz) ** 2 < 1.47 * 1.47) continue; lx = ox; lz = oz;
-          // a second row on the outside of the corners, where cars actually go off
-          const outside = (k === 1 && tr.K[i] > 0.002) || (k === 0 && tr.K[i] < -0.002);
-          for (const row of outside ? [0, 1] : [0]) {
+        // space the modules evenly along the barrier itself (round the outside of a hairpin it is much
+        // longer than the centre line), end to end with a small gap
+        const pts = [];
+        for (let kk = a; kk <= b; kk++) { const i = at(kk); pts.push({ i, d: dist[i] + (kk >= N ? tr.len : 0), x: X[i] + LX[i] * s * W[k][i], z: Z[i] + LZ[i] * s * W[k][i] }); }
+        let segA = 0, acc = 0;
+        for (let target = MODL / 2; ; target += MODL + 0.04) {
+          while (segA < pts.length - 1) { const sl = Math.hypot(pts[segA + 1].x - pts[segA].x, pts[segA + 1].z - pts[segA].z); if (acc + sl >= target) break; acc += sl; segA++; }
+          if (segA >= pts.length - 1) break;
+          const p0 = pts[segA], p1 = pts[segA + 1], sl = Math.hypot(p1.x - p0.x, p1.z - p0.z) || 1, f = (target - acc) / sl;
+          const pt = f < 0.5 ? p0 : p1, i = pt.i, d = p0.d + (p1.d - p0.d) * f;
+          const yaw = Math.atan2(p1.x - p0.x, p1.z - p0.z) + Math.PI / 2, rows = tecRows[k][i] || 2;
+          // where along the centre-line index this module's middle is (it sits between two indices)
+          const ex = p0.x + (p1.x - p0.x) * f - (X[i] + LX[i] * s * W[k][i]), ez = p0.z + (p1.z - p0.z) * f - (Z[i] + LZ[i] * s * W[k][i]);
+          for (let row = 0; row < rows; row++) {
             if (tec.blocks.length >= MAX) break;
-            const o = s * (W[k][i] + 0.4 + row * 0.82);
-            const pos = new THREE.Vector3(X[i] + LX[i] * o, Y[i] + 0.51, Z[i] + LZ[i] * o), rot = new THREE.Quaternion().setFromAxisAngle(up, Math.atan2(TX[i], TZ[i]) + Math.PI / 2);
-            tec.blocks.push({ i, k, d, row, base: pos.clone(), rot: rot.clone(), off: new THREE.Vector3(), vel: new THREE.Vector3(), spin: 0, yaw: 0, tilt: 0, tiltV: 0, out: new THREE.Vector3(LX[i] * s, 0, LZ[i] * s), color: palette[Math.floor(d / 1.5 + row) % palette.length] });
+            const shade = 0.17 + ((Math.sin(d * 12.9898 + row * 78.233) * 43758.5453) % 1 + 1) % 1 * 0.05;
+            tec.blocks.push({ i, k, s, d, row, rows, w: W[k][i], ex, ez, yaw, twist: 0, color: new THREE.Color(shade, shade + 0.01, shade + 0.025), spacer: row > 0 });
           }
         }
       }
     }
     const byChunk = new Map();
-    tec.blocks.forEach((b, n) => { const key = b.k * 1000 + Math.floor(b.d / 120); if (!byChunk.has(key)) byChunk.set(key, []); byChunk.get(key).push(n); });
+    tec.blocks.forEach((bl, n) => { const key = bl.k * 1000 + Math.floor(bl.d / 120); if (!byChunk.has(key)) byChunk.set(key, []); byChunk.get(key).push(n); });
     for (const list of byChunk.values()) {
-      const mesh = new THREE.InstancedMesh(blockG, blockM, list.length), straps = new THREE.InstancedMesh(strapG, strapM, list.length), ch = { mesh, straps, dirty: false };
-      list.forEach((n, j) => { const b = tec.blocks[n]; b.chunk = ch; b.slot = j; m4.compose(b.base, b.rot, new THREE.Vector3(1, 1, 1)); mesh.setMatrixAt(j, m4); straps.setMatrixAt(j, m4); mesh.setColorAt(j, col.set(b.color)); });
-      mesh.instanceColor.needsUpdate = true; mesh.computeBoundingSphere(); straps.computeBoundingSphere(); mesh.boundingSphere.radius += 4; straps.boundingSphere.radius += 4;
-      mesh.receiveShadow = true; group.add(mesh, straps); tec.chunks.push(ch);
+      const nSp = list.filter((n) => tec.blocks[n].spacer).length;
+      const mesh = new THREE.InstancedMesh(moduleG, modM, list.length), spacers = new THREE.InstancedMesh(spacerG, spacerM, Math.max(1, nSp)), ch = { mesh, spacers, dirty: false, list };
+      let sp = 0;
+      list.forEach((n, j) => { const bl = tec.blocks[n]; bl.chunk = ch; bl.slot = j; if (bl.spacer) bl.spSlot = sp++; mesh.setColorAt(j, bl.color); poseBlock(bl); });
+      spacers.count = sp;
+      mesh.instanceColor.needsUpdate = true; mesh.computeBoundingSphere(); spacers.computeBoundingSphere(); mesh.boundingSphere.radius += 4; spacers.boundingSphere.radius += 4;
+      ch.center = mesh.boundingSphere.center.clone(); ch.radius = mesh.boundingSphere.radius;
+      mesh.receiveShadow = true; group.add(mesh, spacers); tec.chunks.push(ch);
     }
-    // concrete wall behind the blocks
+    // concrete wall behind the rows
     const conc = new THREE.MeshStandardMaterial({ map: T.concrete, roughness: 0.85, side: THREE.DoubleSide });
-    for (const s of [1, -1]) { const k = sideK(s); for (const [a, b] of runs((i) => WT[k][i] === 1, 2)) strip(a, b, (i) => sided(s, [[W[k][i] + 1.75, 0], [W[k][i] + 1.75, 1.2], [W[k][i] + 2.05, 1.2]]), conc, { vScale: 4 }); }
+    for (const s of [1, -1]) { const k = sideK(s); for (const [a, b] of runs((i) => WT[k][i] === 1, 2)) strip(a, b, (i) => sided(s, [[W[k][i] + tecBack(k, i) + 0.06, 0], [W[k][i] + tecBack(k, i) + 0.06, 1.3], [W[k][i] + tecBack(k, i) + 0.36, 1.3]]), conc, { vScale: 4 }); }
+    // the banner across the front row: made-up sponsors
+    const sponsors = [["NORTHWIND", "#1D4E89", "#F2F4F7"], ["ARCLIGHT", "#F2F4F7", "#E2502B"], ["TIDELINE", "#0E7C7B", "#F2F4F7"], ["QUILLON", "#16181D", "#F5C518"], ["BLUEFERN", "#F2F4F7", "#2E7D4F"], ["RACELIMIT", "#16181D", "#FFA51F"]];
+    const bannerTex = tex(canvas(2048, 128, (g, w, h) => {
+      const seg = w / sponsors.length;
+      sponsors.forEach(([name, bg, fg], n) => { g.fillStyle = bg; g.fillRect(n * seg, 0, seg, h); g.fillStyle = fg; g.font = "700 76px BC, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(name, n * seg + seg / 2, h / 2 + 3); g.fillRect(n * seg + 18, h - 16, seg - 36, 5); });
+      g.fillStyle = "rgba(0,0,0,.25)"; for (let n = 0; n <= sponsors.length; n++) g.fillRect(n * seg - 1, 0, 2, h);
+    }));
+    const bannerM = new THREE.MeshStandardMaterial({ map: bannerTex, roughness: 0.75, side: THREE.DoubleSide });
+    const BANNER_LEN = 42; // metres for one run of all the sponsors
+    for (const s of [1, -1]) {
+      const k = sideK(s);
+      for (const [a, b] of runs((i) => WT[k][i] === 1, 6)) {
+        const idx = [], pos = [], uv = [], ind = [];
+        let along = 0, px = null, pz = null;
+        for (let kk = a; kk <= b; kk++) {
+          const i = at(kk), o = s * (W[k][i] - 0.025), x = X[i] + LX[i] * o, z = Z[i] + LZ[i] * o;
+          if (px !== null) along += Math.hypot(x - px, z - pz); px = x; pz = z;
+          const u = (s > 0 ? along : -along) / BANNER_LEN; // flipped on the right so the words read the right way round
+          pos.push(x, Y[i] + 0.14, z, x, Y[i] + 0.98, z); uv.push(u, 0.02, u, 0.98); idx.push(i);
+          if (kk < b) { const v = (kk - a) * 2; ind.push(v, v + 2, v + 1, v + 1, v + 2, v + 3); }
+        }
+        const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(ind); g.computeVertexNormals();
+        const m = new THREE.Mesh(g, bannerM); m.receiveShadow = true; group.add(m);
+        tec.banners.push({ k, s, idx, mesh: m });
+      }
+    }
+  }
+  // where a module sits: the rows between the dent and the concrete are squashed evenly, so the front
+  // face is exactly where the physics says the barrier now is; hit modules are also knocked a bit crooked
+  function poseBlock(bl) {
+    const i = bl.i, D = Math.max(tr.dent[bl.k][i], tr.dent[bl.k][at(i - 1)], tr.dent[bl.k][at(i + 1)]);
+    const T0 = bl.rows * PITCH - GAP, sq = Math.max(0.2, (T0 - D) / T0);
+    const o = bl.s * (bl.w + D + bl.row * PITCH * sq + (ROWD * sq) / 2), yaw = bl.yaw + bl.twist * Math.min(1, D / 0.4);
+    _p.set(X[i] + LX[i] * o + bl.ex, Y[i], Z[i] + LZ[i] * o + bl.ez); _q.setFromAxisAngle(up, yaw);
+    _s.set(1, 1, sq); m4.compose(_p, _q, _s); bl.chunk.mesh.setMatrixAt(bl.slot, m4);
+    if (bl.spacer) { const os = bl.s * (bl.w + D + (bl.row * PITCH - GAP / 2) * sq); _p.set(X[i] + LX[i] * os + bl.ex, Y[i], Z[i] + LZ[i] * os + bl.ez); _q.setFromAxisAngle(up, bl.yaw); m4.compose(_p, _q, _s); bl.chunk.spacers.setMatrixAt(bl.spSlot, m4); }
+    bl.chunk.dirty = true;
   }
   // armco: two rails on posts
   {
@@ -155,7 +226,7 @@ export function buildCircuit(tr, scene, { profile } = {}) {
   {
     const fenceMat = new THREE.MeshStandardMaterial({ map: T.fence, alphaTest: 0.45, side: THREE.DoubleSide, metalness: 0.6, roughness: 0.5 });
     const posts = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.07, 0.07, 4.2, 4, 1, true), new THREE.MeshStandardMaterial({ color: 0x8A9098, metalness: 0.8, roughness: 0.35 }), 6000); let np = 0;
-    const fo = (k, i) => W[k][i] + (WT[k][i] === 1 ? 2.0 : 1.6);
+    const fo = (k, i) => W[k][i] + (WT[k][i] === 1 ? tecBack(k, i) + 0.6 : 1.6);
     for (const s of [1, -1]) {
       const k = sideK(s);
       for (const [a, b] of runs((i) => WT[k][i] !== 2, 2)) {
@@ -166,19 +237,52 @@ export function buildCircuit(tr, scene, { profile } = {}) {
     posts.count = np; group.add(posts);
   }
 
-  // ---------- pit lane, pit wall and garages ----------
-  if (pit) {
-    const s = pit.side, k = pit.k, from = pit.from, to = pit.to;
+  // ---------- pit lane: its own road (tr.pitRoad), the pit wall, garages, boxes and the speed-limit lines ----------
+  const pitInfo = { boxes: [] };
+  if (tr.pitRoad) {
+    const R = tr.pitRoad, M = R.N, s = pit.side, tk = R.tk, ts = tk === 0 ? 1 : -1; // ts: sign of "towards the track" in pit-road terms
+    const cl = (i) => Math.max(0, Math.min(M - 1, i));
+    // a ribbon along the pit road with a cross-section [[offset, height], …] (offsets in the pit road's own
+    // left/right terms, listed right to left); `prof` may be a function of the sample
+    const pstrip = (a, b, prof, mat, { vScale = 10, uScale = 1, lift = 0 } = {}) => {
+      const pos = [], uv = [], idx = []; let M0 = 0;
+      for (let n = a; n <= b; n++) {
+        const i = cl(n), pr = typeof prof === "function" ? prof(i) : prof; M0 = pr.length;
+        for (let m = 0; m < M0; m++) { const [o, h] = pr[m]; pos.push(R.X[i] + R.LX[i] * o, R.Y[i] + h + lift, R.Z[i] + R.LZ[i] * o); uv.push((m / (M0 - 1)) * uScale, R.dist[i] / vScale); }
+        if (n < b) for (let m = 0; m < M0 - 1; m++) { const o = (n - a) * M0 + m; idx.push(o, o + M0, o + 1, o + 1, o + M0, o + M0 + 1); }
+      }
+      const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+      const m = new THREE.Mesh(g, mat); m.receiveShadow = true; group.add(m); return m;
+    };
+    const order = (pts) => (pts[0][0] <= pts[pts.length - 1][0] ? pts : pts.slice().reverse()); // right to left, so faces point up
+    const prunsP = (test) => { const out = []; let a = -1; for (let i = 0; i <= M; i++) { const ok = i < M && test(i); if (ok && a < 0) a = i; if (!ok && a >= 0) { if (i - a > 1) out.push([a, i - 1]); a = -1; } } return out; };
     const conc = new THREE.MeshStandardMaterial({ map: T.concrete, roughness: 0.85, side: THREE.DoubleSide });
-    // pit wall with a tall debris fence
-    strip(from, to, (i) => sided(s, [[pit.wallOff, 0], [pit.wallOff, 1.1], [pit.wallOff + 0.45, 1.1], [pit.wallOff + 0.45, 0]]), conc, { vScale: 4 });
+    const gOut = (i) => R.wall[R.gk][i], tIn = (i) => (R.bar[i] ? R.hw[i] : R.hw[i] + 0.3);
+    // the surface: from the pit wall (or the track's edge where they merge) out to the garages / outer wall
+    pstrip(0, M - 1, (i) => order([[ts * tIn(i), 0.0], [-ts * gOut(i), 0.0]]), asphaltMat, { vScale: 6, lift: 0.012 });
+    // white lines: along the edge on the track side where they merge (you mustn't cross it), the fast
+    // lane / working lane line by the garages, and the speed-limit lines across the lane
+    for (const [a, b] of prunsP((i) => !R.bar[i])) pstrip(a, b, (i) => order([[ts * (R.hw[i] + 0.05), 0.02], [ts * (R.hw[i] + 0.3), 0.02]]), lineMat, { lift: 0.012 });
+    const gIdx = []; for (let i = 0; i < M; i++) if (R.mj[i] >= R.garages[0] && R.mj[i] <= R.garages[1]) gIdx.push(i);
+    if (gIdx.length) pstrip(gIdx[0], gIdx[gIdx.length - 1], order([[-ts * (R.hw[gIdx[0]] - 0.05), 0.02], [-ts * (R.hw[gIdx[0]] + 0.15), 0.02]]), lineMat, { lift: 0.012 });
+    const limitLine = (d, label) => {
+      let i = 0; while (i < M - 1 && R.dist[i] < d) i++;
+      pstrip(i, i + 1, order([[ts * R.hw[i], 0.022], [-ts * gOut(i), 0.022]]), lineMat, { lift: 0.012 });
+      // a sign on the pit wall side: the speed limit
+      const sign = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.0, 0.06), new THREE.MeshStandardMaterial({ map: tex(canvas(128, 128, (g) => { g.fillStyle = "#F4F4F4"; g.fillRect(0, 0, 128, 128); g.lineWidth = 12; g.strokeStyle = label === "end" ? "#16181D" : "#C8161A"; g.beginPath(); g.arc(64, 64, 52, 0, 7); g.stroke(); g.fillStyle = "#16181D"; g.font = "700 50px BC, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("80", 64, 67); if (label === "end") { g.lineWidth = 8; g.beginPath(); g.moveTo(26, 102); g.lineTo(102, 26); g.stroke(); } })), roughness: 0.6 }));
+      const o = -ts * (gOut(i) - 0.4); sign.position.set(R.X[i] + R.LX[i] * o, R.Y[i] + 1.6, R.Z[i] + R.LZ[i] * o); sign.rotation.y = Math.atan2(R.TX[i], R.TZ[i]) + Math.PI; group.add(sign);
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.1, 6), new THREE.MeshStandardMaterial({ color: 0x8A9098 })); post.position.set(sign.position.x, R.Y[i] + 0.55, sign.position.z); group.add(post);
+    };
+    limitLine(R.limitFrom, "start"); limitLine(R.limitTo, "end");
+    // the pit wall between the track and the lane, with a debris fence along the garages
+    for (const [a, b] of prunsP((i) => R.bar[i])) {
+      pstrip(a, b, (i) => order([[ts * R.hw[i], 0], [ts * R.hw[i], 1.1], [ts * (R.hw[i] + R.WALL), 1.1], [ts * (R.hw[i] + R.WALL), 0]]), conc, { vScale: 4 });
+    }
     const pf = new THREE.MeshStandardMaterial({ map: T.fence, alphaTest: 0.45, side: THREE.DoubleSide, metalness: 0.6, roughness: 0.5 });
-    strip(from, to, sided(s, [[pit.wallOff + 0.2, 1.1], [pit.wallOff + 0.2, 4.2]]), pf, { vScale: 3, uScale: 0.8 });
-    // the lane itself, pointed at each end where it joins the track
-    const laneW = (i) => { const d = ((dist[i] - dist[at(from)] + tr.len) % tr.len), len = to - from; return smoothstep(0, 70, d) * smoothstep(0, 70, len - d); };
-    strip(from, to, (i) => sided(s, [[pit.wallOff + 0.45, 0.0], [pit.wallOff + 0.45 + (pit.laneOut - pit.wallOff) * Math.max(0.05, laneW(i)), 0.0]]), asphaltMat, { vScale: 6 });
-    strip(from + 70, to - 70, sided(s, [[pit.laneOut - 6.2, 0.012], [pit.laneOut - 6.0, 0.012]]), lineMat); // fast lane / working lane line
-    // garages: a long two-storey building following the straight, ten made-up teams
+    if (gIdx.length) pstrip(Math.max(0, gIdx[0] - 40), Math.min(M - 1, gIdx[gIdx.length - 1] + 40), (i) => [[ts * (R.hw[i] + 0.2), 1.1], [ts * (R.hw[i] + 0.2), 4.2]], pf, { vScale: 3, uScale: 0.8 });
+    // the outer wall where there are no garages
+    for (const [a, b] of prunsP((i) => !(R.mj[i] >= R.garages[0] && R.mj[i] <= R.garages[1]))) pstrip(a, b, (i) => order([[-ts * gOut(i), 0], [-ts * gOut(i), 1.0], [-ts * (gOut(i) + 0.4), 1.0]]), conc, { vScale: 4 });
+    // garages: ten made-up teams, facing the lane, with a painted box in front of each
     const teams = ["RACELIMIT", "AXIOM", "HALCYON", "VORTEX", "NOVA", "KESTREL GP", "MERIDIAN", "ORBIT", "TALON", "SOLSTICE"];
     const cols = ["#FFA51F", "#5AA9FF", "#C9B6FF", "#FF6B3A", "#7FE0B8", "#F5C518", "#E8EAF0", "#FF5A8A", "#9BDB4F", "#3FA0FF"];
     const [g0, g1] = pit.garages, segLen = (g1 - g0) / 10, depth = 18;
@@ -196,6 +300,12 @@ export function buildCircuit(tr, scene, { profile } = {}) {
       g.lookAt(X[i], Y[i], Z[i]); // +z of the group (the doors) faces the track
       g.traverse((m) => { if (m.isMesh) { m.castShadow = m !== sign; m.receiveShadow = true; } });
       group.add(g);
+      // the pit box: a painted rectangle in the working lane in front of the garage
+      let pi = 0, bd = Infinity; for (let n = 0; n < M; n++) { const q = Math.abs(R.mj[n] - (g0 + (t + 0.5) * segLen)); if (q < bd) { bd = q; pi = n; } }
+      const bo = -ts * (R.hw[pi] + (gOut(pi) - R.hw[pi]) * 0.45), bx = R.X[pi] + R.LX[pi] * bo, bz = R.Z[pi] + R.LZ[pi] * bo;
+      const box = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 6.4), new THREE.MeshStandardMaterial({ map: tex(canvas(64, 128, (cg, w, h) => { cg.fillStyle = "rgba(0,0,0,0)"; cg.clearRect(0, 0, w, h); cg.strokeStyle = cols[t]; cg.lineWidth = 5; cg.strokeRect(3, 3, w - 6, h - 6); cg.fillStyle = cols[t]; cg.fillRect(6, h * 0.5 - 2, w - 12, 4); })), transparent: true, roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -3 }));
+      box.rotation.set(-Math.PI / 2, 0, Math.atan2(R.TX[pi], R.TZ[pi])); box.position.set(bx, R.Y[pi] + 0.03, bz); group.add(box);
+      pitInfo.boxes.push({ team: teams[t], color: cols[t], x: bx, z: bz, pidx: pi, yaw: Math.atan2(R.TX[pi], R.TZ[pi]) });
     }
     const mid = at(Math.round((g0 + g1) / 2));
     keepOut.push({ x: X[mid] + LX[mid] * s * (pit.laneOut + depth / 2), z: Z[mid] + LZ[mid] * s * (pit.laneOut + depth / 2), hl: (g1 - g0) / 2 + 30, hw: depth / 2 + 20, ang: Math.atan2(TX[mid], TZ[mid]) });
@@ -273,7 +383,7 @@ export function buildCircuit(tr, scene, { profile } = {}) {
     tryStand(at(-150), opp, 150, 20); // opposite the pits
     const corners = [...tr.corners].sort((a, b) => Math.abs(tr.K[b.i]) - Math.abs(tr.K[a.i]));
     let placed = 0;
-    for (const c of corners) { if (placed >= 4) break; const outside = tr.K[c.i] > 0 ? -1 : 1; if (tryStand(c.i, outside, 90, 14) || tryStand(at(c.i - 60), outside, 80, 12)) placed++; }
+    for (const c of corners) { if (placed >= 4) break; const outside = tr.K[c.i] > 0 ? 1 : -1; /* K > 0 turns right: the outside is on the left */ if (tryStand(c.i, outside, 90, 14) || tryStand(at(c.i - 60), outside, 80, 12)) placed++; }
   }
 
   // ---------- trees (instanced firs), kept away from the track, pits and stands ----------
@@ -315,55 +425,47 @@ export function buildCircuit(tr, scene, { profile } = {}) {
       if (v0 > 70 && v1 < v0 - 0.02 && profile[at(i - 1)] <= v0 + 0.001) {
         let j = i; while (profile[at(j + 1)] < profile[at(j)] && j - i < 600) j++;
         if (v0 - profile[at(j)] < 25) continue;
-        const s = Math.sign(tr.K[at(j)]) > 0 ? -1 : 1;
+        const s = Math.sign(tr.K[at(j)]) > 0 ? 1 : -1; // on the outside of the approach
         for (const d of [150, 100, 50]) { const kk = at(i + Math.max(0, (j - i) - d)), b = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.5, 0.08), mats[d]); const o = s * (half + 2.2); b.position.set(X[kk] + LX[kk] * o, Y[kk] + 1.1, Z[kk] + LZ[kk] * o); b.rotation.y = Math.atan2(TX[kk], TZ[kk]) + Math.PI; group.add(b); }
         i = j;
       }
     }
   }
 
-  // ---------- Tecpro reacting to hits: blocks near the impact slide back, twist, and the hardest hits
-  // knock one loose. They stay where they end up (like the real thing) until the session restarts. ----------
+  // ---------- Tecpro reacting to hits: the physics squashes tr.dent where the car goes in; here the
+  // modules, spacers and banner nearby are moved to match. They stay that way until the session restarts. ----------
   const barriers = {
     hit(h) {
-      if (!h || !h.soft || h.speed < 1.5) return;
-      const d0 = dist[h.idx], reach = 3 + Math.min(6, h.speed * 0.25);
-      for (let n = 0; n < tec.blocks.length; n++) {
-        const b = tec.blocks[n]; if (b.k !== h.side) continue;
-        let dd = b.d - d0; if (dd > tr.len / 2) dd -= tr.len; if (dd < -tr.len / 2) dd += tr.len;
-        if (Math.abs(dd) > reach) continue;
-        const f = Math.exp(-((dd / (reach * 0.55)) ** 2)) * (b.row ? 0.7 : 1), push = Math.min(6, h.speed * 0.13 * f);
-        b.vel.addScaledVector(b.out, push); b.vel.addScaledVector(new THREE.Vector3(TX[b.i], 0, TZ[b.i]), Math.sign(h.along || 0) * push * 0.2);
-        b.spin += (Math.random() - 0.5) * push * 0.25 + dd * 0.012 * push;
-        if (h.speed > 30 && f > 0.8 && b.row === 0) { b.vel.y += Math.min(3, h.speed * 0.05); b.tiltV += (Math.random() - 0.5) * 2.5; }
-        tec.active.add(n);
+      if (!h || !h.soft) return;
+      const d0 = dist[h.idx];
+      for (const bl of tec.blocks) {
+        if (bl.k !== h.side) continue;
+        let dd = bl.d - d0; if (dd > tr.len / 2) dd -= tr.len; if (dd < -tr.len / 2) dd += tr.len;
+        if (Math.abs(dd) > 8) continue;
+        // a glancing hit drags the modules round a little in the direction the car was going
+        const tw = Math.max(-0.28, Math.min(0.28, (0.05 + Math.abs(h.along || 0) * 0.005) * (((bl.d * 7.31 + bl.row * 3.7) % 2) < 1 ? 1 : -1)));
+        if (Math.abs(tw) > Math.abs(bl.twist)) bl.twist = tw;
+        tec.dirty.add(bl);
+      }
+      for (const bn of tec.banners) if (bn.k === h.side) bn.dirty = true;
+    },
+    update() {
+      if (tec.dirty.size) { for (const bl of tec.dirty) poseBlock(bl); tec.dirty.clear(); }
+      for (const ch of tec.chunks) if (ch.dirty) { ch.mesh.instanceMatrix.needsUpdate = true; ch.spacers.instanceMatrix.needsUpdate = true; ch.dirty = false; }
+      for (const bn of tec.banners) if (bn.dirty) {
+        const p = bn.mesh.geometry.attributes.position, dent = tr.dent[bn.k];
+        bn.idx.forEach((i, n) => { const o = bn.s * (W[bn.k][i] + dent[i] - 0.025); for (const v of [n * 2, n * 2 + 1]) { p.setX(v, X[i] + LX[i] * o); p.setZ(v, Z[i] + LZ[i] * o); } });
+        p.needsUpdate = true; bn.dirty = false;
       }
     },
-    update(dt) {
-      if (!tec.active.size) return;
-      const e = new THREE.Euler(), sc = new THREE.Vector3(1, 1, 1), pos = new THREE.Vector3(), rot = new THREE.Quaternion();
-      for (const n of tec.active) {
-        const b = tec.blocks[n];
-        b.off.addScaledVector(b.vel, dt); b.yaw += b.spin * dt; b.tilt += b.tiltV * dt;
-        if (b.off.y > 0) b.vel.y -= 9.81 * dt; else { b.off.y = 0; if (b.vel.y < 0) b.vel.y = 0; b.tiltV *= 0.5; }
-        const fr = b.off.y > 0 ? 0.2 : 9; // sliding friction on the ground
-        const hv = Math.hypot(b.vel.x, b.vel.z), dv = Math.min(hv, fr * dt * 1.6); if (hv > 1e-4) { b.vel.x -= (b.vel.x / hv) * dv; b.vel.z -= (b.vel.z / hv) * dv; }
-        b.spin *= Math.max(0, 1 - dt * 4); b.tiltV *= Math.max(0, 1 - dt * 2);
-        // the wall behind stops the back row; blocks can't sink into it
-        const outD = b.off.x * b.out.x + b.off.z * b.out.z, lim = b.row ? 0.45 : 1.2;
-        if (outD > lim) { b.off.addScaledVector(b.out, lim - outD); const vo = b.vel.x * b.out.x + b.vel.z * b.out.z; if (vo > 0) b.vel.addScaledVector(b.out, -vo); }
-        // and they can't slide more than a couple of metres along the barrier
-        const tx = TX[b.i], tz = TZ[b.i], alongD = b.off.x * tx + b.off.z * tz; if (Math.abs(alongD) > 2) { b.off.x -= tx * (alongD - Math.sign(alongD) * 2); b.off.z -= tz * (alongD - Math.sign(alongD) * 2); b.vel.x *= 0.3; b.vel.z *= 0.3; }
-        pos.copy(b.base).add(b.off); rot.copy(b.rot).multiply(new THREE.Quaternion().setFromEuler(e.set(b.tilt, b.yaw, 0)));
-        m4.compose(pos, rot, sc); b.chunk.mesh.setMatrixAt(b.slot, m4); b.chunk.straps.setMatrixAt(b.slot, m4); b.chunk.dirty = true;
-        if (Math.hypot(b.vel.x, b.vel.y, b.vel.z) < 0.02 && Math.abs(b.spin) < 0.01 && b.off.y <= 0 && Math.abs(b.tiltV) < 0.01) tec.active.delete(n);
-      }
-      for (const ch of tec.chunks) if (ch.dirty) { ch.mesh.instanceMatrix.needsUpdate = true; ch.straps.instanceMatrix.needsUpdate = true; ch.dirty = false; }
-    },
+    // only draw barrier sections near the camera (they're small; far away they're just pixels)
+    cull(cam) { const r2 = tec.cullR * tec.cullR; for (const ch of tec.chunks) { const v = ch.center.distanceToSquared(cam) < (tec.cullR + ch.radius) ** 2 || ch.center.distanceToSquared(cam) < r2; ch.mesh.visible = ch.spacers.visible = v; } },
     reset() {
-      for (let n = 0; n < tec.blocks.length; n++) { const b = tec.blocks[n]; if (!b.off.lengthSq() && !b.yaw && !b.tilt) continue; b.off.set(0, 0, 0); b.vel.set(0, 0, 0); b.yaw = b.tilt = b.spin = b.tiltV = 0; m4.compose(b.base, b.rot, new THREE.Vector3(1, 1, 1)); b.chunk.mesh.setMatrixAt(b.slot, m4); b.chunk.straps.setMatrixAt(b.slot, m4); b.chunk.dirty = true; }
-      tec.active.clear(); for (const ch of tec.chunks) if (ch.dirty) { ch.mesh.instanceMatrix.needsUpdate = true; ch.straps.instanceMatrix.needsUpdate = true; ch.dirty = false; }
+      tr.dent[0].fill(0); tr.dent[1].fill(0);
+      for (const bl of tec.blocks) { bl.twist = 0; poseBlock(bl); }
+      for (const bn of tec.banners) bn.dirty = true;
+      barriers.update();
     },
   };
-  return { group, groundAt, barriers };
+  return { group, groundAt, barriers, pitInfo };
 }

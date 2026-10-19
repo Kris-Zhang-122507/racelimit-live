@@ -63,6 +63,6 @@ h1 { font: 700 34px BC; letter-spacing: .02em; margin: 6px 0 2px; }
 .h-rpm { height: 5px; border-radius: 3px; background: #262B36; overflow: hidden; } .h-rpm i { display: block; height: 100%; background: linear-gradient(90deg, #C3C9D4, #FFB547); transform-origin: left; }
 .h-ers { width: 150px; } .h-bar { height: 8px; border-radius: 4px; background: #262B36; overflow: hidden; } .h-bar i { display: block; height: 100%; background: #2FD27A; transform-origin: left; } .h-bar i.dep { background: #5AA9FF; } .h-bar i.harv { background: #2FD27A; }
 .h-small { font-size: 12px; }
-.h-aero { justify-items: center; } .h-chip { font: 700 11px B; letter-spacing: .08em; padding: 4px 9px; border-radius: 10px; background: #1C2230; color: var(--soft); white-space: nowrap; } .h-chip.on { background: #10213A; color: #7FC4FF; }
+.h-aero { justify-items: center; } .h-chip { font: 700 11px B; letter-spacing: .08em; padding: 4px 9px; border-radius: 10px; background: #1C2230; color: var(--soft); white-space: nowrap; } .h-chip.on { background: #10213A; color: #7FC4FF; } .h-chip.pit { background: #2A2416; color: #E8C27A; } .h-chip.pit.on { background: #4A3410; color: #FFB547; }
 .h-hint { left: 14px; bottom: 14px; padding: 8px 12px; font: 600 12px B; color: var(--soft); max-width: 300px; transition: opacity 1s; } .h-hint.fade { opacity: 0; }
 @media (max-width: 900px) { .h-revs { width: 150px; } .h-ers { width: 100px; } .h-aero { display: none !important; } .h-map { width: 120px; height: 120px; } .h-hint { display: none; } .h-time { width: 180px; } .h-cur { font-size: 22px; } }

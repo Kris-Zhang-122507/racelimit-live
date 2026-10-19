@@ -1,22 +1,22 @@
 // RaceLimit Race — step 1: one car at Spa. Drive with the keyboard or a controller.
 import * as THREE from "three";
 import { Sky } from "three/addons/objects/Sky.js";
-import { CIRCUITS, buildTrack, speedProfile, racingLine } from "./trackdata.js?v=mvfc9o8f";
-import { newCar, stepCar, resetCar, ENVELOPE } from "./physics.js?v=mvfc9o8f";
-import { buildCircuit } from "./trackmesh.js?v=mvfc9o8f";
-import { createInput } from "./input.js?v=mvfc9o8f";
-import { createHud } from "./hud.js?v=mvfc9o8f";
-import { createEngineAudio } from "./audio.js?v=mvfc9o8f";
-import { mergeCar } from "./optimize.js?v=mvfc9o8f";
-import { sfx } from "../games/sfx.js?v=mvfc9o8f";
-import { load, save } from "../games/common.js?v=mvfc9o8f";
+import { CIRCUITS, buildTrack, speedProfile, racingLine } from "./trackdata.js?v=mvfe7n37";
+import { newCar, stepCar, resetCar, ENVELOPE } from "./physics.js?v=mvfe7n37";
+import { buildCircuit } from "./trackmesh.js?v=mvfe7n37";
+import { createInput } from "./input.js?v=mvfe7n37";
+import { createHud } from "./hud.js?v=mvfe7n37";
+import { createEngineAudio } from "./audio.js?v=mvfe7n37";
+import { mergeCar } from "./optimize.js?v=mvfe7n37";
+import { sfx } from "../games/sfx.js?v=mvfe7n37";
+import { load, save } from "../games/common.js?v=mvfe7n37";
 
 const q = new URLSearchParams(location.search);
 const circuitId = q.get("track") && CIRCUITS[q.get("track")] ? q.get("track") : "spa";
 const CFG = CIRCUITS[circuitId];
 const $ = (id) => document.getElementById(id);
 const status = (t) => { $("loadText").textContent = t; return new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0))); };
-const settings = Object.assign({ auto: true, abs: true, tc: true, stability: true, line: "full", camera: "chase", quality: "high" }, load("race.settings", {}));
+const settings = Object.assign({ auto: true, abs: true, tc: true, stability: true, line: "full", camera: "chase", quality: "high", engine: "raw" }, load("race.settings", {}));
 const saveSettings = () => save("race.settings", settings);
 
 // ---------- renderer, sky, light ----------
@@ -86,7 +86,7 @@ applyLineMode();
 
 // ---------- the car ----------
 await status("Building the car…");
-const { f1car } = await import("./car.js?v=mvfc9o8f");
+const { f1car } = await import("./car.js?v=mvfe7n37");
 const livery = { era: 2026, team: "RACELIMIT", body: "#FFA51F", accent: "#16171B", stripe: "#F4F4F4", number: "27", helmet: ["#FFA51F", "#16171B"], tcam: "#111" };
 const car = f1car({ ...livery, aero: "corner" });
 {
@@ -134,11 +134,12 @@ let viewMode = VIEWS.includes(q.get("cam")) ? q.get("cam") : VIEWS.includes(sett
 const best = load(`race.best.${circuitId}`, null); // { time, trace: [seconds at every 25 m] }
 const T = { lap: 1, running: false, now: 0, lapStart: 0, lastLap: null, bestLap: best?.time ?? null, invalid: false, sectors: [null, null, null], delta: null, trace: [], bestTrace: best?.trace ?? null, bestSectors: [null, null, null], secStart: 0, nextSec: 0, offT: 0 };
 const secAt = [CFG.sectors[0] * tr.len, CFG.sectors[1] * tr.len, tr.len];
+let pitStop = null, wasLimiter = false, wasPit = false; // pit lane state (see pits())
 let phase = "menu", lightsT = 0, lightsOutAt = 0, paused = false, lastS = c.s, wrongT = 0;
 
 function startLights() {
   phase = "lights"; lightsT = 0; lightsOutAt = 5 + 0.4 + Math.random() * 2.2; hud.lights(0);
-  Object.assign(c, newCar(tr, tr.wrap(-14), tr.half * 0.45)); lastS = c.s; circuit.barriers.reset();
+  Object.assign(c, newCar(tr, tr.wrap(-14), tr.half * 0.45)); lastS = c.s; circuit.barriers.reset(); pitStop = null;
   Object.assign(T, { lap: 1, running: false, lapStart: 0, invalid: false, sectors: [null, null, null], delta: null, trace: [], nextSec: 0, offT: 0, half: false, standing: true });
 }
 function lapDone() {
@@ -186,10 +187,10 @@ function syncSettingsUI() {
 document.addEventListener("click", (e) => {
   const b = e.target.closest("[data-set]"); if (!b) return;
   const [k, v] = b.dataset.set.split("="); settings[k] = v === "true" ? true : v === "false" ? false : v; saveSettings();
-  if (k === "line") applyLineMode(); if (k === "camera") viewMode = v; if (k === "quality") applyQuality(); syncSettingsUI();
+  if (k === "line") applyLineMode(); if (k === "camera") viewMode = v; if (k === "quality") applyQuality(); if (k === "engine") audio?.setEngine(v); syncSettingsUI();
 });
 $("muteBtn").addEventListener("click", () => { const m = !(audio?.muted() ?? load("muted", false)); if (audio) audio.setMuted(m); else save("muted", m); syncSettingsUI(); });
-$("startBtn").addEventListener("click", () => { menu.hidden = true; audio ??= createEngineAudio(); audio.resume(); startLights(); });
+$("startBtn").addEventListener("click", () => { menu.hidden = true; audio ??= createEngineAudio({ engine: settings.engine }); audio.resume(); startLights(); });
 $("resumeBtn").addEventListener("click", () => setPause(false));
 $("restartBtn").addEventListener("click", () => { setPause(false); startLights(); });
 function setPause(p) { paused = p; pauseEl.hidden = !p; if (p) syncSettingsUI(); }
@@ -197,7 +198,7 @@ syncSettingsUI();
 $("bestLine").textContent = best ? `Your best here: ${fmtT(best.time)}` : "No lap set here yet";
 $("loading").hidden = true; menu.hidden = false;
 if (q.get("auto") === "1") $("startBtn").click();
-if (q.get("place")) { const i = tr.wrap(+q.get("place")); Object.assign(c, newCar(tr, i, line.off[i])); c.u = (+q.get("speed") || 0) / 3.6; c.gear = 6; phase = "race"; hud.lights(-1); T.running = true; menu.hidden = true; audio ??= createEngineAudio(); lastS = c.s; }
+if (q.get("place")) { const i = tr.wrap(+q.get("place")); Object.assign(c, newCar(tr, i, line.off[i])); c.u = (+q.get("speed") || 0) / 3.6; c.gear = 6; phase = "race"; hud.lights(-1); T.running = true; menu.hidden = true; audio ??= createEngineAudio({ engine: settings.engine }); lastS = c.s; }
 
 // ---------- autopilot (for testing and the menu backdrop): follows the racing line ----------
 function autopilot() {
@@ -207,11 +208,26 @@ function autopilot() {
   const vt = vp[tr.wrap(c.idx + 3 + Math.round(c.u * 0.15))] * 0.97;
   return { steer: Math.max(-1, Math.min(1, delta / dMax)), throttle: Math.max(0, Math.min(1, (vt - c.u) * 0.6 + 0.2)), brake: Math.max(0, Math.min(1, (c.u - vt) * 0.8)), analog: true };
 }
-window.__cam = cam; window.__sw = car.userData.steering; window.__race = { c, tr, T, get phase() { return phase; }, autopilot: q.get("autopilot") === "1", view: (v) => (viewMode = v), frames: 0, ms: 0, merged };
+window.__cam = cam; window.__sw = car.userData.steering; window.__race = { c, tr, T, get phase() { return phase; }, autopilot: q.get("autopilot") === "1", view: (v) => (viewMode = v), frames: 0, ms: 0, merged, get audio() { return audio?.kind?.(); } };
 
 // ---------- loop ----------
 const tmpV = new THREE.Vector3(), tmpL = new THREE.Vector3(), camPos = new THREE.Vector3(), camLook = new THREE.Vector3();
 let camInit = false, lastT = performance.now(), acc = 0, prevGear = 1, simT = 0;
+// ---------- pit lane: limiter messages, and a stop in our box (RACELIMIT, the first garage) ----------
+function pits(dt) {
+  if (c.pitLimiter !== wasLimiter) {
+    if (c.pitLimiter) hud.message(c.u * 3.6 > 82 ? `Pit limiter on — you came in at ${Math.round(c.u * 3.6)} km/h!` : "Pit limiter on · 80 km/h", 2.2, c.u * 3.6 > 82 ? "bad" : "");
+    else if (c.onPit) hud.message("Limiter off", 1.2);
+    wasLimiter = c.pitLimiter;
+  }
+  if (c.onPit !== wasPit) { if (c.onPit && !c.pitLimiter) hud.message("Pit lane", 1.2); wasPit = c.onPit; }
+  const box = circuit.pitInfo?.boxes?.[0];
+  if (!box) return;
+  const dBox = Math.hypot(c.x - box.x, c.z - box.z);
+  if (!pitStop && c.onPit && dBox < 3.2 && Math.abs(c.u) < 0.8 && phase === "race") { pitStop = { t: 0, dur: 2.1 + Math.random() * 0.9, done: false }; hud.message("In the box…", 3); }
+  if (pitStop && !pitStop.done) { pitStop.t += dt; c.u = c.v = c.r = 0; if (pitStop.t >= pitStop.dur) { pitStop.done = true; hud.message(`Stop: ${pitStop.dur.toFixed(1)} s · go go go!`, 2.2, "good"); } }
+  if (pitStop?.done && dBox > 8) pitStop = null;
+}
 const EYE = q.get("eye") ? q.get("eye").split(",").map(Number) : null; // testing: camera offset from the car
 const STEP = 1 / 240, WARP = +q.get("warp") || 0; // warp: seconds of simulation per frame (testing only)
 function frame(now) {
@@ -232,10 +248,11 @@ function frame(now) {
       if (n !== hud._n && n > 0) { hud._n = n; hud.lights(n); sfx.light(); }
       if (lightsT >= lightsOutAt) { phase = "race"; hud.lights(-1); hud._n = 0; T.running = true; T.lapStart = T.now; T.secStart = T.now; hud.message("GO!", 1, "good"); }
     }
-    if (inp.reset && phase === "race") { resetCar(c, tr); hud.message("Back on track", 1); }
+    if (inp.reset && phase === "race") { resetCar(c, tr); pitStop = null; hud.message("Back on track", 1); }
     acc += WARP || dt;
     let drive = window.__race.autopilot ? autopilot() : inp;
     if (phase === "lights") drive = { ...drive, brake: 1, steer: 0 };
+    if (pitStop && !pitStop.done) drive = { ...drive, throttle: 0, brake: 1, steer: 0, up: false, down: false }; // the crew has the car
     let n = 0;
     while (acc >= STEP && n < (WARP ? WARP * 240 + 2 : 10)) {
       let i2 = n === 0 ? drive : { ...drive, up: false, down: false };
@@ -248,8 +265,10 @@ function frame(now) {
     }
     if (!WARP && n >= 10) acc = 0;
     if (c.gear !== prevGear) { audio?.shift(c.gear > prevGear); prevGear = c.gear; }
+    pits(dt);
     // wrong way
-    const along = Math.sin(c.yaw) * tr.TX[c.idx] + Math.cos(c.yaw) * tr.TZ[c.idx];
+    const RD = c.onPit ? tr.pitRoad : tr, ri = c.onPit ? c.pidx : c.idx;
+    const along = Math.sin(c.yaw) * RD.TX[ri] + Math.cos(c.yaw) * RD.TZ[ri];
     wrongT = along < -0.3 && c.u > 3 ? wrongT + dt : 0;
     if (wrongT > 1.2) { hud.message("Wrong way — press R to reset", 1.5, "bad"); wrongT = -2; }
   }
@@ -257,7 +276,7 @@ function frame(now) {
   const kerbJ = c.kerb ? (Math.random() - 0.5) * 0.012 * Math.min(1, c.u / 20) : 0;
   const along = Math.sin(c.yaw) * tr.TX[c.idx] + Math.cos(c.yaw) * tr.TZ[c.idx];
   const slopePitch = -Math.atan(tr.slope[c.idx] * along);
-  const surfY = Math.abs(c.lat) < tr.half + 0.6 ? crown(c.lat) : c.kerb ? 0.06 : -0.01;
+  const surfY = c.onPit ? 0.012 : Math.abs(c.lat) < tr.half + 0.6 ? crown(c.lat) : c.kerb ? 0.06 : -0.01;
   car.position.set(c.x, c.y + surfY + kerbJ, c.z);
   car.rotation.set(slopePitch + c.pitch, c.yaw, c.roll, "YXZ");
   for (const w of wheels) { w.group.rotation.x = c.wheelRot; if (w.front) w.pivot.rotation.y = c.steer; }
@@ -296,12 +315,13 @@ function frame(now) {
     cam.lookAt(camLook);
     cam.fov = 56 + Math.min(10, Math.max(0, c.u) * 0.09); cam.near = 0.1;
   }
-  if (EYE) { cam.position.set(c.x + EYE[0], c.y + EYE[1], c.z + EYE[2]); cam.lookAt(c.x, c.y, c.z); cam.fov = 55; cam.near = 0.5; }
+  const eye = window.__eye || EYE; // testing: a fixed camera offset from the car
+  if (eye) { cam.position.set(c.x + eye[0], c.y + eye[1], c.z + eye[2]); cam.lookAt(c.x + (eye[3] || 0), c.y, c.z + (eye[4] || 0)); cam.fov = 55; cam.near = 0.5; }
   cam.updateProjectionMatrix();
   // ----- light follows the car -----
   sun.target.position.set(c.x, c.y, c.z); sun.position.copy(sun.target.position).addScaledVector(sunDir, 120);
   if (lineMesh.visible) colourLine(c);
-  circuit.barriers.update(Math.min(dt, 0.05));
+  circuit.barriers.update(Math.min(dt, 0.05)); circuit.barriers.cull(cam.position);
   hud.update(c, T, opts);
   audio?.update(c, { paused: paused || phase === "menu", view: v, dt });
   const r0 = performance.now(); renderer.render(scene, cam); window.__race.ms = performance.now() - r0; window.__race.info = { calls: renderer.info.render.calls, tris: renderer.info.render.triangles };

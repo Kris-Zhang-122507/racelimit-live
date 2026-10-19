@@ -20,11 +20,11 @@ export function createHud(root, tr) {
     <div class="h-gearspeed"><b class="h-gear" id="hGear">N</b><div><div class="h-speed mono" id="hSpeed">0</div><div class="k">km/h</div></div></div>
     <div class="h-revs"><div class="h-leds" id="hLeds">${"<i></i>".repeat(15)}</div><div class="h-rpm"><i id="hRpm"></i></div><div class="k"><span id="hRpmT">0</span> rpm</div></div>
     <div class="h-ers"><div class="k">Battery <span id="hErsMode"></span></div><div class="h-bar"><i id="hErs"></i></div><div class="mono h-small" id="hErsT">100%</div></div>
-    <div class="h-aero"><span class="h-chip" id="hAero">CORNER</span><span class="k" id="hGearMode">AUTO</span></div>
+    <div class="h-aero"><span class="h-chip" id="hAero">CORNER</span><span class="h-chip pit" id="hPit" hidden>PIT LIMITER</span><span class="k" id="hGearMode">AUTO</span></div>
   </div>
   <div class="h-hint box" id="hHint">↑ ↓ ← → or W A S D to drive · E / Q gears · C camera · R reset · L racing line · Esc pause</div>`;
   const $ = (id) => root.querySelector("#" + id);
-  const el = { lap: $("hLap"), inv: $("hInv"), cur: $("hCur"), delta: $("hDelta"), last: $("hLast"), best: $("hBest"), msg: $("hMsg"), lights: $("hLights"), gear: $("hGear"), speed: $("hSpeed"), rpm: $("hRpm"), rpmT: $("hRpmT"), ers: $("hErs"), ersT: $("hErsT"), ersMode: $("hErsMode"), aero: $("hAero"), gearMode: $("hGearMode"), hint: $("hHint"), map: $("hMap"), secs: [0, 1, 2].map((i) => $("hS" + i)) };
+  const el = { lap: $("hLap"), inv: $("hInv"), cur: $("hCur"), delta: $("hDelta"), last: $("hLast"), best: $("hBest"), msg: $("hMsg"), lights: $("hLights"), gear: $("hGear"), speed: $("hSpeed"), rpm: $("hRpm"), rpmT: $("hRpmT"), ers: $("hErs"), ersT: $("hErsT"), ersMode: $("hErsMode"), aero: $("hAero"), pit: $("hPit"), gearMode: $("hGearMode"), hint: $("hHint"), map: $("hMap"), secs: [0, 1, 2].map((i) => $("hS" + i)) };
   const leds = [...$("hLeds").children];
 
   // track map from the centre line
@@ -33,7 +33,8 @@ export function createHud(root, tr) {
   const sc = 180 / Math.max(maxX - minX, maxZ - minZ), ox = 100 - ((minX + maxX) / 2) * sc, oz = 100 - ((minZ + maxZ) / 2) * sc;
   const mx = (x) => (ox + x * sc).toFixed(1), mz = (z) => (oz + z * sc).toFixed(1);
   let d = ""; for (let i = 0; i < tr.N; i += 12) d += `${d ? "L" : "M"}${mx(tr.X[i])},${mz(tr.Z[i])}`;
-  el.map.innerHTML = `<path d="${d}Z" fill="none" stroke="#3A4150" stroke-width="7" stroke-linejoin="round"/><path d="${d}Z" fill="none" stroke="#C3C9D4" stroke-width="2.5" stroke-linejoin="round"/><rect x="${+mx(tr.X[0]) - 1.5}" y="${+mz(tr.Z[0]) - 5}" width="3" height="10" fill="#FFB547" transform="rotate(${(Math.atan2(tr.TX[0], -tr.TZ[0]) * 180) / Math.PI + 90} ${mx(tr.X[0])} ${mz(tr.Z[0])})"/><circle id="hDot" r="5" fill="#FFB547" stroke="#0B0D12" stroke-width="2"/>`;
+  let dp = ""; if (tr.pitRoad) { const R = tr.pitRoad; for (let i = 0; i < R.N; i += 6) dp += `${dp ? "L" : "M"}${mx(R.X[i])},${mz(R.Z[i])}`; }
+  el.map.innerHTML = `${dp ? `<path d="${dp}" fill="none" stroke="#5B6372" stroke-width="2" stroke-linejoin="round"/>` : ""}<path d="${d}Z" fill="none" stroke="#3A4150" stroke-width="7" stroke-linejoin="round"/><path d="${d}Z" fill="none" stroke="#C3C9D4" stroke-width="2.5" stroke-linejoin="round"/><rect x="${+mx(tr.X[0]) - 1.5}" y="${+mz(tr.Z[0]) - 5}" width="3" height="10" fill="#FFB547" transform="rotate(${(Math.atan2(tr.TX[0], -tr.TZ[0]) * 180) / Math.PI + 90} ${mx(tr.X[0])} ${mz(tr.Z[0])})"/><circle id="hDot" r="5" fill="#FFB547" stroke="#0B0D12" stroke-width="2"/>`;
   const dot = el.map.querySelector("#hDot");
 
   let msgUntil = 0, last = {};
@@ -59,6 +60,7 @@ export function createHud(root, tr) {
       el.ers.className = c.deploying ? "dep" : c.harvesting ? "harv" : "";
       put("aero", el.aero, c.aeroMode === "straight" ? "STRAIGHT MODE" : "CORNER MODE"); el.aero.classList.toggle("on", c.aeroMode === "straight");
       put("gearMode", el.gearMode, opts.auto ? "AUTO GEARS" : "MANUAL");
+      el.pit.hidden = !c.onPit; el.aero.hidden = !!c.onPit; put("pit", el.pit, c.pitLimiter ? "PIT LIMITER · 80" : "PIT LANE"); el.pit.classList.toggle("on", !!c.pitLimiter);
       // timing
       put("lap", el.lap, `LAP ${t.lap}`);
       el.inv.hidden = !t.invalid;
