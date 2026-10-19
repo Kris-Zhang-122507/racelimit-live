@@ -4,6 +4,7 @@
 // start gantry and brake boards. Everything is generated, nothing is downloaded.
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+import { addProps } from "./trackprops.js?v=mvfw9v6x";
 
 const smoothstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
@@ -22,7 +23,7 @@ function textures() {
   const grassH = new Float32Array(256 * 256).map(() => Math.random());
   const grass = tex(canvas(256, 256, (g, w, h) => { const img = g.createImageData(w, h); for (let i = 0; i < w * h; i++) { const y = Math.floor(i / w), stripe = Math.floor(y / 64) % 2 ? 3 : -2, n = (grassH[i] - 0.5) * 22; img.data[i * 4] = 60 + n * 0.6 + stripe * 0.5; img.data[i * 4 + 1] = 106 + n + stripe; img.data[i * 4 + 2] = 46 + n * 0.4; img.data[i * 4 + 3] = 255; } g.putImageData(img, 0, 0); }));
   const grassN = tex(normalFrom(grassH, 256, 256, 2.5), false);
-  const runoff = tex(canvas(256, 256, (g, w, h) => { const img = g.createImageData(w, h); for (let i = 0; i < w * h; i++) { const v = (Math.random() - 0.5) * 16 + agg[i] * 22; img.data[i * 4] = 52 + v; img.data[i * 4 + 1] = 74 + v; img.data[i * 4 + 2] = 88 + v; img.data[i * 4 + 3] = 255; } g.putImageData(img, 0, 0); }));
+  const runoff = tex(canvas(256, 256, (g, w, h) => { const img = g.createImageData(w, h); for (let i = 0; i < w * h; i++) { const v = (Math.random() - 0.5) * 16 + agg[i] * 22; img.data[i * 4] = 64 + v; img.data[i * 4 + 1] = 76 + v; img.data[i * 4 + 2] = 88 + v; img.data[i * 4 + 3] = 255; } g.putImageData(img, 0, 0); }));
   const fence = tex(canvas(64, 64, (g) => { g.strokeStyle = "rgba(170,175,180,1)"; g.lineWidth = 2; for (let k = -64; k < 128; k += 16) { g.beginPath(); g.moveTo(k, 0); g.lineTo(k + 64, 64); g.stroke(); g.beginPath(); g.moveTo(k + 64, 0); g.lineTo(k, 64); g.stroke(); } }));
   const needle = tex(canvas(128, 128, (g, w, h) => { g.fillStyle = "#2E4A26"; g.fillRect(0, 0, w, h); for (let i = 0; i < 1600; i++) { const x = Math.random() * w, y = Math.random() * h, l = 3 + Math.random() * 7, v = 30 + Math.random() * 60; g.strokeStyle = `rgb(${v * 0.55},${v + 20},${v * 0.45})`; g.beginPath(); g.moveTo(x, y); g.lineTo(x + (Math.random() - 0.5) * 3, y + l); g.stroke(); } }));
   // one row of a grandstand seen from the track: seats, and people in them (about 2/3 full)
@@ -46,13 +47,50 @@ function textures() {
     g.fillStyle = lit ? "#000" : "#B9BEC6"; g.fillRect(0, 0, w, h);
     for (let y = 8; y < h; y += 32) for (let x = 6; x < w; x += 21) { const on = Math.random(); g.fillStyle = lit ? (on < 0.55 ? `rgba(255,${200 + Math.random() * 40},${120 + Math.random() * 60},1)` : "#000") : on < 0.15 ? "#3A4656" : "#5C6B7E"; g.fillRect(x, y, 14, 20); }
   }));
-  return { asphalt, asphaltN, kerb, grass, grassN, runoff, fence, needle, crowd, concrete, checker, sand, sandN, leaf, windowsDay: windows(false), windowsNight: windows(true) };
+  // gravel traps: stones of a few sizes and shades; the apron: plain, slightly lighter tarmac
+  const GW = 256, gH = new Float32Array(GW * GW);
+  const gravel = tex(canvas(GW, GW, (g, w, h) => {
+    g.fillStyle = "#9A9186"; g.fillRect(0, 0, w, h);
+    for (let n = 0; n < 5200; n++) {
+      const x = Math.random() * w, y = Math.random() * h, r = 0.8 + Math.random() ** 2 * 3.2, v = 110 + Math.random() * 110, warm = Math.random() * 18;
+      g.fillStyle = `rgb(${v + warm},${v + warm * 0.6},${v - 6})`; g.beginPath(); g.ellipse(x, y, r, r * (0.6 + Math.random() * 0.4), Math.random() * 3, 0, 7); g.fill();
+      for (let yy = Math.max(0, Math.floor(y - r)); yy < Math.min(h, y + r); yy++) for (let xx = Math.max(0, Math.floor(x - r)); xx < Math.min(w, x + r); xx++) { const d = Math.hypot(xx - x, yy - y) / r; if (d < 1) gH[yy * w + xx] = Math.max(gH[yy * w + xx], Math.sqrt(1 - d * d) * (0.5 + r / 8)); }
+    }
+  }));
+  const gravelN = tex(normalFrom(gH, GW, GW, 3.2), false);
+  const apron = tex(canvas(256, 256, (g, w, h) => { const img = g.createImageData(w, h); for (let i = 0; i < w * h; i++) { const v = 84 + agg[i] * 50 + (Math.random() - 0.5) * 10; img.data[i * 4] = v; img.data[i * 4 + 1] = v + 1; img.data[i * 4 + 2] = v + 3; img.data[i * 4 + 3] = 255; } g.putImageData(img, 0, 0); }));
+  return { gravel, gravelN, apron, asphalt, asphaltN, kerb, grass, grassN, runoff, fence, needle, crowd, concrete, checker, sand, sandN, leaf, windowsDay: windows(false), windowsNight: windows(true) };
 }
 
 export function buildCircuit(tr, scene, { profile, team } = {}) {
   const T = textures(), { N, X, Y, Z, LX, LZ, TX, TZ, dist, kerb } = tr, half = tr.half;
   const at = tr.wrap, W = tr.wall, WT = tr.wallType, pit = tr.pit;
   const sideK = (s) => (s > 0 ? 0 : 1); // +1 = left → wall[0], −1 = right → wall[1]
+  const hAt = (i, o) => Y[i] + (tr.bankH ? tr.bankH(i, o) : 0); // the ground's height at offset o (+ = left) beside sample i (banked corners tilt)
+
+  // ---------- floodlights (night races, and Abu Dhabi at dusk): where the lamps are, and how brightly lit the
+  // ground is anywhere — pools of light under the lamps, darker in between. The poles themselves are built
+  // in trackprops.js. ----------
+  const isNight = tr.cfg.time === "night", lit = isNight || tr.cfg.time === "dusk", lamps = [], lampGrid = new Map(), LG = 40;
+  if (lit) {
+    for (let i = 0; i < N; i += 24) for (const s of [1, -1]) {
+      if ((i / 24 + (s > 0 ? 0 : 1)) % 2) continue; // staggered: each side every 48 m
+      const k = sideK(s); if (WT[k][i] === 2) continue; // not along the pit wall
+      const base = W[k][i] + (WT[k][i] === 1 ? 2.8 : WT[k][i] === 3 ? 1.3 : 2.4), reach = Math.min(4, base - half - 0.5);
+      const px = X[i] + LX[i] * s * base, pz = Z[i] + LZ[i] * s * base, py = hAt(i, s * base);
+      // the lamps are aimed at the track: the middle of their pool of light is on the near half of the track
+      const aim = s * half * 0.35;
+      lamps.push({ i, s, px, pz, py, hx: X[i] + LX[i] * s * (base - reach), hz: Z[i] + LZ[i] * s * (base - reach), hy: py + 15 + Math.min(8, (base - half) * 0.25), ax: X[i] + LX[i] * aim, az: Z[i] + LZ[i] * aim });
+    }
+    lamps.forEach((l, n) => { const key = Math.floor(l.ax / LG) * 100003 + Math.floor(l.az / LG); if (!lampGrid.has(key)) lampGrid.set(key, []); lampGrid.get(key).push(n); });
+  }
+  const lightAt = (x, z) => {
+    let sum = 0; const gx = Math.floor(x / LG), gz = Math.floor(z / LG);
+    for (let a = -2; a <= 2; a++) for (let b = -2; b <= 2; b++) for (const n of lampGrid.get((gx + a) * 100003 + gz + b) ?? []) { const l = lamps[n], d2 = (l.ax - x) ** 2 + (l.az - z) ** 2; sum += Math.exp(-d2 / (2 * 12 * 12)); }
+    return isNight ? 0.3 + 0.95 * Math.min(1.25, sum) : 0.9 + 0.15 * Math.min(1, sum);
+  };
+  // vertex colours carrying that light, for a ribbon's positions
+  const lightUp = (g, mat, pos) => { if (!lit) return; const c = new Float32Array(pos.length); for (let v = 0; v < pos.length; v += 3) { const L = lightAt(pos[v], pos[v + 2]); c[v] = L; c[v + 1] = L; c[v + 2] = L * 0.97; } g.setAttribute("color", new THREE.BufferAttribute(c, 3)); if (!mat.vertexColors) { mat.vertexColors = true; mat.needsUpdate = true; } };
   const group = new THREE.Group(); scene.add(group);
   const keepOut = []; // rectangles (centre, half-sizes, angle) where nothing else may go: pits, stands
 
@@ -62,10 +100,11 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
     const P0 = typeof prof === "function" ? prof(at(a)) : prof, M = P0.length, pos = [], uv = [], idx = [];
     for (let k = 0; k <= b - a; k++) {
       const i = at(a + k), d = dist[i] + (a + k >= N ? tr.len : 0) - (a + k < 0 ? tr.len : 0), pr = typeof prof === "function" ? prof(i) : prof;
-      for (let m = 0; m < M; m++) { const [o, h] = pr[m]; pos.push(X[i] + LX[i] * o, Y[i] + h, Z[i] + LZ[i] * o); uv.push((m / (M - 1)) * uScale, d / vScale); }
+      for (let m = 0; m < M; m++) { const [o, h] = pr[m]; pos.push(X[i] + LX[i] * o, hAt(i, o) + h, Z[i] + LZ[i] * o); uv.push((m / (M - 1)) * uScale, d / vScale); }
       if (k < b - a) for (let m = 0; m < M - 1; m++) { const o = k * M + m; idx.push(o, o + M, o + 1, o + 1, o + M, o + M + 1); }
     }
     const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+    lightUp(g, mat, pos);
     const m = new THREE.Mesh(g, mat); m.receiveShadow = true; group.add(m); return m;
   }
   // runs of the lap where `test(i)` holds, as [start, end] index pairs (end may pass N)
@@ -95,18 +134,25 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
   // ---------- kerbs ----------
   const kerbMat = new THREE.MeshStandardMaterial({ map: T.kerb, roughness: 0.55 });
   const kerbProf = (side) => { const pts = []; for (let k = 0; k <= 6; k++) { const u = k / 6; pts.push([side * (half - 0.05 + u * 1.55), 0.008 + 0.07 * Math.sin(Math.min(1, u * 1.15) * Math.PI / 2) ** 0.8 - (u > 0.9 ? (u - 0.9) * 0.6 : 0)]); } return side > 0 ? pts : pts.reverse(); };
-  for (const [a, b] of runs((i) => kerb[i] !== 0, 10)) { strip(a, b, kerbProf(1), kerbMat, { vScale: 6 }); strip(a, b, kerbProf(-1), kerbMat, { vScale: 6 }); }
+  for (const [a, b] of runs((i) => (kerb[i] & 1) !== 0, 10)) strip(a, b, kerbProf(1), kerbMat, { vScale: 6 }); // left (bit 1)
+  for (const [a, b] of runs((i) => (kerb[i] & 2) !== 0, 10)) strip(a, b, kerbProf(-1), kerbMat, { vScale: 6 }); // right (bit 2)
 
-  // ---------- run-off up to the barrier: painted asphalt in the corners, grass on the straights ----------
+  // ---------- run-off up to the barrier (see computeWalls): a tarmac apron just past the kerb, then grass,
+  // a gravel trap, painted tarmac or (street circuits) the road ----------
   const SC = tr.cfg.scenery ?? "forest", sandy = SC === "desert" || SC === "dunes", night = tr.cfg.time === "night", dusk = tr.cfg.time === "dusk";
   const runMat = new THREE.MeshStandardMaterial({ map: T.runoff, roughness: 0.92 });
   const grassMat = sandy ? new THREE.MeshStandardMaterial({ map: T.sand, normalMap: T.sandN, roughness: 1 }) : new THREE.MeshStandardMaterial({ map: T.grass, normalMap: T.grassN, roughness: 1 });
   const streetMat = new THREE.MeshStandardMaterial({ map: T.asphalt, normalMap: T.asphaltN, normalScale: new THREE.Vector2(0.4, 0.4), color: 0xC9CCD2, roughness: 0.92 });
+  const gravelMat = new THREE.MeshStandardMaterial({ map: T.gravel, normalMap: T.gravelN, normalScale: new THREE.Vector2(1.2, 1.2), color: sandy ? 0xF2DDB8 : 0xFFFFFF, roughness: 1 });
+  const apronMat = new THREE.MeshStandardMaterial({ map: T.apron, normalMap: T.asphaltN, normalScale: new THREE.Vector2(0.35, 0.35), roughness: 0.9 });
+  const SURF_MAT = [grassMat, runMat, gravelMat, streetMat], AP = tr.apron, SF = tr.surf;
   for (const s of [1, -1]) {
-    const k = sideK(s), prof = (i) => sided(s, [[half + 0.6, -0.005], [W[k][i] + 0.6, -0.03]]);
-    for (const [a, b] of runs((i) => WT[k][i] === 1 || WT[k][i] === 2, 2)) strip(a, b, prof, tr.street ? streetMat : runMat, { vScale: 12 });
-    for (const [a, b] of runs((i) => WT[k][i] === 3, 2)) strip(a, b, prof, streetMat, { vScale: 6 });
-    for (const [a, b] of runs((i) => WT[k][i] === 0, 2)) strip(a, b, prof, grassMat, { vScale: 8, uScale: 3 });
+    const k = sideK(s), e0 = half + 0.6, ap = (i) => (AP ? AP[k][i] : 0);
+    for (const [a, b] of runs((i) => ap(i) > 0.05 && SF?.[k][i] !== 3, 2)) strip(a, b, (i) => sided(s, [[e0, -0.005], [e0 + ap(i), -0.008]]), apronMat, { vScale: 8 });
+    for (let code = 0; code < 4; code++) {
+      const h = code === 2 ? -0.06 : -0.02, prof = (i) => sided(s, [[e0 + ap(i), code === 2 ? -0.01 : -0.008], [e0 + ap(i) + (code === 2 ? 0.35 : 0.01), h], [W[k][i] + 0.6, h - 0.01]]);
+      for (const [a, b] of runs((i) => (SF ? SF[k][i] : WT[k][i] === 3 ? 3 : WT[k][i] === 0 ? 0 : 1) === code, 2)) strip(a, b, prof, SURF_MAT[code], { vScale: code === 0 ? 8 : code === 2 ? 5 : 12, uScale: code === 0 ? 3 : code === 2 ? 2 : 1 });
+    }
   }
 
   // ---------- barriers ----------
@@ -127,6 +173,7 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
     tecRows[k][i] = out ? 3 : 2; tr.crush[k][i] = tecRows[k][i] * ROWD * 0.62 + (tecRows[k][i] - 1) * GAP; // how far the rows can be squashed
   }
   const tecBack = (k, i) => (tecRows[k][i] || 2) * PITCH - GAP; // depth of the rows
+  const fo = (k, i) => W[k][i] + (WT[k][i] === 1 ? tecBack(k, i) + 0.6 : WT[k][i] === 3 ? 0.3 : 1.6); // where the catch fence is
   const tec = { blocks: [], chunks: [], banners: [], dirty: new Set(), cullR: 480 };
   {
     // one module: an extruded "stadium" outline plus a darker oval on top (vertex colours; each block's
@@ -213,7 +260,7 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
           const i = at(kk), o = s * (W[k][i] - 0.025), x = X[i] + LX[i] * o, z = Z[i] + LZ[i] * o;
           if (px !== null) along += Math.hypot(x - px, z - pz); px = x; pz = z;
           const u = (s > 0 ? along : -along) / BANNER_LEN; // flipped on the right so the words read the right way round
-          pos.push(x, Y[i] + 0.14, z, x, Y[i] + 0.98, z); uv.push(u, 0.02, u, 0.98); idx.push(i);
+          const yb = hAt(i, o); pos.push(x, yb + 0.14, z, x, yb + 0.98, z); uv.push(u, 0.02, u, 0.98); idx.push(i);
           if (kk < b) { const v = (kk - a) * 2; ind.push(v, v + 2, v + 1, v + 1, v + 2, v + 3); }
         }
         const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(ind); g.computeVertexNormals();
@@ -228,9 +275,9 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
     const i = bl.i, D = Math.max(tr.dent[bl.k][i], tr.dent[bl.k][at(i - 1)], tr.dent[bl.k][at(i + 1)]);
     const T0 = bl.rows * PITCH - GAP, sq = Math.max(0.2, (T0 - D) / T0);
     const o = bl.s * (bl.w + D + bl.row * PITCH * sq + (ROWD * sq) / 2), yaw = bl.yaw + bl.twist * Math.min(1, D / 0.4);
-    _p.set(X[i] + LX[i] * o + bl.ex, Y[i], Z[i] + LZ[i] * o + bl.ez); _q.setFromAxisAngle(up, yaw);
+    _p.set(X[i] + LX[i] * o + bl.ex, hAt(i, o), Z[i] + LZ[i] * o + bl.ez); _q.setFromAxisAngle(up, yaw);
     _s.set(1, 1, sq); m4.compose(_p, _q, _s); bl.chunk.mesh.setMatrixAt(bl.slot, m4);
-    if (bl.spacer) { const os = bl.s * (bl.w + D + (bl.row * PITCH - GAP / 2) * sq); _p.set(X[i] + LX[i] * os + bl.ex, Y[i], Z[i] + LZ[i] * os + bl.ez); _q.setFromAxisAngle(up, bl.yaw); m4.compose(_p, _q, _s); bl.chunk.spacers.setMatrixAt(bl.spSlot, m4); }
+    if (bl.spacer) { const os = bl.s * (bl.w + D + (bl.row * PITCH - GAP / 2) * sq); _p.set(X[i] + LX[i] * os + bl.ex, hAt(i, os), Z[i] + LZ[i] * os + bl.ez); _q.setFromAxisAngle(up, bl.yaw); m4.compose(_p, _q, _s); bl.chunk.spacers.setMatrixAt(bl.spSlot, m4); }
     bl.chunk.dirty = true;
   }
   // armco: two rails on posts
@@ -241,7 +288,7 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
       const k = sideK(s);
       for (const [a, b] of runs((i) => WT[k][i] === 0, 2)) {
         for (const yy of [0.42, 0.78]) strip(a, b, (i) => sided(s, [[W[k][i], yy], [W[k][i], yy + 0.3]]).map((p) => p), armMat, { vScale: 4 });
-        for (let kk = a; kk < b; kk += 4) { const i = at(kk), o = s * (W[k][i] + 0.12); m4.makeTranslation(X[i] + LX[i] * o, Y[i] + 0.45, Z[i] + LZ[i] * o); if (np < 6000) posts.setMatrixAt(np++, m4); }
+        for (let kk = a; kk < b; kk += 4) { const i = at(kk), o = s * (W[k][i] + 0.12); m4.makeTranslation(X[i] + LX[i] * o, hAt(i, o) + 0.45, Z[i] + LZ[i] * o); if (np < 6000) posts.setMatrixAt(np++, m4); }
       }
     }
     posts.count = np; group.add(posts);
@@ -255,12 +302,11 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
   {
     const fenceMat = new THREE.MeshStandardMaterial({ map: T.fence, alphaTest: 0.45, side: THREE.DoubleSide, metalness: 0.6, roughness: 0.5 });
     const posts = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.07, 0.07, 4.2, 4, 1, true), new THREE.MeshStandardMaterial({ color: 0x8A9098, metalness: 0.8, roughness: 0.35 }), 6000); let np = 0;
-    const fo = (k, i) => W[k][i] + (WT[k][i] === 1 ? tecBack(k, i) + 0.6 : WT[k][i] === 3 ? 0.3 : 1.6);
     for (const s of [1, -1]) {
       const k = sideK(s);
       for (const [a, b] of runs((i) => WT[k][i] !== 2, 2)) {
         strip(a, b, (i) => sided(s, [[fo(k, i), 0], [fo(k, i), 4.0]]), fenceMat, { vScale: 3, uScale: 1.3 });
-        for (let kk = a; kk < b; kk += 6) { const i = at(kk), o = s * fo(k, i); m4.makeTranslation(X[i] + LX[i] * o, Y[i] + 2.1, Z[i] + LZ[i] * o); if (np < 6000) posts.setMatrixAt(np++, m4); }
+        for (let kk = a; kk < b; kk += 6) { const i = at(kk), o = s * fo(k, i); m4.makeTranslation(X[i] + LX[i] * o, hAt(i, o) + 2.1, Z[i] + LZ[i] * o); if (np < 6000) posts.setMatrixAt(np++, m4); }
       }
     }
     posts.count = np; group.add(posts);
@@ -281,6 +327,7 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
         if (n < b) for (let m = 0; m < M0 - 1; m++) { const o = (n - a) * M0 + m; idx.push(o, o + M0, o + 1, o + 1, o + M0, o + M0 + 1); }
       }
       const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+      lightUp(g, mat, pos);
       const m = new THREE.Mesh(g, mat); m.receiveShadow = true; group.add(m); return m;
     };
     const order = (pts) => (pts[0][0] <= pts[pts.length - 1][0] ? pts : pts.slice().reverse()); // right to left, so faces point up
@@ -318,17 +365,19 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
     if (team && team.team !== "RACELIMIT") { const k = teams.indexOf(team.team); if (k > 0) { [teams[0], teams[k]] = [teams[k], teams[0]]; [cols[0], cols[k]] = [cols[k], cols[0]]; } else { teams[0] = team.team; cols[0] = team.body; } }
     const [g0, g1] = pit.garages, segLen = (g1 - g0) / 10, depth = 18;
     const wallM = new THREE.MeshStandardMaterial({ color: 0xE8EAEE, roughness: 0.6 }), glassM = new THREE.MeshStandardMaterial({ color: 0x223044, metalness: 0.4, roughness: 0.15 }), doorM = new THREE.MeshStandardMaterial({ color: 0x15171C, roughness: 0.8 }), roofM = new THREE.MeshStandardMaterial({ color: 0xBFC4CB, metalness: 0.4, roughness: 0.4 });
+    pitInfo.garageRow = { at: [], out: [], depth, cols, len: g1 - g0 };
     const pitAt = (j) => { let pi = 0, bd = Infinity; for (let n = 0; n < M; n++) { const q2 = Math.abs(R.mj[n] - j); if (q2 < bd) { bd = q2; pi = n; } } return pi; };
     for (let t = 0; t < 10; t++) {
       // each garage stands behind its stretch of the pit lane, doors facing the lane
       const pg = pitAt(g0 + (t + 0.5) * segLen), og = -ts * (gOut(pg) + depth / 2);
+      pitInfo.garageRow.at.push(pg); pitInfo.garageRow.out.push(gOut(pg));
       const g = new THREE.Group();
       const body = new THREE.Mesh(new THREE.BoxGeometry(segLen + 0.2, 11, depth), wallM); body.position.y = 5.5; g.add(body);
       const door = new THREE.Mesh(new THREE.PlaneGeometry(segLen - 4, 5), doorM); door.position.set(0, 2.6, depth / 2 + 0.01); g.add(door);
       const glass = new THREE.Mesh(new THREE.PlaneGeometry(segLen, 2.6), glassM); glass.position.set(0, 8.2, depth / 2 + 0.02); g.add(glass);
       const sign = new THREE.Mesh(new THREE.PlaneGeometry(segLen - 4, 1.4), new THREE.MeshBasicMaterial({ map: tex(canvas(512, 64, (cg, w, h) => { cg.fillStyle = "#16181D"; cg.fillRect(0, 0, w, h); cg.fillStyle = cols[t]; cg.fillRect(0, h - 6, w, 6); cg.fillStyle = "#F2F2F2"; cg.font = "700 40px BC, sans-serif"; cg.textAlign = "center"; cg.textBaseline = "middle"; cg.fillText(teams[t], w / 2, h / 2 - 2); })) }));
       sign.position.set(0, 5.9, depth / 2 + 0.03); g.add(sign);
-      const roof = new THREE.Mesh(new THREE.BoxGeometry(segLen + 0.4, 0.5, depth + 6), roofM); roof.position.set(0, 11.2, 2); g.add(roof);
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(segLen + 0.4, 0.5, depth + 3), roofM); roof.position.set(0, 11.2, 1); g.add(roof);
       g.position.set(R.X[pg] + R.LX[pg] * og, R.Y[pg], R.Z[pg] + R.LZ[pg] * og);
       g.lookAt(R.X[pg], R.Y[pg], R.Z[pg]); // +z of the group (the doors) faces the lane
       g.traverse((m) => { if (m.isMesh) { m.castShadow = m !== sign; m.receiveShadow = true; } });
@@ -360,15 +409,16 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
     const i = n.i, d = Math.sqrt(n.d2), lat = (x - X[i]) * LX[i] + (z - Z[i]) * LZ[i], k = lat >= 0 ? 0 : 1;
     let flat = W[k][i] + 3; if (pit && k === pit.k && WT[k][i] === 2) flat = pit.laneOut + 26;
     const far = coarseAt(x, z) + hills(x, z), t = smoothstep(flat, flat + 160, d);
-    return { h: (Y[i] - 0.3) * (1 - t) + far * t, d, flat };
+    return { h: (hAt(i, lat) - 0.3) * (1 - t) + far * t, d, flat };
   };
   {
     const STEP = 8, nx = Math.ceil((maxX - minX) / STEP), nz = Math.ceil((maxZ - minZ) / STEP);
     const g = new THREE.PlaneGeometry(nx * STEP, nz * STEP, nx, nz); g.rotateX(-Math.PI / 2);
     const pos = g.attributes.position, uv = g.attributes.uv, colA = [];
-    for (let i = 0; i < pos.count; i++) { const x = pos.getX(i) + (minX + maxX) / 2, z = pos.getZ(i) + (minZ + maxZ) / 2, { h } = groundAt(x, z); pos.setY(i, h); uv.setXY(i, x / 5, z / 5); const v = 0.88 + Math.sin(x * 0.03) * Math.cos(z * 0.025) * 0.08 + (Math.random() - 0.5) * 0.05; colA.push(v * 0.97, v, v * 0.92); }
+    for (let i = 0; i < pos.count; i++) { const x = pos.getX(i) + (minX + maxX) / 2, z = pos.getZ(i) + (minZ + maxZ) / 2, { h } = groundAt(x, z); pos.setY(i, h); uv.setXY(i, x / 5, z / 5); const v = (0.88 + Math.sin(x * 0.03) * Math.cos(z * 0.025) * 0.08 + (Math.random() - 0.5) * 0.05) * (lit ? lightAt(x, z) : 1); colA.push(v * 0.97, v, v * 0.92); }
     g.setAttribute("color", new THREE.Float32BufferAttribute(colA, 3)); g.computeVertexNormals();
-    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: sandy ? T.sand : T.grass, normalMap: sandy ? T.sandN : T.grassN, vertexColors: true, roughness: 1, color: SC === "city" ? 0xB8BDB0 : 0xFFFFFF }));
+    // (in a city the ground between the buildings is paved, not grass)
+    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: SC === "city" ? T.apron : sandy ? T.sand : T.grass, normalMap: SC === "city" ? T.asphaltN : sandy ? T.sandN : T.grassN, vertexColors: true, roughness: 1, color: SC === "city" ? 0xD8D6D0 : 0xFFFFFF }));
     m.position.set((minX + maxX) / 2, 0, (minZ + maxZ) / 2); m.receiveShadow = true; group.add(m);
     const skirt = new THREE.Mesh(new THREE.RingGeometry(Math.max(maxX - minX, maxZ - minZ) * 0.55, 9000, 64, 1), new THREE.MeshStandardMaterial({ color: sandy ? 0xB59A6E : 0x3E5A34, roughness: 1 }));
     skirt.rotation.x = -Math.PI / 2; skirt.position.set((minX + maxX) / 2, coarseAt((minX + maxX) / 2, (minZ + maxZ) / 2) - 6, (minZ + maxZ) / 2); group.add(skirt);
@@ -377,7 +427,11 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
   // ---------- grandstands: only where the whole stand is clear of the track and the pits ----------
   const inPits = (x, z, pad) => { if (!pit) return false; const n = tr.nearestGlobal(x, z, 3); if (n.i < 0) return false; const i = n.i, lat = (x - X[i]) * LX[i] + (z - Z[i]) * LZ[i]; return Math.sign(lat) === pit.side && WT[pit.k][i] === 2 && Math.abs(lat) < pit.laneOut + 18 + pad; };
   const inKeepOut = (x, z, pad = 0) => inPits(x, z, pad) || keepOut.some((r) => { const dx = x - r.x, dz = z - r.z, c = Math.cos(r.ang), s2 = Math.sin(r.ang); const al = dx * s2 + dz * c, ac = dx * c - dz * s2; return Math.abs(al) < r.hl + pad && Math.abs(ac) < r.hw + pad; });
-  const clearOfTrack = (x, z, margin) => { const n = tr.nearestGlobal(x, z, 3); if (n.i < 0) return true; const i = n.i, lat = (x - X[i]) * LX[i] + (z - Z[i]) * LZ[i], k = lat >= 0 ? 0 : 1; return Math.sqrt(n.d2) > W[k][i] + margin; };
+  // the pit road (where it runs on its own away from the track, too)
+  const pitGrid = new Map(), PC = 25, RR = tr.pitRoad;
+  if (RR) for (let i = 0; i < RR.N; i += 2) { const key = Math.floor(RR.X[i] / PC) * 100003 + Math.floor(RR.Z[i] / PC); if (!pitGrid.has(key)) pitGrid.set(key, []); pitGrid.get(key).push(i); }
+  const clearOfPit = (x, z, margin) => { if (!RR) return true; const gx = Math.floor(x / PC), gz = Math.floor(z / PC); for (let a = -2; a <= 2; a++) for (let b = -2; b <= 2; b++) for (const i of pitGrid.get((gx + a) * 100003 + gz + b) ?? []) { const r = Math.max(RR.hw[i] + 3, RR.wall[RR.gk][i]) + margin; if ((RR.X[i] - x) ** 2 + (RR.Z[i] - z) ** 2 < r * r) return false; } return true; };
+  const clearOfTrack = (x, z, margin) => { if (!clearOfPit(x, z, margin)) return false; const n = tr.nearestGlobal(x, z, 3); if (n.i < 0) return true; const i = n.i, lat = (x - X[i]) * LX[i] + (z - Z[i]) * LZ[i], k = lat >= 0 ? 0 : 1; return Math.sqrt(n.d2) > W[k][i] + margin; };
   function makeStand(len, rows) {
     const g = new THREE.Group(), rise = 0.45, run = 0.85, H = rows * rise, D = rows * run;
     const ct = T.crowd.clone(); ct.needsUpdate = true; ct.repeat.set(len / 40, rows);
@@ -418,20 +472,23 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
     for (const c of corners) { if (placed >= 4) break; const outside = tr.K[c.i] > 0 ? 1 : -1; /* K > 0 turns right: the outside is on the left */ if (tryStand(c.i, outside, 90, 14) || tryStand(at(c.i - 60), outside, 80, 12)) placed++; }
   }
 
-  // ---------- scenery: trees, palms, bushes or city blocks depending on the circuit, kept away from the
-  // track, the pits and the stands. Grouped in 300 m cells so only what's in view is drawn. ----------
+  // ---------- buildings, floodlights, marshals, billboards, bridges, the paddock… (trackprops.js) ----------
+  const props = addProps({ tr, group, tex, canvas, hAt, sideK, clearOfTrack, inKeepOut, keepOut, groundAt, fenceOff: 2, fo, lit, isNight, lamps, pitInfo });
+
+  // ---------- scenery: trees, palms or bushes depending on the circuit, kept away from the track, the pits,
+  // the stands and the buildings. Grouped in 300 m cells so only what's in view is drawn. ----------
   {
     // how much of what, per kind of place
     const MIX = {
       forest: { fir: 7000 }, alpine: { fir: 4200, leafy: 1400 }, park: { leafy: 4500, fir: 500 }, countryside: { leafy: 1800 },
       plains: { leafy: 900 }, tropical: { palm: 1600, leafy: 2200 }, desert: { palm: 380 }, dunes: { bush: 2200, leafy: 300 },
-      city: { building: 900, palm: tr.cfg.cc === "MC" || tr.cfg.cc === "SG" || tr.cfg.cc === "US" || tr.cfg.cc === "ES" ? 300 : 0, leafy: tr.cfg.cc === "AZ" ? 250 : 120 },
+      city: { palm: tr.cfg.cc === "MC" || tr.cfg.cc === "SG" || tr.cfg.cc === "US" || tr.cfg.cc === "ES" ? 300 : 0, leafy: tr.cfg.cc === "AZ" ? 250 : 120 },
     }[SC] ?? { fir: 4000 };
     const place = (count, near, far, gap) => {
       const out = []; let tries = 0;
       while (out.length < count && tries++ < count * 12) {
         const i = Math.floor(rnd() * N), s = rnd() < 0.5 ? -1 : 1, off = s * (W[sideK(s)][i] + near + rnd() ** 1.7 * far);
-        const x = X[i] + LX[i] * off, z = Z[i] + LZ[i] * off, gd = groundAt(x, z); if (gd.d < (gd.flat ?? 0) + gap || inKeepOut(x, z, gap + 3) || !clearOfTrack(x, z, gap + 1)) continue;
+        const x = X[i] + LX[i] * off, z = Z[i] + LZ[i] * off, gd = groundAt(x, z); if (gd.d < (gd.flat ?? 0) + gap || inKeepOut(x, z, gap + 3) || !clearOfTrack(x, z, gap + 1) || props.blocked(x, z, gap)) continue;
         out.push({ x, z, h: gd.h, sc: 0.75 + rnd() * 0.8, yaw: rnd() * 6.283, r: rnd() });
       }
       return out;
@@ -477,34 +534,6 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
         add(crowns); add(trunks);
       }
     }
-    // city blocks: a few shapes of building, windows on every side (lit at night)
-    if (MIX.building) {
-      const shapes = [[22, 20, 58], [32, 26, 28], [16, 16, 92], [42, 30, 14], [26, 22, 40]].map(([w, d, h]) => {
-        const g = new THREE.BoxGeometry(w, h, d); g.translate(0, h / 2, 0);
-        const uv = g.attributes.uv, nrm = g.attributes.normal; for (let v = 0; v < uv.count; v++) { const side = Math.abs(nrm.getX(v)) > 0.5 ? d : w, top = Math.abs(nrm.getY(v)) > 0.5; uv.setXY(v, top ? 0 : uv.getX(v) * side / 24, top ? 0 : uv.getY(v) * h / 48); }
-        return g;
-      });
-      const bm = new THREE.MeshStandardMaterial({ map: T.windowsDay, color: night ? 0x2E333C : 0xFFFFFF, roughness: 0.6, metalness: 0.15, emissiveMap: night || dusk ? T.windowsNight : null, emissive: night || dusk ? 0xFFFFFF : 0x000000, emissiveIntensity: night ? 1.6 : dusk ? 0.5 : 0 });
-      T.windowsNight.wrapS = T.windowsNight.wrapT = THREE.RepeatWrapping;
-      T.windowsDay.wrapS = T.windowsDay.wrapT = THREE.RepeatWrapping;
-      const all = place(MIX.building, 10, 260, 14);
-      for (const list of cellsOf(all, 400)) {
-        const per = shapes.map(() => []); list.forEach((t) => per[Math.floor(t.r * shapes.length) % shapes.length].push(t));
-        per.forEach((ls, si) => { if (!ls.length) return; const m = new THREE.InstancedMesh(shapes[si], bm, ls.length); ls.forEach((t, j) => { const hs = 0.7 + t.sc * 0.5; q.setFromAxisAngle(up, Math.round(t.yaw / (Math.PI / 2)) * (Math.PI / 2) + (t.r - 0.5) * 0.3); m4.compose(V.set(t.x, t.h - 0.5, t.z), q, Sv.set(1, hs, 1)); m.setMatrixAt(j, m4); c.setHSL(0.08 + t.r * 0.5, 0.08 + t.r * 0.12, 0.62 + (1 - t.r) * 0.25); m.setColorAt(j, c); }); m.castShadow = false; m.receiveShadow = true; add(m, 60); });
-      }
-    }
-  }
-
-  // ---------- floodlights for the night races: tall poles all round the track ----------
-  if (night) {
-    const poleG = new THREE.CylinderGeometry(0.18, 0.28, 18, 6, 1, true), headG = new THREE.BoxGeometry(2.6, 1.1, 0.5);
-    const poleM = new THREE.MeshStandardMaterial({ color: 0x6B717A, metalness: 0.6, roughness: 0.5 }), headM = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, emissive: 0xFFF4DD, emissiveIntensity: 3 });
-    const spots = []; for (let i = 0; i < N; i += 55) { const s = (i / 55) % 2 ? 1 : -1, k = sideK(s), o = s * (W[k][i] + (WT[k][i] === 1 ? 3.2 : 2.2)); spots.push({ x: X[i] + LX[i] * o, z: Z[i] + LZ[i] * o, y: Y[i], yaw: Math.atan2(TX[i], TZ[i]) }); }
-    for (const list of [spots]) {
-      const poles = new THREE.InstancedMesh(poleG, poleM, list.length), heads = new THREE.InstancedMesh(headG, headM, list.length);
-      list.forEach((p, j) => { q.setFromAxisAngle(up, p.yaw); m4.compose(new THREE.Vector3(p.x, p.y + 9, p.z), q, new THREE.Vector3(1, 1, 1)); poles.setMatrixAt(j, m4); m4.compose(new THREE.Vector3(p.x, p.y + 18.3, p.z), q, new THREE.Vector3(1, 1, 1)); heads.setMatrixAt(j, m4); });
-      group.add(poles, heads);
-    }
   }
 
   // ---------- start gantry with the five lights ----------
@@ -528,7 +557,7 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
         let j = i; while (profile[at(j + 1)] < profile[at(j)] && j - i < 600) j++;
         if (v0 - profile[at(j)] < 25) continue;
         const s = Math.sign(tr.K[at(j)]) > 0 ? 1 : -1; // on the outside of the approach
-        for (const d of [150, 100, 50]) { const kk = at(i + Math.max(0, (j - i) - d)), b = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.5, 0.08), mats[d]); const o = s * (half + 2.2); b.position.set(X[kk] + LX[kk] * o, Y[kk] + 1.1, Z[kk] + LZ[kk] * o); b.rotation.y = Math.atan2(TX[kk], TZ[kk]) + Math.PI; group.add(b); }
+        for (const d of [150, 100, 50]) { const kk = at(i + Math.max(0, (j - i) - d)), b = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.5, 0.08), mats[d]); const o = s * (half + 2.2); b.position.set(X[kk] + LX[kk] * o, hAt(kk, o) + 1.1, Z[kk] + LZ[kk] * o); b.rotation.y = Math.atan2(TX[kk], TZ[kk]) + Math.PI; group.add(b); }
         i = j;
       }
     }

@@ -38,9 +38,9 @@ export const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
 // or overheating and as the rubber wears. Sliding a cold tyre grains it (a little grip lost until it
 // cleans up), cooking it blisters it (lost for good), locking a wheel flat-spots it.
 export const COMPOUNDS = {
-  soft: { name: "Soft", letter: "S", color: "#E8002D", grip: 1.045, wear: 1.9, window: [88, 108] },
-  medium: { name: "Medium", letter: "M", color: "#FFD12E", grip: 1.0, wear: 1.0, window: [94, 114] },
-  hard: { name: "Hard", letter: "H", color: "#F0F0F0", grip: 0.965, wear: 0.6, window: [100, 120] },
+  soft: { name: "Soft", letter: "S", color: "#E8002D", grip: 1.045, wear: 1.9, heat: 1.08, window: [85, 110] },
+  medium: { name: "Medium", letter: "M", color: "#FFD12E", grip: 1.0, wear: 1.0, heat: 1.0, window: [90, 118] },
+  hard: { name: "Hard", letter: "H", color: "#F0F0F0", grip: 0.965, wear: 0.6, heat: 0.9, window: [96, 126] },
 };
 export const TYRE_NAMES = ["front left", "front right", "rear left", "rear right"];
 export function fitTyres(c, compound = "medium", temp = 70) { // 70 °C: what the 2026 tyre blankets allow
@@ -52,22 +52,39 @@ export function tyreGrip(t, compound) {
   const fW = 1 - 0.1 * t.wear ** 1.6 - (t.wear > 0.85 ? (t.wear - 0.85) * 1.2 : 0);
   return C.grip * fT * fW * (1 - 0.03 * t.grain) * (1 - 0.05 * t.blister) * (1 - 0.012 * t.flat);
 }
+export const TY = { qs: 4, kF: 1.8, kR: 1.8, cool: 0.012, s0: 0.03, over: 0.08 };
 function updateTyres(c, dt, u) {
   const C = COMPOUNDS[c.compound] ?? COMPOUNDS.medium, [lo, hi] = C.window, au = Math.abs(u);
   // heat put into the rubber by sliding: sideways force × slip angle × speed, plus driving and braking
-  const pF = Math.abs(c.fyf ?? 0) * c.slipF * au + Math.abs(c.fxf ?? 0) * 0.015 * au + (c.lockF ? 30000 : 0);
-  const pR = Math.abs(c.fyr ?? 0) * c.slipR * au + Math.abs(c.fxr ?? 0) * 0.015 * au + (c.lockR ? 30000 : 0) + c.spin * 60000;
+  // (small slip angles, like the tiny corrections on a straight, hardly heat the rubber at all)
+  const sF = Math.max(0, c.slipF - TY.s0), sR = Math.max(0, c.slipR - TY.s0);
+  const pF = Math.abs(c.fyf ?? 0) * sF * au + Math.abs(c.fxf ?? 0) * 0.015 * au + (c.lockF ? 30000 : 0);
+  const pR = Math.abs(c.fyr ?? 0) * sR * au + Math.abs(c.fxr ?? 0) * 0.015 * au + (c.lockR ? 30000 : 0) + c.spin * 60000;
   const out = (c.ay ?? 0) > 0 ? 1 : 0; // turning left → the right-hand tyres are on the outside and work harder
   for (let k = 0; k < 4; k++) {
     const t = c.tyres[k], front = k < 2, P = (front ? pF : pR) * ((k % 2 === out) ? 0.62 : 0.38);
-    t.temp += (P * (front ? 5.6e-4 : 4.7e-4) - 0.01 * (t.temp - 25) * (1 + au / 20)) * dt;
+    // The temperature is the rubber's core, which takes many corners to warm up and doesn't jump with
+    // every slide: most of the sliding energy goes into the surface, the track and the air, and the harder
+    // a tyre is worked the less of the extra reaches the core (so a twitchy keyboard driver runs a few
+    // degrees hotter, not 100 °C hotter). Cooling goes up with speed (air) and with temperature.
+    const q = P / 1000, qIn = TY.qs * (1 - Math.exp(-q / TY.qs)); // kW, saturating
+    const cool = TY.cool * (t.temp - 25) * (1 + au / 25) * (1 + Math.max(0, t.temp - hi) * TY.over);
+    t.temp += (qIn * (front ? TY.kF : TY.kR) * C.heat - cool) * dt;
     const hot = Math.max(0, t.temp - hi);
-    t.wear = Math.min(1, t.wear + C.wear * (P * 3e-8 + au * 1.5e-7) * (1 + hot * 0.04) * dt);
-    if (t.temp < lo - 12 && (front ? c.slipF : c.slipR) > 0.1) t.grain = Math.min(1, t.grain + dt * 0.4); else if (t.temp > lo) t.grain = Math.max(0, t.grain - dt * 0.012);
-    if (t.temp > hi + 18) t.blister = Math.min(1, t.blister + dt * 0.03);
+    t.wear = Math.min(1, t.wear + C.wear * (Math.min(q, 40) * 3e-5 + au * 1.5e-7) * (1 + hot * 0.04) * dt);
+    // graining: sliding hard on a tyre that's still well under its window; it cleans up once warm
+    if (t.temp < lo - 12 && (front ? c.slipF : c.slipR) > 0.14 && au > 10) t.grain = Math.min(1, t.grain + dt * 0.05); else if (t.temp > lo - 4) t.grain = Math.max(0, t.grain - dt * 0.02);
+    // blistering: only after the core has been well over its window for a long while (minutes, not seconds)
+    if (t.temp > hi + 15) t.blister = Math.min(1, t.blister + dt * 0.0025 * (1 + (t.temp - hi - 15) / 8));
     if ((front && c.lockF) || (!front && c.lockR)) t.flat = Math.min(1, t.flat + dt * 1.5);
   }
 }
+// grip (× the track's) and rolling drag (in g, plus a part that grows with speed) of what's under the car
+const SURF_NAMES = ["grass", "tarmac", "gravel", "street"];
+export const SURFACES = {
+  track: { mu: 1, drag: 0, dragV: 0 }, kerb: { mu: 0.95, drag: 0, dragV: 0 }, apron: { mu: 0.92, drag: 0.01, dragV: 0 }, tarmac: { mu: 0.9, drag: 0.012, dragV: 0 }, street: { mu: 0.9, drag: 0.012, dragV: 0 },
+  grass: { mu: 0.55, drag: 0.06, dragV: 0.0018 }, gravel: { mu: 0.42, drag: 0.32, dragV: 0.0075 },
+};
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 
 export function newCar(tr, i = 0, lat = 0, back = 0) {
@@ -126,9 +143,13 @@ export function stepCar(c, input, track, dt, opts = {}) {
   const kerbHere = tr.kerb?.[ix] ?? 0;
   c.kerb = alat > half - 0.6 && alat < half + 1.6 && (kerbHere & (f.lat > 0 ? 1 : 2)) !== 0;
   c.offTrack = alat > half + 0.95; // all four wheels over the white line
-  c.surface = alat <= half ? "track" : c.kerb ? "kerb" : "runoff";
-  const surfMu = c.surface === "track" ? 1 : c.surface === "kerb" ? 0.95 : 0.8;
-  const surfDrag = c.surface === "runoff" ? 0.06 * P.m * G : 0;
+  // beyond the white line: the kerb, then a strip of tarmac (the apron), then the run-off itself, which is
+  // grass (slippery, slows you a bit), gravel (very little grip, and it drags the car to a stop fast),
+  // painted tarmac or a street circuit's road
+  const sk = f.lat >= 0 ? 0 : 1, ap = tr.apron ? tr.apron[sk][ix] : 0;
+  c.surface = alat <= half ? "track" : c.kerb ? "kerb" : !tr.surf || alat <= half + 0.6 + ap ? "apron" : SURF_NAMES[tr.surf[sk][ix]];
+  const SM = SURFACES[c.surface] ?? SURFACES.apron, au0 = Math.abs(c.u);
+  const surfMu = SM.mu, surfDrag = Math.min(0.95, SM.drag + SM.dragV * au0) * P.m * G * Math.min(1, au0 / 2);
 
   // ---- inputs, smoothed ----
   const thr = clamp(input.throttle, 0, 1), brk = clamp(input.brake, 0, 1);
@@ -167,8 +188,12 @@ export function stepCar(c, input, track, dt, opts = {}) {
   // ---- loads ----
   const L = P.a + P.b;
   const transfer = (P.m * c.ax * P.h) / L;
-  const Fzf = Math.max(200, (P.m * G * P.b) / L + down * P.aeroFront - transfer);
-  const Fzr = Math.max(200, (P.m * G * P.a) / L + down * (1 - P.aeroFront) + transfer);
+  // banking: the car is pressed into a banked corner (more load on the tyres the faster it goes round),
+  // and gravity pulls it down the slope (see below)
+  const bk = !c.onPit && track.bank ? track.bank[c.idx] : 0;
+  const bankLoad = bk ? Math.cos(bk) + Math.max(0, -Math.sign(bk) * (c.ay ?? 0) / G) * Math.sin(Math.abs(bk)) : 1;
+  const Fzf = Math.max(200, ((P.m * G * P.b) / L) * bankLoad + down * P.aeroFront - transfer);
+  const Fzr = Math.max(200, ((P.m * G * P.a) / L) * bankLoad + down * (1 - P.aeroFront) + transfer);
   const sens = (Fz, Fz0) => clamp(1 - 0.04 * (Fz / Fz0 - 1), 0.8, 1.05);
   const gF = c.tyres ? (tyreGrip(c.tyres[0], c.compound) + tyreGrip(c.tyres[1], c.compound)) / 2 : 1, gR = c.tyres ? (tyreGrip(c.tyres[2], c.compound) + tyreGrip(c.tyres[3], c.compound)) / 2 : 1;
   const Df = P.mu * surfMu * gF * Fzf * sens(Fzf, (P.m * G * P.b) / L);
@@ -214,13 +239,16 @@ export function stepCar(c, input, track, dt, opts = {}) {
   c.spin = 0; c.lockF = c.lockR = false;
   // traction control and ABS always keep back enough grip for cornering: at least what the tyre is
   // making now plus a margin, so getting on the power out of a corner can't snap the rear round
-  const fyrNow = Math.abs(c.fyr ?? 0), fyfNow = Math.abs(c.fyf ?? 0);
+  // (below ~30 km/h the car moves like it's on rails, see the end, so the slip-model side forces there are
+  // only nominal and mustn't eat the grip for pulling away while the wheel is turned)
+  const wLow = smooth(3, 9, Math.abs(u));
+  const fyrNow = Math.abs(c.fyr ?? 0) * wLow, fyfNow = Math.abs(c.fyf ?? 0) * wLow;
   const keepR = Math.min(Dr * 0.97, Math.max(1.3 * fyrNow, 0.5 * Dr)), keepF = Math.min(Df * 0.97, Math.max(1.2 * fyfNow, 0.4 * Df));
   const roomR = Drx * Math.sqrt(Math.max(0, 1 - (keepR / Dr) ** 2)), roomF = Math.sqrt(Math.max(0, Df * Df - keepF * keepF));
   if (Fxr > 0) {
     let lim = tc ? Math.max(roomR, 0.25 * Drx) : Drx;
     // stability help: ease the power while the rear is sliding
-    if (stability) { const ar0 = Math.abs(Math.atan2(c.v - P.b * c.r, Math.max(Math.abs(u), 5))); lim *= clamp(1 - (ar0 - 0.07) * 7, 0.25, 1); }
+    if (stability) { const ar0 = Math.abs(Math.atan2(c.v - P.b * c.r, Math.max(Math.abs(u), 5))) * wLow; lim *= clamp(1 - (ar0 - 0.07) * 7, 0.25, 1); }
     if (Fxr > lim) { if (!tc && Fxr > Drx) c.spin = clamp((Fxr - Drx) / Drx, 0, 1); Fxr = c.spin ? Drx * 0.7 : lim; }
   }
   if (-Fxf > Df * 0.92 || (abs && -Fxf > Math.max(roomF, 0.6 * Df))) { if (abs) Fxf = -Math.min(Df * 0.92, Math.max(roomF, 0.6 * Df)); else if (-Fxf > Df) { Fxf = -Df * 0.85; c.lockF = true; } }
@@ -256,12 +284,14 @@ export function stepCar(c, input, track, dt, opts = {}) {
   const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw);
   const along = fx * tr.TX[ix] + fz * tr.TZ[ix];
   const Fgrav = -P.m * G * tr.slope[ix] * along;
+  // down the banking: towards the lower side (bk > 0 = the left side higher, so it pulls to the right)
+  const gB = bk ? -P.m * G * Math.sin(bk) : 0, gBx = gB * (track.LX[c.idx] * fx + track.LZ[c.idx] * fz), gBy = gB * (track.LX[c.idx] * Math.cos(c.yaw) - track.LZ[c.idx] * Math.sin(c.yaw));
   const Fres = Math.sign(u) * (drag + 0.012 * P.m * G + surfDrag);
 
   // ---- integrate (body frame: u forward, v left, r = left yaw rate) ----
   const cd = Math.cos(delta), sd = Math.sin(delta);
-  const FX = Fxf * cd - Fyf * sd + Fxr - Fres + Fgrav;
-  const FY = Fyf * cd + Fxf * sd + Fyr;
+  const FX = Fxf * cd - Fyf * sd * wLow + Fxr - Fres + Fgrav + gBx; // (the steered front tyre's side force only slows the car once it's really rolling)
+  const FY = Fyf * cd + Fxf * sd + Fyr + gBy;
   let MZ = P.a * (Fyf * cd + Fxf * sd) - P.b * Fyr;
   // stability help (like the assist in racing games): if the car starts rotating faster than its grip
   // allows, or the rear slides, a correcting turn force calms it down — so a quick flick doesn't spin you

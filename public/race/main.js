@@ -1,24 +1,24 @@
 // RaceLimit Race — step 1: one car at Spa. Drive with the keyboard or a controller.
 import * as THREE from "three";
 import { Sky } from "three/addons/objects/Sky.js";
-import { CIRCUITS, buildTrack, speedProfile, racingLine } from "./trackdata.js?v=mvfrp5vx";
-import { newCar, stepCar, resetCar, ENVELOPE, CAR, COMPOUNDS, fitTyres, TYRE_NAMES } from "./physics.js?v=mvfrp5vx";
-import { buildCircuit } from "./trackmesh.js?v=mvfrp5vx";
-import { createInput } from "./input.js?v=mvfrp5vx";
-import { createHud } from "./hud.js?v=mvfrp5vx";
-import { createEngineAudio } from "./audio.js?v=mvfrp5vx";
-import { mergeCar } from "./optimize.js?v=mvfrp5vx";
-import { sfx } from "../games/sfx.js?v=mvfrp5vx";
-import { load, save } from "../games/common.js?v=mvfrp5vx";
+import { CIRCUITS, buildTrack, speedProfile, racingLine } from "./trackdata.js?v=mvfw9v6x";
+import { newCar, stepCar, resetCar, ENVELOPE, CAR, COMPOUNDS, fitTyres, TYRE_NAMES } from "./physics.js?v=mvfw9v6x";
+import { buildCircuit } from "./trackmesh.js?v=mvfw9v6x";
+import { createInput } from "./input.js?v=mvfw9v6x";
+import { createHud } from "./hud.js?v=mvfw9v6x";
+import { createEngineAudio } from "./audio.js?v=mvfw9v6x";
+import { mergeCar } from "./optimize.js?v=mvfw9v6x";
+import { sfx } from "../games/sfx.js?v=mvfw9v6x";
+import { load, save } from "../games/common.js?v=mvfw9v6x";
 
 const q = new URLSearchParams(location.search);
 const settings = Object.assign({ auto: true, abs: true, tc: true, stability: true, line: "full", camera: "chase", quality: "high", engine: "raw" }, load("race.settings", {}));
 const saveSettings = () => save("race.settings", settings);
 // ---------- what to drive: the menus (skipped when the address says what, for testing) ----------
-const { f1car, drawWheelScreen, TEAMS, setTyreLook } = await import("./car.js?v=mvfrp5vx");
+const { f1car, drawWheelScreen, TEAMS, setTyreLook } = await import("./car.js?v=mvfw9v6x");
 let choice;
 if (q.get("track") || q.get("place") || q.get("auto")) choice = { track: q.get("track") && CIRCUITS[q.get("track")] ? q.get("track") : "spa", session: q.get("session") || (q.get("auto") ? "grid" : "practice") };
-else { document.getElementById("loading").hidden = true; const { openMenus } = await import("./menu.js?v=mvfrp5vx"); choice = await openMenus({ CIRCUITS, settings, saveSettings, TEAMS }); document.getElementById("loading").hidden = false; }
+else { document.getElementById("loading").hidden = true; const { openMenus } = await import("./menu.js?v=mvfw9v6x"); choice = await openMenus({ CIRCUITS, settings, saveSettings, TEAMS }); document.getElementById("loading").hidden = false; }
 const circuitId = choice.track, CFG = CIRCUITS[circuitId], SESSION = choice.session;
 document.title = `${CFG.short} · Race — RaceLimit Live`;
 const $ = (id) => document.getElementById(id);
@@ -40,7 +40,7 @@ const LIGHT = {
   day: { sunEl: 36, sunAz: 140, sunCol: 0xFFF2E0, sun: 2.5, hemi: [0xC8DAF0, 0x55604E, 0.5], fog: 0xB9C9D8, fogD: 0.00042, exposure: 0.78, sky: { turbidity: 6, rayleigh: 2.4, mieCoefficient: 0.004, mieDirectionalG: 0.8 } },
   dusk: { sunEl: 5, sunAz: 250, sunCol: 0xFFB27A, sun: 1.7, hemi: [0xF2C6A0, 0x4A4038, 0.65], fog: 0xD8A98A, fogD: 0.0005, exposure: 0.72, sky: { turbidity: 9, rayleigh: 3.2, mieCoefficient: 0.006, mieDirectionalG: 0.85 } },
   // at night the "sun" is the floodlights: high up, white, softer shadows; the sky itself is dark
-  night: { sunEl: 68, sunAz: 120, sunCol: 0xEEF2FF, sun: 1.6, hemi: [0x9FB4DA, 0x2A2C33, 1.05], fog: 0x070A13, fogD: 0.0007, exposure: 0.95, skyEl: -6, sky: { turbidity: 2, rayleigh: 0.6, mieCoefficient: 0.002, mieDirectionalG: 0.7 } },
+  night: { sunEl: 68, sunAz: 120, sunCol: 0xEEF2FF, sun: 1.25, hemi: [0x9FB4DA, 0x2A2C33, 0.85], fog: 0x0A0F1C, fogD: 0.0007, exposure: 1.0, skyEl: -6, sky: { turbidity: 2, rayleigh: 0.6, mieCoefficient: 0.002, mieDirectionalG: 0.7 } },
 }[TIME];
 const sunDir = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - LIGHT.sunEl), THREE.MathUtils.degToRad(LIGHT.sunAz));
 const skySun = LIGHT.skyEl != null ? new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - LIGHT.skyEl), THREE.MathUtils.degToRad(LIGHT.sunAz)) : sunDir;
@@ -48,7 +48,18 @@ renderer.toneMappingExposure = LIGHT.exposure;
 {
   const sky = new Sky(); sky.scale.setScalar(10000);
   const u = sky.material.uniforms; for (const k in LIGHT.sky) u[k].value = LIGHT.sky[k]; u.sunPosition.value.copy(skySun);
-  if (TIME === "night") scene.background = new THREE.Color(0x070A13); else scene.add(sky); // a night sky is just dark
+  if (TIME === "night") {
+    // a night sky: deep blue overhead, lighter towards the horizon where the city and the floodlights glow
+    scene.background = new THREE.Color(0x070A13);
+    const glow = CFG.scenery === "city" ? [0.42, 0.3, 0.32] : [0.2, 0.25, 0.42];
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(9000, 32, 16), new THREE.ShaderMaterial({
+      side: THREE.BackSide, depthWrite: false, fog: false,
+      uniforms: { top: { value: new THREE.Color(0.01, 0.015, 0.04) }, mid: { value: new THREE.Color(0.06, 0.09, 0.19) }, hor: { value: new THREE.Color(...glow) } },
+      vertexShader: "varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+      fragmentShader: "uniform vec3 top; uniform vec3 mid; uniform vec3 hor; varying vec3 vP; void main(){ float y = max(vP.y, 0.0); vec3 c = mix(hor, mid, smoothstep(0.0, 0.12, y)); c = mix(c, top, smoothstep(0.12, 0.6, y)); gl_FragColor = vec4(c, 1.0); }",
+    }));
+    dome.renderOrder = -1; dome.onBeforeRender = () => dome.position.copy(cam.position); scene.add(dome);
+  } else scene.add(sky);
   const pm = new THREE.PMREMGenerator(renderer), env = new THREE.Scene(), s2 = new Sky(); s2.scale.setScalar(1000);
   for (const k of ["turbidity", "rayleigh", "mieCoefficient", "mieDirectionalG"]) s2.material.uniforms[k].value = u[k].value;
   s2.material.uniforms.sunPosition.value.copy(TIME === "night" ? sunDir : skySun); env.add(s2);
@@ -82,8 +93,8 @@ const crown = (o) => { const a = Math.abs(o), h = tr.half; return a < h / 2 ? 0.
 const lineMesh = (() => {
   const N = tr.N, pos = new Float32Array((N + 1) * 2 * 3), col = new Float32Array((N + 1) * 2 * 3), idx = [];
   for (let k = 0; k <= N; k++) {
-    const i = k % N, o = line.off[i], y = tr.Y[i] + crown(o) + 0.014;
-    for (const [m, w] of [[0, -0.24], [1, 0.24]]) { const p = (k * 2 + m) * 3; pos[p] = line.x[i] + tr.LX[i] * w; pos[p + 1] = y; pos[p + 2] = line.z[i] + tr.LZ[i] * w; col[p] = 0.2; col[p + 1] = 0.85; col[p + 2] = 0.45; }
+    const i = k % N, o = line.off[i];
+    for (const [m, w] of [[0, -0.24], [1, 0.24]]) { const p = (k * 2 + m) * 3, y = tr.yAt(i, o + w) + crown(o) + 0.014; pos[p] = line.x[i] + tr.LX[i] * w; pos[p + 1] = y; pos[p + 2] = line.z[i] + tr.LZ[i] * w; col[p] = 0.2; col[p + 1] = 0.85; col[p + 2] = 0.45; }
     if (k < N) idx.push(k * 2, k * 2 + 2, k * 2 + 1, k * 2 + 1, k * 2 + 2, k * 2 + 3);
   }
   const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("color", new THREE.BufferAttribute(col, 3)); g.setIndex(idx);
@@ -144,6 +155,39 @@ let aeroShown = "corner";
 const showAero = (mode) => { if (mode === aeroShown) return; aeroShown = mode; car.traverse((m) => { if (m.userData.aero) m.visible = m.userData.aero === mode; }); };
 let cockpitShown = false;
 const showCockpit = (on) => { if (on === cockpitShown) return; cockpitShown = on; car.traverse((m) => { if (m.userData.helmet || m.userData.lid || m.userData.inner || m.userData.extTub) m.visible = !on; if (m.userData.cockpitOnly) m.visible = on; }); };
+
+// ---------- sparks: the plank and skid blocks scraping the ground at high speed, more over bumps,
+// compressions and kerbs. Short glowing streaks thrown out behind the car. ----------
+const SPK = 240, spk = { pos: new Float32Array(SPK * 3), vel: new Float32Array(SPK * 3), life: new Float32Array(SPK), max: new Float32Array(SPK), next: 0, acc: 0 };
+const spkGeo = new THREE.BufferGeometry(), spkLine = new Float32Array(SPK * 6), spkCol = new Float32Array(SPK * 6);
+spkGeo.setAttribute("position", new THREE.BufferAttribute(spkLine, 3)); spkGeo.setAttribute("color", new THREE.BufferAttribute(spkCol, 3));
+const sparks = new THREE.LineSegments(spkGeo, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+sparks.frustumCulled = false; scene.add(sparks);
+const _sp = new THREE.Vector3();
+function updateSparks(c, dt) {
+  const u = Math.max(0, c.u), i = c.idx, bump = Math.abs(tr.slope[tr.wrap(i + 3)] - tr.slope[tr.wrap(i - 3)]);
+  const rate = c.onPit || u < 60 ? 0 : (u - 60) * (0.5 + bump * 260 + (c.kerb ? 2.5 : 0) + (c.surface === "track" ? 0 : -0.5)) * 1.1;
+  spk.acc += Math.max(0, rate) * dt;
+  while (spk.acc >= 1) {
+    spk.acc -= 1; const n = spk.next; spk.next = (n + 1) % SPK;
+    _sp.set((Math.random() - 0.5) * 0.7, 0.04, -1.0 - Math.random() * 1.1); car.localToWorld(_sp);
+    spk.pos.set([_sp.x, _sp.y, _sp.z], n * 3);
+    const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), keep = 0.45 + Math.random() * 0.3, side = (Math.random() - 0.5) * 6;
+    spk.vel.set([fx * u * keep + Math.cos(c.yaw) * side, 0.8 + Math.random() * 2.6, fz * u * keep - Math.sin(c.yaw) * side], n * 3);
+    spk.life[n] = spk.max[n] = 0.18 + Math.random() * 0.32;
+  }
+  for (let n = 0; n < SPK; n++) {
+    const p = n * 3, l = n * 6;
+    if (spk.life[n] <= 0) { spkLine.fill(0, l, l + 6); spkCol.fill(0, l, l + 6); continue; }
+    spk.life[n] -= dt; spk.vel[p + 1] -= 9.8 * dt;
+    for (let a = 0; a < 3; a++) spk.pos[p + a] += spk.vel[p + a] * dt;
+    const t = Math.max(0, spk.life[n] / spk.max[n]), tail = 0.018;
+    spkLine[l] = spk.pos[p]; spkLine[l + 1] = spk.pos[p + 1]; spkLine[l + 2] = spk.pos[p + 2];
+    spkLine[l + 3] = spk.pos[p] - spk.vel[p] * tail; spkLine[l + 4] = spk.pos[p + 1] - spk.vel[p + 1] * tail; spkLine[l + 5] = spk.pos[p + 2] - spk.vel[p + 2] * tail;
+    const b = (TIME === "night" ? 1.6 : 1.1) * t; spkCol.set([b, b * 0.82, b * 0.45, b * 0.7, b * 0.32, b * 0.08], l);
+  }
+  spkGeo.attributes.position.needsUpdate = true; spkGeo.attributes.color.needsUpdate = true;
+}
 
 // ---------- game state ----------
 const hud = createHud($("hud"), tr);
@@ -343,12 +387,13 @@ function frame(now) {
   }
   // ----- car pose -----
   const flat = c.tyres ? Math.max(...c.tyres.map((ty) => ty.flat)) : 0;
-  const kerbJ = (c.kerb ? (Math.random() - 0.5) * 0.012 * Math.min(1, c.u / 20) : 0) + (flat > 0.2 ? Math.sin(simT * c.u * 2.9) * 0.004 * flat * Math.min(1, c.u / 30) : 0);
+  const kerbJ = (c.kerb ? (Math.random() - 0.5) * 0.012 * Math.min(1, c.u / 20) : c.surface === "gravel" ? (Math.random() - 0.5) * 0.03 * Math.min(1, c.u / 10) : c.surface === "grass" ? (Math.random() - 0.5) * 0.008 * Math.min(1, c.u / 20) : 0) + (flat > 0.2 ? Math.sin(simT * c.u * 2.9) * 0.004 * flat * Math.min(1, c.u / 30) : 0);
   const along = Math.sin(c.yaw) * tr.TX[c.idx] + Math.cos(c.yaw) * tr.TZ[c.idx];
   const slopePitch = -Math.atan(tr.slope[c.idx] * along);
-  const surfY = c.onPit ? 0.012 : Math.abs(c.lat) < tr.half + 0.6 ? crown(c.lat) : c.kerb ? 0.06 : -0.01;
+  const surfY = c.onPit ? 0.012 : Math.abs(c.lat) < tr.half + 0.6 ? crown(c.lat) : c.kerb ? 0.06 : c.surface === "gravel" ? -0.06 : -0.01;
   car.position.set(c.x, c.y + surfY + kerbJ, c.z);
-  car.rotation.set(slopePitch + c.pitch, c.yaw, c.roll, "YXZ");
+  const bankRoll = !c.onPit && Math.abs(c.lat) < tr.half + 2 ? (tr.bank?.[c.idx] ?? 0) * along : 0; // tilted with a banked corner
+  car.rotation.set(slopePitch + c.pitch, c.yaw, c.roll + bankRoll, "YXZ");
   for (const w of wheels) { w.group.rotation.x = c.wheelRot; if (w.front) w.pivot.rotation.y = c.steer; }
   const sw = car.userData.steering;
   if (sw) {
@@ -398,6 +443,7 @@ function frame(now) {
   // ----- light follows the car -----
   sun.target.position.set(c.x, c.y, c.z); sun.position.copy(sun.target.position).addScaledVector(sunDir, 120);
   if (lineMesh.visible) colourLine(c);
+  if (!paused) updateSparks(c, Math.min(dt, 0.05));
   circuit.barriers.update(Math.min(dt, 0.05)); circuit.barriers.cull(cam.position);
   hud.update(c, T, opts);
   audio?.update(c, { paused, view: v, dt });

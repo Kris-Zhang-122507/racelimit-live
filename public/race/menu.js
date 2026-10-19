@@ -1,7 +1,7 @@
 // The racing game's menus: the main menu (modes), a race weekend (pick a circuit and a session),
 // the garage (your team's colours) and settings. Plain DOM, shown before any 3D is built; resolves
 // with what to drive: { track, session }.
-import { load, save } from "../games/common.js?v=mvfrp5vx";
+import { load, save } from "../games/common.js?v=mvfw9v6x";
 
 // the 2026 calendar, in order (the Bahrain GP was held at Sepang), then circuits only raced in 2025
 export const CALENDAR = ["melbourne", "shanghai", "suzuka", "miami", "montreal", "monte-carlo", "catalunya", "spielberg", "silverstone", "spa", "hungaroring", "zandvoort", "monza", "madring", "baku", "kuala-lumpur", "singapore", "austin", "mexico-city", "interlagos", "las-vegas", "lusail", "yas-marina-circuit", "sakhir", "jeddah"];

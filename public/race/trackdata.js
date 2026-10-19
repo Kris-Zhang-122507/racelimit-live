@@ -11,16 +11,20 @@
 // width (m); run = run-off before the barriers on a permanent circuit; street = walls right by the
 // track. scenery and time pick the surroundings and the light (the night races are lit).
 // names: what the corners are called (corner number → name), where they're well known.
+// runoff: what's beyond the kerbs on a permanent circuit — "mixed" (the default: gravel traps on the
+// outside of the fast corners, tarmac elsewhere), "gravel" (gravel on the outside of most corners) or
+// "tarmac" (big painted tarmac run-offs). bank: banked corners, by corner number (c) or metres from the
+// line (at), in degrees.
 export const CIRCUITS = {
-  melbourne: { slug: "melbourne", name: "Albert Park", short: "Melbourne", country: "Australia", cc: "AU", lengthM: 5278, laps: 58, half: 6.2, run: 6, street: true, scenery: "park", time: "day" },
-  shanghai: { slug: "shanghai", name: "Shanghai International Circuit", short: "Shanghai", country: "China", cc: "CN", lengthM: 5451, laps: 56, half: 7.5, run: 16, scenery: "plains", time: "day",
+  melbourne: { slug: "melbourne", name: "Albert Park", short: "Melbourne", country: "Australia", cc: "AU", lengthM: 5278, laps: 58, half: 6.2, run: 6, street: true, runoff: "gravel", scenery: "park", time: "day" },
+  shanghai: { slug: "shanghai", name: "Shanghai International Circuit", short: "Shanghai", country: "China", cc: "CN", lengthM: 5451, laps: 56, half: 7.5, run: 16, scenery: "plains", time: "day", runoff: "tarmac",
     // F1's position data has no positions in this pit lane, so it's laid out by hand: on the right, in
     // after the last corner, out before Turn 1
     pit: { side: "right", entry: -300, lane: [-230, 300], exit: [330, 400], garages: [-150, 150], limit: [-240, 300] } },
-  suzuka: { slug: "suzuka", name: "Suzuka", short: "Suzuka", country: "Japan", cc: "JP", lengthM: 5807, laps: 53, half: 6, run: 9, scenery: "park", time: "day",
+  suzuka: { slug: "suzuka", name: "Suzuka", short: "Suzuka", country: "Japan", cc: "JP", lengthM: 5807, laps: 53, half: 6, run: 9, scenery: "park", time: "day", runoff: "gravel",
     names: { 3: "S Curves", 7: "Dunlop", 8: "Degner 1", 9: "Degner 2", 11: "Hairpin", 13: "Spoon", 15: "130R", 16: "Casio Triangle" } },
-  miami: { slug: "miami", name: "Miami International Autodrome", short: "Miami", country: "USA", cc: "US", lengthM: 5412, laps: 57, half: 6.5, run: 4, street: true, scenery: "tropical", time: "day" },
-  montreal: { slug: "montreal", name: "Circuit Gilles Villeneuve", short: "Montreal", country: "Canada", cc: "CA", lengthM: 4361, laps: 70, half: 5.8, run: 4, street: true, scenery: "park", time: "day",
+  miami: { slug: "miami", name: "Miami International Autodrome", short: "Miami", country: "USA", cc: "US", lengthM: 5412, laps: 57, half: 6.5, run: 4, street: true, scenery: "tropical", time: "day", runoff: "tarmac" },
+  montreal: { slug: "montreal", name: "Circuit Gilles Villeneuve", short: "Montreal", country: "Canada", cc: "CA", lengthM: 4361, laps: 70, half: 5.8, run: 4, street: true, scenery: "park", time: "day", runoff: "gravel",
     names: { 1: "Virage Senna", 10: "L'Épingle", 14: "Wall of Champions" } },
   "monte-carlo": { slug: "monte-carlo", name: "Circuit de Monaco", short: "Monaco", country: "Monaco", cc: "MC", lengthM: 3337, laps: 78, half: 4.6, run: 1.6, street: true, scenery: "city", time: "day",
     names: { 1: "Sainte Dévote", 3: "Massenet", 4: "Casino", 5: "Mirabeau", 6: "Grand Hotel Hairpin", 8: "Portier", 9: "Tunnel", 10: "Nouvelle Chicane", 12: "Tabac", 13: "Swimming Pool", 17: "La Rascasse", 19: "Anthony Noghès" } },
@@ -36,22 +40,26 @@ export const CIRCUITS = {
     // the exit goes round the inside of La Source and joins on the way down to Eau Rouge
     pit: { side: "right", entry: -248, lane: [-175, 285], apex: [325, 415], exit: [520, 640], garages: [-150, 150], limit: [-195, 285] } },
   hungaroring: { slug: "hungaroring", name: "Hungaroring", short: "Hungaroring", country: "Hungary", cc: "HU", lengthM: 4381, laps: 70, half: 6, run: 10, scenery: "countryside", time: "day" },
-  zandvoort: { slug: "zandvoort", name: "Zandvoort", short: "Zandvoort", country: "Netherlands", cc: "NL", lengthM: 4259, laps: 72, half: 5.5, run: 8, scenery: "dunes", time: "day",
+  zandvoort: { slug: "zandvoort", name: "Zandvoort", short: "Zandvoort", country: "Netherlands", cc: "NL", lengthM: 4259, laps: 72, half: 5.5, run: 8, scenery: "dunes", time: "day", runoff: "gravel",
+    // the banked corners: Hugenholtz (Turn 3, 19°) and Arie Luyendyk (Turn 14, 18°)
+    bank: [{ c: 3, deg: 19 }, { c: 14, deg: 18 }],
     names: { 1: "Tarzan", 3: "Hugenholtz", 7: "Scheivlak", 14: "Arie Luyendyk" } },
   monza: { slug: "monza", name: "Monza", short: "Monza", country: "Italy", cc: "IT", lengthM: 5793, laps: 53, half: 6.5, run: 12, scenery: "park", time: "day",
     names: { 1: "Variante del Rettifilo", 3: "Curva Grande", 4: "Variante della Roggia", 6: "Lesmo 1", 7: "Lesmo 2", 8: "Variante Ascari", 11: "Parabolica" } },
-  madring: { slug: "madring", name: "Madring", short: "Madrid", country: "Spain", cc: "ES", lengthM: 5416, laps: 57, half: 6.5, run: 4, street: true, scenery: "city", time: "day" },
+  madring: { slug: "madring", name: "Madring", short: "Madrid", country: "Spain", cc: "ES", lengthM: 5416, laps: 57, half: 6.5, run: 4, street: true, scenery: "city", time: "day", runoff: "tarmac",
+    // La Monumental (Turn 12): 550 m, about 270°, banked up to a 24% gradient (13.5°)
+    bank: [{ at: 2745, deg: 13.5 }] },
   baku: { slug: "baku", name: "Baku City Circuit", short: "Baku", country: "Azerbaijan", cc: "AZ", lengthM: 6003, laps: 51, half: 5.5, run: 2.5, street: true, scenery: "city", time: "day", names: { 8: "Castle" } },
-  "kuala-lumpur": { slug: "kuala-lumpur", name: "Sepang International Circuit", short: "Sepang", country: "Malaysia", cc: "MY", lengthM: 5543, laps: 56, half: 8, run: 16, scenery: "tropical", time: "day" },
+  "kuala-lumpur": { slug: "kuala-lumpur", name: "Sepang International Circuit", short: "Sepang", country: "Malaysia", cc: "MY", lengthM: 5543, laps: 56, half: 8, run: 16, scenery: "tropical", time: "day", runoff: "tarmac" },
   singapore: { slug: "singapore", name: "Marina Bay", short: "Singapore", country: "Singapore", cc: "SG", lengthM: 4940, laps: 62, half: 5.5, run: 2.5, street: true, scenery: "city", time: "night" },
-  austin: { slug: "austin", name: "Circuit of the Americas", short: "Austin", country: "USA", cc: "US", lengthM: 5513, laps: 56, half: 7.5, run: 16, scenery: "plains", time: "day" },
+  austin: { slug: "austin", name: "Circuit of the Americas", short: "Austin", country: "USA", cc: "US", lengthM: 5513, laps: 56, half: 7.5, run: 16, scenery: "plains", time: "day", runoff: "tarmac" },
   "mexico-city": { slug: "mexico-city", name: "Autódromo Hermanos Rodríguez", short: "Mexico City", country: "Mexico", cc: "MX", lengthM: 4304, laps: 71, half: 6.5, run: 10, scenery: "park", time: "day", altitude: 2240, names: { 12: "Foro Sol", 17: "Peraltada" } },
   interlagos: { slug: "interlagos", name: "Interlagos", short: "São Paulo", country: "Brazil", cc: "BR", lengthM: 4309, laps: 71, half: 6, run: 9, scenery: "park", time: "day",
     names: { 1: "Senna S", 3: "Curva do Sol", 4: "Descida do Lago", 6: "Ferradura", 8: "Laranjinha", 9: "Pinheirinho", 10: "Bico de Pato", 11: "Mergulho", 12: "Junção", 15: "Arquibancadas" } },
   "las-vegas": { slug: "las-vegas", name: "Las Vegas Strip Circuit", short: "Las Vegas", country: "USA", cc: "US", lengthM: 6201, laps: 50, half: 6.5, run: 3, street: true, scenery: "city", time: "night" },
   lusail: { slug: "lusail", name: "Lusail International Circuit", short: "Lusail", country: "Qatar", cc: "QA", lengthM: 5419, laps: 57, half: 6.5, run: 16, scenery: "desert", time: "night" },
-  "yas-marina-circuit": { slug: "yas-marina-circuit", name: "Yas Marina", short: "Abu Dhabi", country: "UAE", cc: "AE", lengthM: 5281, laps: 58, half: 7.5, run: 14, scenery: "desert", time: "dusk" },
-  sakhir: { slug: "sakhir", name: "Bahrain International Circuit", short: "Bahrain", country: "Bahrain", cc: "BH", lengthM: 5412, laps: 57, half: 7.5, run: 16, scenery: "desert", time: "night" },
+  "yas-marina-circuit": { slug: "yas-marina-circuit", name: "Yas Marina", short: "Abu Dhabi", country: "UAE", cc: "AE", lengthM: 5281, laps: 58, half: 7.5, run: 14, scenery: "desert", time: "dusk", runoff: "tarmac" },
+  sakhir: { slug: "sakhir", name: "Bahrain International Circuit", short: "Bahrain", country: "Bahrain", cc: "BH", lengthM: 5412, laps: 57, half: 7.5, run: 16, scenery: "desert", time: "night", runoff: "tarmac" },
   jeddah: { slug: "jeddah", name: "Jeddah Corniche Circuit", short: "Jeddah", country: "Saudi Arabia", cc: "SA", lengthM: 6174, laps: 50, half: 6, run: 2.5, street: true, scenery: "desert", time: "night" },
 };
 
@@ -199,6 +207,9 @@ export function buildTrack(raw, cfg, real = null) {
   }
   geometry(); // slopes need the heights
 
+  // banked corners: the cross-slope (radians, + = the left side higher) — see computeBank
+  const bank = new Float32Array(N), BANKW = (cfg.half ?? 7.5) + 2;
+  const bankH = (i, o) => (bank[i] ? Math.tan(bank[i]) * Math.max(-BANKW, Math.min(BANKW, o)) : 0); // height at offset o (+ = left)
   // local search from a known index (fast, for cars that move a few metres per frame)
   const nearestFrom = (x, z, i0, span = 40) => { let best = i0, bd = Infinity; for (let k = -span; k <= span; k++) { const i = wrap(i0 + k, N), d = (X[i] - x) ** 2 + (Z[i] - z) ** 2; if (d < bd) { bd = d; best = i; } } return best; };
   // signed sideways offset from the centre line (+ = left) and height at a point near sample i
@@ -206,11 +217,11 @@ export function buildTrack(raw, cfg, real = null) {
     const j = wrap(i + 1, N), h = wrap(i - 1, N);
     const dx = x - X[i], dz = z - Z[i], along = dx * TX[i] + dz * TZ[i];
     const k = along >= 0 ? j : h, t = Math.min(1, Math.abs(along));
-    const y = Y[i] + (Y[k] - Y[i]) * t;
-    return { lat: dx * LX[i] + dz * LZ[i], along, y, s: dist[i] + along };
+    const lat = dx * LX[i] + dz * LZ[i], y = Y[i] + (Y[k] - Y[i]) * t + bankH(i, lat);
+    return { lat, along, y, s: dist[i] + along };
   };
 
-  const tr = { cfg, N, len, X, Y, Z, TX, TZ, LX, LZ, K, slope, dist, kerb, corners, cIdx, half: cfg.half ?? 7.5, run: cfg.run ?? 13, street: !!cfg.street, nearestGlobal, nearestFrom, frame, wrap: (i) => wrap(i, N), real: useReal, world, S };
+  const tr = { cfg, N, len, X, Y, Z, TX, TZ, LX, LZ, K, slope, dist, kerb, corners, cIdx, half: cfg.half ?? 7.5, run: cfg.run ?? 13, street: !!cfg.street, nearestGlobal, nearestFrom, frame, wrap: (i) => wrap(i, N), real: useReal, world, S, bank, bankH, yAt: (i, o) => Y[i] + bankH(i, o) };
   // thinner air at altitude (Mexico City): less downforce and drag
   tr.rho = cfg.altitude ? Math.exp(-cfg.altitude / 8400) : 1;
   let pitCfg = useReal && real.pits?.length ? derivePit(tr, real) : null;
@@ -230,6 +241,7 @@ export function buildTrack(raw, cfg, real = null) {
     }
   }
   tr.len = len;
+  computeBank(tr);
   computeWalls(tr);
   pitCfg ??= cfg.pit;
   if (pitCfg) buildPitRoad(tr, pitCfg);
@@ -316,38 +328,102 @@ function derivePit(tr, real) {
   };
 }
 
-// Where the barriers are on each side (distance from the centre line, per metre of track) and what
-// kind they are: 0 = armco, 1 = Tecpro blocks (soft), 2 = pit wall, 3 = concrete street wall.
-// Where two parts of the track run close together, the barrier sits half-way between them.
+// Banked corners (cfg.bank): the track tilts across, the outside of the corner higher. Each one reaches
+// along the corner as far as it keeps turning, easing in and out over the last 40 m.
+function computeBank(tr) {
+  const { N, K, bank } = tr; bank.fill(0);
+  const Kav = (i, r) => { let a = 0; for (let d = -r; d <= r; d++) a += K[tr.wrap(i + d)]; return a / (2 * r + 1); };
+  for (const b of tr.cfg.bank ?? []) {
+    let apex = b.c != null ? tr.cIdx[b.c] : b.at; if (apex == null) continue;
+    // the middle of the corner can be a little off the corner's marker: take the tightest point nearby
+    let best = apex; for (let d = -80; d <= 80; d += 2) if (Math.abs(Kav(apex + d, 6)) > Math.abs(Kav(best, 6))) best = tr.wrap(apex + d);
+    apex = best; const sg = Math.sign(Kav(apex, 10)) || 1, rad = (b.deg * Math.PI) / 180; // K > 0 turns right: the left (outside) goes up
+    let a = 0; while (a < 500 && sg * Kav(apex - a, 8) > 0.0035) a++;
+    let e = 0; while (e < 500 && sg * Kav(apex + e, 8) > 0.0035) e++;
+    for (let d = -a - 40; d <= e + 40; d++) {
+      const f = d < -a ? (d + a + 40) / 40 : d > e ? (e + 40 - d) / 40 : 1, sm = f * f * (3 - 2 * f), j = tr.wrap(apex + d);
+      if (Math.abs(sg * rad * sm) > Math.abs(bank[j])) bank[j] = sg * rad * sm;
+    }
+  }
+}
+
+// What's beside the track on each side, per metre: the barrier's distance from the centre line, what kind
+// it is (0 = armco, 1 = Tecpro blocks (soft), 2 = pit wall, 3 = concrete street wall), and the run-off
+// before it: a tarmac apron (m beyond the white line) then the main surface (0 = grass, 1 = tarmac,
+// 2 = gravel, 3 = street). On a permanent circuit the run-off gets wider on the outside of the fast
+// corners (where a car would really go off). Where two parts of the track run close together the
+// barrier sits half-way between them, and on the inside of tight corners it stays close enough that it
+// can't fold over onto the track.
+export const SURF = ["grass", "tarmac", "gravel", "street"];
+const ENV_ROUGH = { a0: 17.5, a1: 0.00606, vmax: 95, brake: (v) => 16.5 + 0.0078 * v * v, accel: (v) => Math.max(0.5, Math.min(10.5 + 0.002 * v * v, 690 / Math.max(v, 1)) - 0.0008 * v * v - 0.12) };
 function computeWalls(tr) {
-  const { N, X, Z, LX, LZ, kerb } = tr, half = tr.half, def = half + tr.run + 0.6;
-  const wall = [new Float32Array(N).fill(def), new Float32Array(N).fill(def)]; // [left, right]
-  const type = [new Uint8Array(N), new Uint8Array(N)];
+  const { N, X, Z, LX, LZ, kerb, K } = tr, half = tr.half, cfg = tr.cfg, style = cfg.runoff ?? "mixed", street = tr.street;
+  const wrapI = tr.wrap, vp = speedProfile(tr, ENV_ROUGH, 0.95);
+  // for every metre: is it at a corner, which side is the outside, and how fast the cars come through
+  const outside = new Int8Array(N), corner = new Uint8Array(N), vz = new Float32Array(N), kmax = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    let sumK = 0, near = false; for (let k = -60; k <= 60; k += 6) { const j = wrapI(i + k); if (kerb[j]) near = true; sumK += K[j]; }
+    corner[i] = near ? 1 : 0; outside[i] = sumK > 0.01 ? 0 : sumK < -0.01 ? 1 : -1; // K > 0 turns right: the outside is the left (0)
+    let v = 0; for (let k = -90; k <= 20; k += 5) v = Math.max(v, vp[wrapI(i + k)]); vz[i] = v * 3.6;
+    let km = 0; for (let k = -14; k <= 14; k += 2) km = Math.max(km, Math.abs(K[wrapI(i + k)])); kmax[i] = km;
+  }
+  const want = [new Float32Array(N), new Float32Array(N)], apron = [new Float32Array(N), new Float32Array(N)], surf = [new Uint8Array(N), new Uint8Array(N)];
+  for (let i = 0; i < N; i++) for (const k of [0, 1]) {
+    const out = corner[i] && outside[i] === k, inn = corner[i] && outside[i] === 1 - k, fast = vz[i] > 170;
+    let extra = 0, ap = 1, su = 0;
+    if (street) {
+      su = 3; ap = 0;
+      if (style === "gravel" && out && fast) { su = 2; ap = 1.5; extra = Math.min(10, (vz[i] - 150) * 0.08); }
+    } else {
+      if (out) extra = Math.max(0, Math.min(28, (vz[i] - 120) * 0.17));
+      if (style === "tarmac") { su = out || inn ? 1 : 0; ap = out ? 3 : inn ? 2 : 3; }
+      else if (style === "gravel") { su = out ? 2 : 0; ap = out ? 2.5 : inn ? 1.5 : 1; }
+      else { su = out && fast ? 2 : out ? 1 : 0; ap = out ? 3 : inn ? 1.5 : 1; }
+    }
+    want[k][i] = half + tr.run + extra + 0.6; apron[k][i] = ap; surf[k][i] = su;
+  }
+  // the run-off widens and narrows gradually
+  for (const w of want) {
+    const m = Float32Array.from(w); for (let i = 0; i < N; i++) { let v = m[i]; for (let k = -40; k <= 40; k += 2) v = Math.max(v, m[wrapI(i + k)] - Math.abs(k) * 0.12); w[i] = v; }
+    for (let pass = 0; pass < 2; pass++) { const c = Float32Array.from(w); for (let i = 0; i < N; i++) { let a = 0; for (let k = -15; k <= 15; k++) a += c[wrapI(i + k)]; w[i] = a / 31; } }
+  }
+  // limits: other parts of the track nearby, and the inside of tight corners
+  const lim = [new Float32Array(N).fill(1e9), new Float32Array(N).fill(1e9)];
   const lapGap = (a, b) => { const d = Math.abs(a - b); return Math.min(d, N - d); };
   for (let i = 0; i < N; i += 2) {
     for (const [k, s] of [[0, 1], [1, -1]]) {
-      for (let o = half + 2; o < def * 2 + half; o += 1.5) {
+      for (let o = half + 2; o < want[k][i] * 2 + half; o += 1.5) {
         const n = tr.nearestGlobal(X[i] + LX[i] * o * s, Z[i] + LZ[i] * o * s, 1);
-        if (n.i >= 0 && lapGap(n.i, i) > 120 && n.d2 < half * half) { const w = Math.max(half + 2, (o + half) / 2 - 0.5); wall[k][i] = Math.min(wall[k][i], w); break; }
+        if (n.i >= 0 && lapGap(n.i, i) > 120 && n.d2 < half * half) { lim[k][i] = Math.max(half + 2, (o + half) / 2 - 0.5); break; }
       }
-      if (i + 1 < N) wall[k][i + 1] = wall[k][i];
+      // the inside of a bend (K > 0 turns right: the inside is the right, k = 1)
+      const ins = K[i] > 0 ? 1 : 0;
+      if (k === ins && kmax[i] > 0.004) lim[k][i] = Math.min(lim[k][i], Math.max(Math.min(half + tr.run + 0.6, half + 2.2), 0.8 / kmax[i] - 3.5));
+      if (i + 1 < N) lim[k][i + 1] = lim[k][i];
     }
   }
-  // no sudden steps: take the closest wall nearby, then smooth it
-  for (const w of wall) {
-    const m = Float32Array.from(w); for (let i = 0; i < N; i++) { let v = m[i]; for (let k = -25; k <= 25; k++) v = Math.min(v, m[wrap(i + k, N)]); w[i] = v; }
-    for (let pass = 0; pass < 2; pass++) { const c = Float32Array.from(w); for (let i = 0; i < N; i++) { let a = 0; for (let k = -12; k <= 12; k++) a += c[wrap(i + k, N)]; w[i] = Math.min(c[i], a / 25); } }
+  for (const l of lim) { const m = Float32Array.from(l); for (let i = 0; i < N; i++) { let v = m[i]; for (let k = -25; k <= 25; k++) v = Math.min(v, m[wrapI(i + k)]); l[i] = v; } }
+  const wall = [new Float32Array(N), new Float32Array(N)];
+  for (const k of [0, 1]) {
+    const w = wall[k]; for (let i = 0; i < N; i++) w[i] = Math.min(want[k][i], lim[k][i]);
+    for (let pass = 0; pass < 2; pass++) { const c = Float32Array.from(w); for (let i = 0; i < N; i++) { let a = 0; for (let d = -12; d <= 12; d++) a += c[wrapI(i + d)]; w[i] = Math.min(c[i], a / 25); } }
+    // the apron and the surface beyond it have to fit before the barrier; very short patches of a surface
+    // are merged into what's around them
+    for (let i = 0; i < N; i++) { apron[k][i] = Math.min(apron[k][i], Math.max(0, w[i] - half - 1.6)); if (w[i] - half - apron[k][i] < 2.5 && surf[k][i] === 2) surf[k][i] = 1; }
+    const sf = surf[k]; for (let pass = 0; pass < 2; pass++) for (let i = 0; i < N;) { let e = i; while (e < i + N && sf[wrapI(e)] === sf[i]) e++; if (e - i < 25) { const prev = sf[wrapI(i - 1)]; for (let j = i; j < e; j++) sf[wrapI(j)] = prev; } i = e; }
+    { const c = Float32Array.from(apron[k]); for (let i = 0; i < N; i++) { let a = 0; for (let d = -10; d <= 10; d++) a += c[wrapI(i + d)]; apron[k][i] = Math.min(Math.max(0, w[i] - half - 1.6), a / 21); } }
   }
   // what the barriers are. Permanent circuits: Tecpro where a car would go off (within 60 m of a kerbed
   // corner), armco on the straights. Street circuits: concrete walls, with Tecpro only on the outside of
   // the corners.
+  const type = [new Uint8Array(N), new Uint8Array(N)];
   for (let i = 0; i < N; i++) {
     let near = false, outL = false, outR = false;
-    for (let k = -60; k <= 60; k += 10) { const j = wrap(i + k, N); if (kerb[j]) { near = true; if (tr.K[j] > 0.004) outL = true; if (tr.K[j] < -0.004) outR = true; } }
-    if (tr.street) { type[0][i] = near && outL ? 1 : 3; type[1][i] = near && outR ? 1 : 3; }
+    for (let k = -60; k <= 60; k += 10) { const j = wrapI(i + k); if (kerb[j]) { near = true; if (K[j] > 0.004) outL = true; if (K[j] < -0.004) outR = true; } }
+    if (street) { type[0][i] = near && outL ? 1 : 3; type[1][i] = near && outR ? 1 : 3; }
     else if (near) type[0][i] = type[1][i] = 1;
   }
-  tr.wall = wall; tr.wallType = type;
+  tr.wall = wall; tr.wallType = type; tr.apron = apron; tr.surf = surf;
   tr.wallAt = (i, lat) => wall[lat >= 0 ? 0 : 1][i];
 }
 
@@ -356,7 +432,8 @@ function computeWalls(tr) {
 // from the track's centre line. Where it meets the track at each end there's no wall between them, so a
 // car can drive from one onto the other; along the rest a concrete pit wall separates them (which also
 // becomes the track's wall on that side).
-function buildPitRoad(tr, P) {
+function buildPitRoad(tr, P0) {
+  let P = P0;
   const { N, X, Y, Z, LX, LZ, half } = tr, s = P.side === "left" ? 1 : -1, k = s > 0 ? 0 : 1;
   const HW = 3.2, WALL = 0.45; // half the fast lane; pit wall thickness
   const sm = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -401,6 +478,29 @@ function buildPitRoad(tr, P) {
   const TX = new Float32Array(M), TZ = new Float32Array(M), PLX = new Float32Array(M), PLZ = new Float32Array(M), K = new Float32Array(M), slope = new Float32Array(M), dist = new Float32Array(M);
   for (let i = 0; i < M; i++) { const a = cl(i - 1), b = cl(i + 1), dx = PX[b] - PX[a], dz = PZ[b] - PZ[a], l = Math.hypot(dx, dz) || 1; TX[i] = dx / l; TZ[i] = dz / l; PLX[i] = TZ[i]; PLZ[i] = -TX[i]; slope[i] = (PY[b] - PY[a]) / l; if (i) dist[i] = dist[i - 1] + Math.hypot(PX[i] - PX[i - 1], PZ[i] - PZ[i - 1]); }
   for (let i = 0; i < M; i++) { const a = cl(i - 6), b = cl(i + 6); K[i] = Math.atan2(TX[a] * TZ[b] - TZ[a] * TX[b], TX[a] * TX[b] + TZ[a] * TZ[b]) / Math.max(1, dist[b] - dist[a]); }
+  const distAtMain = (j) => { let best = 0, bd = Infinity; for (let i = 0; i < M; i++) { const q = Math.abs(mj[i] - j); if (q < bd) { bd = q; best = i; } } return dist[best]; };
+  const limitFrom = distAtMain(P.limit[0]), limitTo = distAtMain(P.limit[1]);
+  // The garages: one straight row, all of it inside the speed limit (with room to pull in and out at the
+  // ends), on the straightest part of the pit lane, and as close as that allows to where the real cars stopped.
+  {
+    // (the longest row, up to 320 m, that turns less than about 6° end to end; a shorter one where the lane bends)
+    const room = 28, span = limitTo - limitFrom - 2 * room;
+    const boxD = P.box ? distAtMain(P.box.j) : (distAtMain(P.garages[0]) + distAtMain(P.garages[1])) / 2;
+    const at = (d) => { let i = 0; while (i < M - 1 && dist[i] < d) i++; return i; };
+    let pick = null;
+    for (const L of [320, 290, 260, 230, 200, 175, 150, 130]) {
+      const Lg = Math.max(110, Math.min(L, span)); let best = null;
+      for (let d0 = limitFrom + room; d0 + Lg <= Math.max(limitFrom + room + Lg, limitTo - room) + 0.01; d0 += 4) {
+        const a = at(d0), b = at(d0 + Lg); let turn = 0, kk = 0, km = 0; for (let i = a; i <= b; i++) { turn += K[i] * (i > a ? dist[i] - dist[i - 1] : 0); kk = Math.max(kk, Math.abs(K[i])); km += Math.abs(tr.K[wrap(Math.round(mj[i]), N)]); }
+        // (and beside a straight bit of the track, so they don't look like they're round a corner from the car)
+        const score = Math.abs(turn) * 60 + kk * 400 + km * 25 + Math.abs(d0 + Lg / 2 - boxD) / 80;
+        if (!best || score < best.score) best = { score, a, b, turn: Math.abs(turn) + km * 0.5 };
+      }
+      if (best && (!pick || best.turn < pick.turn)) pick = best;
+      if (pick && pick.turn < 0.1) break;
+    }
+    if (pick) P = { ...P, garages: [mj[pick.a], mj[pick.b]] };
+  }
   // walls, as distances from the pit road's middle: tk = the side facing the track, gk = the garages' side
   const tk = s > 0 ? 1 : 0, gk = 1 - tk, inG = (j) => j >= P.garages[0] - 24 && j <= P.garages[1] + 24; // (the wall ramps in beyond the garages, not in front of them)
   const gWall = P.path ? HW + (P.boxFromLane ?? 6) + 3.4 : null; // garage doors from the lane's middle (real)
@@ -426,18 +526,22 @@ function buildPitRoad(tr, P) {
     const wj = wrap(j, N);
     fromMain[wj] = p;
     tr.wall[k][wj] = bar[p] ? PO[p] - hws[p] - WALL : Math.max(half + 1.5, Math.min(tr.wall[k][wj], PO[p] + wall[gk][p])); tr.wallType[k][wj] = 2;
+    tr.apron[k][wj] = 0; tr.surf[k][wj] = tr.street ? 3 : 1;
   }
+  // no kerb on the pit side where the cars cross between the track and the pit lane (they'd have to drive
+  // over it), from a little before the pit lane leaves the track to a little after it joins again
+  const kb = k === 0 ? 1 : 2;
+  for (let j = j0 - 40; j <= j1 + 40; j++) { const wj = wrap(j, N), p = fromMain[wj]; if (p < 0 || !bar[p] || j < j0 + 60 || j > j1 - 60) tr.kerb[wj] &= ~kb; }
   const frame = (x, z, i) => {
     const dx = x - PX[i], dz = z - PZ[i], along = dx * TX[i] + dz * TZ[i], j = cl(along >= 0 ? i + 1 : i - 1), t = Math.min(1, Math.abs(along));
     return { lat: dx * PLX[i] + dz * PLZ[i], along, y: PY[i] + (PY[j] - PY[i]) * t, s: dist[i] + along };
   };
   const nearestFrom = (x, z, i0, span = 30) => { let best = cl(i0), bd = Infinity; for (let d = -span; d <= span; d++) { const i = cl(i0 + d), q = (PX[i] - x) ** 2 + (PZ[i] - z) ** 2; if (q < bd) { bd = q; best = i; } } return best; };
-  const distAtMain = (j) => { let best = 0, bd = Infinity; for (let i = 0; i < M; i++) { const q = Math.abs(mj[i] - j); if (q < bd) { bd = q; best = i; } } return dist[best]; };
   const laneOut = gWall != null ? null : half + 17;
   tr.pitRoad = {
     N: M, X: PX, Y: PY, Z: PZ, TX, TZ, LX: PLX, LZ: PLZ, K, slope, dist, len: dist[M - 1], mj, off: PO, bar, hw: hws, wall, wallType: type, kerb: new Uint8Array(M),
     half: 40, run: 0, HW, WALL, side: s, k, tk, gk, fromMain, frame, nearestFrom, wrap: cl,
-    limitFrom: distAtMain(P.limit[0]), limitTo: distAtMain(P.limit[1]), garages: P.garages, box: P.box ?? null, fromData: !!P.path,
+    limitFrom, limitTo, garages: P.garages, box: P.box ?? null, fromData: !!P.path,
   };
   // the simple description scenery placement uses (how far out from the track the pit buildings reach)
   let reach = 0; for (let i = 0; i < M; i++) if (inG(mj[i])) reach = Math.max(reach, PO[i] + wall[gk][i]);

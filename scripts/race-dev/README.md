@@ -14,6 +14,7 @@ Run these from this folder.
 | `TRACK=spa node kb.mjs '{}' 1 1` | A keyboard-style driver (on/off steering and pedals) laps a circuit. Prints lap times, spins, offs and wall hits. Arguments: options JSON, aggression, seed. |
 | `./kbs.sh '{"stability":false}'` | `kb.mjs` with 4 seeds. |
 | `TRACK=spa C=soft LAPS=6 node tyretest.mjs` | Tyre temperatures, wear and lap times, lap by lap. |
+| `TRACK=spa C=medium SECS=240 node tyrekb.mjs` | Tyre temperatures every 10 s with the on/off keyboard driver (the hardest on tyres), plus when each tyre first goes over its window or blisters. |
 
 Circuit ids are the keys of `CIRCUITS` in `public/race/trackdata.js`, for example `spa`, `monte-carlo` or `yas-marina-circuit`.
 
@@ -32,6 +33,7 @@ Circuit ids are the keys of `CIRCUITS` in `public/race/trackdata.js`, for exampl
 | `node run.mjs "race/index.html?auto=1&autopilot=1&warp=0.5" "10,20"` | Loads the game with the autopilot driving. Screenshots after 10 s and 20 s, and prints car state and page errors. |
 | `node tracks.mjs spa:300:150 monte-carlo:hot` | Screenshot per circuit. The spec is `id:place:speed:cam`, where place is metres along the lap, or `hot` for a hot-lap start. |
 | `node menutest.mjs` | Main menu → race weekend → practice start in the garage. Takes screenshots. |
+| `node shot.mjs 'name\|id\|place\|speed\|cam\|eye'` | A screenshot per spec. `eye` is a fixed camera offset from the car, `dx,dy,dz,lookdx,lookdz`: `0,150,1,0,0` looks straight down from 150 m (good for checking pit lanes and that nothing sits on the track). |
 
 Settings for the browser scripts:
 - Screenshots go to `$OUT` (default `./shots`).
