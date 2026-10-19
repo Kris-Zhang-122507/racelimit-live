@@ -1,23 +1,28 @@
 // RaceLimit Race — step 1: one car at Spa. Drive with the keyboard or a controller.
 import * as THREE from "three";
 import { Sky } from "three/addons/objects/Sky.js";
-import { CIRCUITS, buildTrack, speedProfile, racingLine } from "./trackdata.js?v=mvfpiqag";
-import { newCar, stepCar, resetCar, ENVELOPE, CAR } from "./physics.js?v=mvfpiqag";
-import { buildCircuit } from "./trackmesh.js?v=mvfpiqag";
-import { createInput } from "./input.js?v=mvfpiqag";
-import { createHud } from "./hud.js?v=mvfpiqag";
-import { createEngineAudio } from "./audio.js?v=mvfpiqag";
-import { mergeCar } from "./optimize.js?v=mvfpiqag";
-import { sfx } from "../games/sfx.js?v=mvfpiqag";
-import { load, save } from "../games/common.js?v=mvfpiqag";
+import { CIRCUITS, buildTrack, speedProfile, racingLine } from "./trackdata.js?v=mvfrp5vx";
+import { newCar, stepCar, resetCar, ENVELOPE, CAR, COMPOUNDS, fitTyres, TYRE_NAMES } from "./physics.js?v=mvfrp5vx";
+import { buildCircuit } from "./trackmesh.js?v=mvfrp5vx";
+import { createInput } from "./input.js?v=mvfrp5vx";
+import { createHud } from "./hud.js?v=mvfrp5vx";
+import { createEngineAudio } from "./audio.js?v=mvfrp5vx";
+import { mergeCar } from "./optimize.js?v=mvfrp5vx";
+import { sfx } from "../games/sfx.js?v=mvfrp5vx";
+import { load, save } from "../games/common.js?v=mvfrp5vx";
 
 const q = new URLSearchParams(location.search);
-const circuitId = q.get("track") && CIRCUITS[q.get("track")] ? q.get("track") : "spa";
-const CFG = CIRCUITS[circuitId];
-const $ = (id) => document.getElementById(id);
-const status = (t) => { $("loadText").textContent = t; return new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0))); };
 const settings = Object.assign({ auto: true, abs: true, tc: true, stability: true, line: "full", camera: "chase", quality: "high", engine: "raw" }, load("race.settings", {}));
 const saveSettings = () => save("race.settings", settings);
+// ---------- what to drive: the menus (skipped when the address says what, for testing) ----------
+const { f1car, drawWheelScreen, TEAMS, setTyreLook } = await import("./car.js?v=mvfrp5vx");
+let choice;
+if (q.get("track") || q.get("place") || q.get("auto")) choice = { track: q.get("track") && CIRCUITS[q.get("track")] ? q.get("track") : "spa", session: q.get("session") || (q.get("auto") ? "grid" : "practice") };
+else { document.getElementById("loading").hidden = true; const { openMenus } = await import("./menu.js?v=mvfrp5vx"); choice = await openMenus({ CIRCUITS, settings, saveSettings, TEAMS }); document.getElementById("loading").hidden = false; }
+const circuitId = choice.track, CFG = CIRCUITS[circuitId], SESSION = choice.session;
+document.title = `${CFG.short} · Race — RaceLimit Live`;
+const $ = (id) => document.getElementById(id);
+const status = (t) => { $("loadText").textContent = t; return new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0))); };
 
 // ---------- renderer, sky, light ----------
 const view = $("view");
@@ -29,21 +34,32 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 view.prepend(renderer.domElement);
 const scene = new THREE.Scene();
 const cam = new THREE.PerspectiveCamera(58, 1, 0.05, 12000);
-const sunDir = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - 36), THREE.MathUtils.degToRad(140));
+// the light: daytime, dusk (Abu Dhabi) or a night race under floodlights
+const TIME = CFG.time ?? "day";
+const LIGHT = {
+  day: { sunEl: 36, sunAz: 140, sunCol: 0xFFF2E0, sun: 2.5, hemi: [0xC8DAF0, 0x55604E, 0.5], fog: 0xB9C9D8, fogD: 0.00042, exposure: 0.78, sky: { turbidity: 6, rayleigh: 2.4, mieCoefficient: 0.004, mieDirectionalG: 0.8 } },
+  dusk: { sunEl: 5, sunAz: 250, sunCol: 0xFFB27A, sun: 1.7, hemi: [0xF2C6A0, 0x4A4038, 0.65], fog: 0xD8A98A, fogD: 0.0005, exposure: 0.72, sky: { turbidity: 9, rayleigh: 3.2, mieCoefficient: 0.006, mieDirectionalG: 0.85 } },
+  // at night the "sun" is the floodlights: high up, white, softer shadows; the sky itself is dark
+  night: { sunEl: 68, sunAz: 120, sunCol: 0xEEF2FF, sun: 1.6, hemi: [0x9FB4DA, 0x2A2C33, 1.05], fog: 0x070A13, fogD: 0.0007, exposure: 0.95, skyEl: -6, sky: { turbidity: 2, rayleigh: 0.6, mieCoefficient: 0.002, mieDirectionalG: 0.7 } },
+}[TIME];
+const sunDir = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - LIGHT.sunEl), THREE.MathUtils.degToRad(LIGHT.sunAz));
+const skySun = LIGHT.skyEl != null ? new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - LIGHT.skyEl), THREE.MathUtils.degToRad(LIGHT.sunAz)) : sunDir;
+renderer.toneMappingExposure = LIGHT.exposure;
 {
   const sky = new Sky(); sky.scale.setScalar(10000);
-  const u = sky.material.uniforms; u.turbidity.value = 6; u.rayleigh.value = 2.4; u.mieCoefficient.value = 0.004; u.mieDirectionalG.value = 0.8; u.sunPosition.value.copy(sunDir);
-  scene.add(sky);
+  const u = sky.material.uniforms; for (const k in LIGHT.sky) u[k].value = LIGHT.sky[k]; u.sunPosition.value.copy(skySun);
+  if (TIME === "night") scene.background = new THREE.Color(0x070A13); else scene.add(sky); // a night sky is just dark
   const pm = new THREE.PMREMGenerator(renderer), env = new THREE.Scene(), s2 = new Sky(); s2.scale.setScalar(1000);
   for (const k of ["turbidity", "rayleigh", "mieCoefficient", "mieDirectionalG"]) s2.material.uniforms[k].value = u[k].value;
-  s2.material.uniforms.sunPosition.value.copy(sunDir); env.add(s2);
+  s2.material.uniforms.sunPosition.value.copy(TIME === "night" ? sunDir : skySun); env.add(s2);
   scene.environment = pm.fromScene(env, 0.02).texture;
+  if (TIME === "night") scene.environmentIntensity = 0.35;
 }
-scene.fog = new THREE.FogExp2(0xB9C9D8, 0.00042);
-const sun = new THREE.DirectionalLight(0xFFF2E0, 2.5);
+scene.fog = new THREE.FogExp2(LIGHT.fog, LIGHT.fogD);
+const sun = new THREE.DirectionalLight(LIGHT.sunCol, LIGHT.sun);
 sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.02;
 Object.assign(sun.shadow.camera, { left: -22, right: 22, top: 22, bottom: -22, near: 1, far: 300 });
-scene.add(sun, sun.target, new THREE.HemisphereLight(0xC8DAF0, 0x55604E, 0.5));
+scene.add(sun, sun.target, new THREE.HemisphereLight(...LIGHT.hemi));
 
 function applyQuality() { const hi = settings.quality !== "low"; renderer.setPixelRatio(Math.min(devicePixelRatio || 1, hi ? 1.5 : 1)); sun.castShadow = hi; resize(); }
 function resize() { const w = view.clientWidth, h = view.clientHeight; renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); }
@@ -52,11 +68,14 @@ addEventListener("resize", resize); applyQuality();
 // ---------- track ----------
 await status("Loading the circuit…");
 const raw = await (await fetch(`../data/tracks/${CFG.slug}.json`)).json();
-const tr = buildTrack(raw, CFG);
+// the real shape, heights and pit lane (from F1's position data), if we have them for this circuit
+const real = await fetch(`../data/race/${CFG.slug}.json`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+const tr = buildTrack(raw, CFG, real);
 const line = racingLine(tr);
 const vp = speedProfile({ ...tr, K: line.K }, ENVELOPE, 0.95);
 await status("Building the track…");
-const circuit = buildCircuit(tr, scene, { profile: vp });
+const myTeam = TEAMS.find((t) => t.team === load("race.team", "RACELIMIT")) ?? TEAMS[0];
+const circuit = buildCircuit(tr, scene, { profile: vp, team: myTeam });
 
 // racing line: a thin strip on the asphalt, coloured green / yellow / red by how fast you're going
 const crown = (o) => { const a = Math.abs(o), h = tr.half; return a < h / 2 ? 0.05 - (a / (h / 2)) * 0.015 : Math.max(0, 0.035 - ((a - h / 2) / (h / 2 + 0.6)) * 0.035); };
@@ -86,9 +105,11 @@ applyLineMode();
 
 // ---------- the car ----------
 await status("Building the car…");
-const { f1car, drawWheelScreen } = await import("./car.js?v=mvfpiqag");
-const livery = { era: 2026, team: "RACELIMIT", body: "#FFA51F", accent: "#16171B", stripe: "#F4F4F4", number: "27", helmet: ["#FFA51F", "#16171B"], tcam: "#111" };
-const car = f1car({ ...livery, aero: "corner" });
+const team = TEAMS.find((t) => t.team === load("race.team", "RACELIMIT")) ?? TEAMS[0];
+const livery = { era: 2026, team: team.team, body: team.body, accent: team.accent, stripe: team.stripe, number: team.number, helmet: team.helmet, tcam: "#111" };
+const startTyre = COMPOUNDS[load("race.tyre", "medium")] ? load("race.tyre", "medium") : "medium";
+const tyreLabel = (k) => `C · ${COMPOUNDS[k].name.toUpperCase()}`;
+const car = f1car({ ...livery, aero: "corner", compound: COMPOUNDS[startTyre].color, compoundName: tyreLabel(startTyre) });
 {
   // the 2026 wings move: build the "straight mode" car too and keep its flaps, hidden, in the same places
   const other = f1car({ ...livery, aero: "straight" }), a = [], b = [];
@@ -133,18 +154,39 @@ const VIEWS = ["chase", "far", "tcam", "cockpit"];
 let viewMode = VIEWS.includes(q.get("cam")) ? q.get("cam") : VIEWS.includes(settings.camera) ? settings.camera : "chase";
 const best = load(`race.best.${circuitId}`, null); // { time, trace: [seconds at every 25 m] }
 const T = { lap: 1, running: false, now: 0, lapStart: 0, lastLap: null, bestLap: best?.time ?? null, invalid: false, sectors: [null, null, null], delta: null, trace: [], bestTrace: best?.trace ?? null, bestSectors: [null, null, null], secStart: 0, nextSec: 0, offT: 0 };
-const secAt = [CFG.sectors[0] * tr.len, CFG.sectors[1] * tr.len, tr.len];
+const SECT = CFG.sectors ?? [0.33, 0.67], secAt = [SECT[0] * tr.len, SECT[1] * tr.len, tr.len];
 let pitStop = null, wasLimiter = false, wasPit = false; // pit lane state (see pits())
-let wheelDrawnAt = 0;
+let wheelDrawnAt = 0, tyreWarned = {}, nextTyre = startTyre;
 let phase = "menu", lightsT = 0, lightsOutAt = 0, paused = false, lastS = c.s, wrongT = 0;
 
 function startLights() {
   phase = "lights"; lightsT = 0; lightsOutAt = 5 + 0.4 + Math.random() * 2.2; hud.lights(0);
-  Object.assign(c, newCar(tr, tr.wrap(-14), tr.half * 0.45)); lastS = c.s; circuit.barriers.reset(); pitStop = null;
+  Object.assign(c, newCar(tr, tr.wrap(-14), tr.half * 0.45)); lastS = c.s; circuit.barriers.reset(); pitStop = null; fitTyres(c, startTyre, 70); tyreWarned = {};
   Object.assign(T, { lap: 1, running: false, lapStart: 0, invalid: false, sectors: [null, null, null], delta: null, trace: [], nextSec: 0, offT: 0, half: false, standing: true });
+}
+// sessions. practice: start in your garage's box and drive out of the pit lane; hot laps (and the daily
+// challenge): a rolling start on the way to the line. Either way the first lap starts at the line.
+function startSession() {
+  circuit.barriers.reset(); pitStop = null; hud.lights(-1); phase = "race";
+  const box = circuit.pitInfo?.boxes?.[0], R = tr.pitRoad;
+  if (SESSION === "practice" && box && R) {
+    const i = tr.nearestGlobal(box.x, box.z, 4).i;
+    Object.assign(c, newCar(tr, i >= 0 ? i : 0, 0));
+    c.x = box.x; c.z = box.z; c.yaw = box.yaw; c.onPit = true; c.pidx = box.pidx; c.y = R.Y[box.pidx];
+    pitStop = { t: 0, dur: 0, done: true }; // already in the box: no stop until you've left it
+  } else {
+    const i = tr.wrap(-650); Object.assign(c, newCar(tr, i, line.off[i])); c.u = vp[i] * 0.95;
+    c.gear = 1; while (c.gear < 8 && (12000 * c.u * 3.6) / CAR.tops[c.gear - 1] > 11200) c.gear++;
+  }
+  // tyres: from the blankets in the garage (70 °C), or already warm on a flying lap
+  fitTyres(c, startTyre, SESSION === "practice" ? 70 : 92); setTyreLook(car, COMPOUNDS[startTyre].color, tyreLabel(startTyre)); tyreWarned = {};
+  lastS = c.s;
+  Object.assign(T, { lap: 0, running: true, lapStart: T.now, invalid: false, sectors: [null, null, null], delta: null, trace: [], nextSec: 0, offT: 0, half: true, standing: false, outLap: true });
+  hud.message(SESSION === "practice" ? "Practice: drive out of the pit lane" : SESSION === "daily" ? `Daily challenge: ${CFG.short} — one flying lap counts` : "Hot laps: the clock starts at the line", 3);
 }
 function lapDone() {
   const time = T.now - T.lapStart;
+  if (SESSION === "daily" && !T.invalid) { const key = `race.daily.${new Date().toISOString().slice(0, 10)}`, prev = load(key, null); if (prev == null || time < prev) save(key, time); }
   T.lastLap = time;
   if (T.standing) hud.message(`Lap ${fmtT(time)} (from the grid)`, 2.5);
   else if (!T.invalid && (T.bestLap == null || time < T.bestLap)) {
@@ -161,12 +203,18 @@ function timing(dt) {
   const s = c.s;
   // crossing the line (forwards)
   if (s > tr.len * 0.5 && s < tr.len * 0.6) T.half = true; // must get round the lap before the line counts
-  if (lastS > tr.len * 0.9 && s < tr.len * 0.1 && c.u > 0 && T.half) {
+  if (lastS > tr.len * 0.9 && s < tr.len * 0.1 && c.u > 0 && T.half && T.outLap && c.onPit) { lastS = s; return; } // crossing the line in the pit lane doesn't start a timed lap
+  if (lastS > tr.len * 0.9 && s < tr.len * 0.1 && c.u > 0 && T.half && T.outLap) {
+    // the out lap ends at the line: from here every lap is timed
+    Object.assign(T, { outLap: false, half: false, lap: 1, lapStart: T.now, secStart: T.now, nextSec: 0, trace: [], invalid: false, sectors: [null, null, null] });
+    hud.message("Timed lap", 1.4, "good"); lastS = s; return;
+  } else if (lastS > tr.len * 0.9 && s < tr.len * 0.1 && c.u > 0 && T.half) {
     T.half = false;
     if (T.nextSec === 2) { const st = T.now - T.secStart; secDone(2, st); }
     lapDone();
   } else if (T.nextSec < 2 && s >= secAt[T.nextSec] && lastS < secAt[T.nextSec] && s - lastS < 100) { secDone(T.nextSec, T.now - T.secStart); T.nextSec++; T.secStart = T.now; }
   lastS = s;
+  if (T.outLap) { lastS = s; return; }
   const slot = Math.floor(s / 25); if (T.trace[slot] == null && s < tr.len - 1 && !T.standing) T.trace[slot] = T.now - T.lapStart;
   T.delta = !T.standing && T.bestTrace?.[slot] != null && slot > 0 ? T.now - T.lapStart - T.bestTrace[slot] : null;
   // track limits: all four wheels off for a moment deletes the lap
@@ -180,7 +228,7 @@ function secDone(i, time) {
 }
 
 // ---------- menus ----------
-const menu = $("menu"), pauseEl = $("pause");
+const pauseEl = $("pause");
 function syncSettingsUI() {
   for (const el of document.querySelectorAll("[data-set]")) { const [k, v] = el.dataset.set.split("="); el.setAttribute("aria-pressed", String(String(settings[k]) === v)); }
   $("muteBtn").textContent = audio?.muted() ?? load("muted", false) ? "Sound: off" : "Sound: on";
@@ -191,15 +239,17 @@ document.addEventListener("click", (e) => {
   if (k === "line") applyLineMode(); if (k === "camera") viewMode = v; if (k === "quality") applyQuality(); if (k === "engine") audio?.setEngine(v); syncSettingsUI();
 });
 $("muteBtn").addEventListener("click", () => { const m = !(audio?.muted() ?? load("muted", false)); if (audio) audio.setMuted(m); else save("muted", m); syncSettingsUI(); });
-$("startBtn").addEventListener("click", () => { menu.hidden = true; audio ??= createEngineAudio({ engine: settings.engine }); audio.resume(); startLights(); });
 $("resumeBtn").addEventListener("click", () => setPause(false));
-$("restartBtn").addEventListener("click", () => { setPause(false); startLights(); });
+$("restartBtn").addEventListener("click", () => { setPause(false); if (SESSION === "grid") startLights(); else startSession(); });
+$("menuBtn").addEventListener("click", () => { location.href = location.pathname; });
 function setPause(p) { paused = p; pauseEl.hidden = !p; if (p) syncSettingsUI(); }
 syncSettingsUI();
-$("bestLine").textContent = best ? `Your best here: ${fmtT(best.time)}` : "No lap set here yet";
-$("loading").hidden = true; menu.hidden = false;
-if (q.get("auto") === "1") $("startBtn").click();
-if (q.get("place")) { const i = tr.wrap(+q.get("place")); Object.assign(c, newCar(tr, i, line.off[i])); c.u = (+q.get("speed") || 0) / 3.6; c.gear = 6; phase = "race"; hud.lights(-1); T.running = true; menu.hidden = true; audio ??= createEngineAudio({ engine: settings.engine }); lastS = c.s; }
+$("loading").hidden = true;
+// sound needs a click or key press first (browsers' rule); the menu click usually counts
+audio ??= createEngineAudio({ engine: settings.engine }); audio.resume();
+addEventListener("pointerdown", () => audio?.resume(), { once: true }); addEventListener("keydown", () => audio?.resume(), { once: true });
+if (SESSION === "grid") startLights(); else startSession();
+if (q.get("place")) { const i = tr.wrap(+q.get("place")); Object.assign(c, newCar(tr, i, line.off[i])); c.u = (+q.get("speed") || 0) / 3.6; c.gear = 6; phase = "race"; hud.lights(-1); T.running = true; T.outLap = false; T.half = false; lastS = c.s; }
 
 // ---------- autopilot (for testing and the menu backdrop): follows the racing line ----------
 function autopilot() {
@@ -214,6 +264,9 @@ window.__cam = cam; window.__sw = car.userData.steering; window.__race = { c, tr
 // ---------- loop ----------
 const tmpV = new THREE.Vector3(), tmpL = new THREE.Vector3(), camPos = new THREE.Vector3(), camLook = new THREE.Vector3();
 let camInit = false, lastT = performance.now(), acc = 0, prevGear = 1, simT = 0;
+
+addEventListener("keydown", (e) => { if (!pitStop || pitStop.done) return; const k = { Digit1: "soft", Digit2: "medium", Digit3: "hard", Numpad1: "soft", Numpad2: "medium", Numpad3: "hard" }[e.code]; if (k) { nextTyre = k; hud.tyreChoice(k); } });
+document.addEventListener("click", (e) => { const b = e.target.closest("[data-tyre]"); if (b && pitStop && !pitStop.done) { nextTyre = b.dataset.tyre; hud.tyreChoice(nextTyre); } });
 // ---------- pit lane: limiter messages, and a stop in our box (RACELIMIT, the first garage) ----------
 function pits(dt) {
   if (c.pitLimiter !== wasLimiter) {
@@ -222,11 +275,26 @@ function pits(dt) {
     wasLimiter = c.pitLimiter;
   }
   if (c.onPit !== wasPit) { if (c.onPit && !c.pitLimiter) hud.message("Pit lane", 1.2); wasPit = c.onPit; }
+  // tyre warnings (each once per set)
+  if (c.tyres) c.tyres.forEach((ty, k) => {
+    const say = (key, text, kind = "bad") => { if (!tyreWarned[key + k]) { tyreWarned[key + k] = true; hud.message(text, 3, kind); } };
+    if (ty.flat > 0.35) say("flat", `Flat spot on the ${TYRE_NAMES[k]} — you'll feel it shake`);
+    if (ty.blister > 0.25) say("blister", `Blistering on the ${TYRE_NAMES[k]}: it's too hot, ease off`);
+    if (ty.grain > 0.5) say("grain", `Graining on the ${TYRE_NAMES[k]}: sliding while cold. It'll clean up`, "");
+    if (ty.wear > 0.75) say("worn", `${TYRE_NAMES[k][0].toUpperCase() + TYRE_NAMES[k].slice(1)} tyre nearly worn out: box soon`);
+  });
   const box = circuit.pitInfo?.boxes?.[0];
   if (!box) return;
   const dBox = Math.hypot(c.x - box.x, c.z - box.z);
-  if (!pitStop && c.onPit && dBox < 3.2 && Math.abs(c.u) < 0.8 && phase === "race") { pitStop = { t: 0, dur: 2.1 + Math.random() * 0.9, done: false }; hud.message("In the box…", 3); }
-  if (pitStop && !pitStop.done) { pitStop.t += dt; c.u = c.v = c.r = 0; if (pitStop.t >= pitStop.dur) { pitStop.done = true; hud.message(`Stop: ${pitStop.dur.toFixed(1)} s · go go go!`, 2.2, "good"); } }
+  if (!pitStop && c.onPit && dBox < 3.2 && Math.abs(c.u) < 0.8 && phase === "race") { pitStop = { t: 0, dur: 2.1 + Math.random() * 0.9, done: false }; nextTyre = c.compound; hud.tyreChoice(nextTyre); }
+  if (pitStop && !pitStop.done) {
+    pitStop.t += dt; c.u = c.v = c.r = 0;
+    if (pitStop.t >= pitStop.dur) {
+      pitStop.done = true; hud.tyreChoice(null);
+      fitTyres(c, nextTyre, 70); setTyreLook(car, COMPOUNDS[nextTyre].color, tyreLabel(nextTyre)); tyreWarned = {};
+      hud.message(`Stop: ${pitStop.dur.toFixed(1)} s · new ${COMPOUNDS[nextTyre].name.toLowerCase()}s · go go go!`, 2.4, "good");
+    }
+  }
   if (pitStop?.done && dBox > 8) pitStop = null;
 }
 const EYE = q.get("eye") ? q.get("eye").split(",").map(Number) : null; // testing: camera offset from the car
@@ -240,7 +308,7 @@ function frame(now) {
   if (inp.mute && audio) { audio.setMuted(!audio.muted()); syncSettingsUI(); }
   if (inp.camera) { viewMode = VIEWS[(VIEWS.indexOf(viewMode) + 1) % VIEWS.length]; settings.camera = viewMode; saveSettings(); }
   if (inp.line) { settings.line = { full: "braking", braking: "off", off: "full" }[settings.line]; saveSettings(); applyLineMode(); hud.message(`Racing line: ${settings.line}`, 1.2); }
-  const opts = { auto: settings.auto, abs: settings.abs, tc: settings.tc, stability: settings.stability, aeroAuto: true };
+  const opts = { auto: settings.auto, abs: settings.abs, tc: settings.tc, stability: settings.stability, aeroAuto: true, compounds: COMPOUNDS };
   if (!paused && phase !== "menu") {
     // start lights
     if (phase === "lights") {
@@ -274,7 +342,8 @@ function frame(now) {
     if (wrongT > 1.2) { hud.message("Wrong way — press R to reset", 1.5, "bad"); wrongT = -2; }
   }
   // ----- car pose -----
-  const kerbJ = c.kerb ? (Math.random() - 0.5) * 0.012 * Math.min(1, c.u / 20) : 0;
+  const flat = c.tyres ? Math.max(...c.tyres.map((ty) => ty.flat)) : 0;
+  const kerbJ = (c.kerb ? (Math.random() - 0.5) * 0.012 * Math.min(1, c.u / 20) : 0) + (flat > 0.2 ? Math.sin(simT * c.u * 2.9) * 0.004 * flat * Math.min(1, c.u / 30) : 0);
   const along = Math.sin(c.yaw) * tr.TX[c.idx] + Math.cos(c.yaw) * tr.TZ[c.idx];
   const slopePitch = -Math.atan(tr.slope[c.idx] * along);
   const surfY = c.onPit ? 0.012 : Math.abs(c.lat) < tr.half + 0.6 ? crown(c.lat) : c.kerb ? 0.06 : -0.01;
@@ -300,7 +369,7 @@ function frame(now) {
     wheelDrawnAt = now;
     drawWheelScreen(car.userData.steering, { rpm: c.rpm, shiftRpm: CAR.shiftRpm, gear: c.reverse ? "R" : c.u < 0.5 && c.throttle < 0.05 && !T.running ? "N" : String(c.gear), kmh: Math.abs(c.u) * 3.6,
       lapTime: T.running ? T.now - T.lapStart : 0, delta: T.delta, lap: T.lap, ers: c.ers / CAR.battery, deploy: c.deploying, harvest: c.harvesting, clip: c.clipping, overtake: c.overtake,
-      limiter: c.pitLimiter, onPit: c.onPit, tyres: c.tyres ? c.tyres.map((ty) => ({ wear: 1 - ty.wear, temp: ty.temp })) : null, compound: c.compound ?? null, brakeBias: Math.round(CAR.bias * 100), gearMode: settings.auto ? "AUTO" : "MANUAL" });
+      limiter: c.pitLimiter, onPit: c.onPit, tyres: c.tyres ? c.tyres.map((ty) => ({ wear: 1 - ty.wear, temp: ty.temp })) : null, compound: c.compound ? COMPOUNDS[c.compound] : null, brakeBias: Math.round(CAR.bias * 100), gearMode: settings.auto ? "AUTO" : "MANUAL" });
   }
   // ----- camera -----
   const fwd = tmpV.set(Math.sin(c.yaw), 0, Math.cos(c.yaw));
@@ -331,7 +400,7 @@ function frame(now) {
   if (lineMesh.visible) colourLine(c);
   circuit.barriers.update(Math.min(dt, 0.05)); circuit.barriers.cull(cam.position);
   hud.update(c, T, opts);
-  audio?.update(c, { paused: paused || phase === "menu", view: v, dt });
+  audio?.update(c, { paused, view: v, dt });
   const r0 = performance.now(); renderer.render(scene, cam); window.__race.ms = performance.now() - r0; window.__race.info = { calls: renderer.info.render.calls, tris: renderer.info.render.triangles };
 }
 requestAnimationFrame(frame);

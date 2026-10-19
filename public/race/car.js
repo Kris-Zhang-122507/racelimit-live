@@ -2,7 +2,7 @@
 // z forward, y up, metres; origin on the ground at the middle of the wheelbase.
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
-import { loft, wing, sweep, cascade, rollWing, plate, ring, DEF, tex, canvas, decal, liveryMap, tyreMap, helmetMap, carbon, carbonMatte, boxUV, span } from "./car-kit.js?v=mvfpiqag";
+import { loft, wing, sweep, cascade, rollWing, plate, ring, DEF, tex, canvas, decal, liveryMap, tyreMap, helmetMap, carbon, carbonMatte, boxUV, span } from "./car-kit.js?v=mvfrp5vx";
 
 // ---------- eras ----------
 // wb wheelbase, fo front overhang to the front wing leading edge, ro rear overhang, tf/tr half track,
@@ -425,6 +425,7 @@ export function f1car(o = {}) {
 
   // ---------- wheels and suspension (inboard ends sit on the tub / gearbox) ----------
   const rubber = new THREE.MeshStandardMaterial({ map: tyreMap(compound, compoundName, E.grooves), roughness: 0.78 });
+  g.userData.rubber = rubber; g.userData.grooves = E.grooves;
   const rimM = new THREE.MeshStandardMaterial({ color: rimColor ?? E.rimCol, metalness: 0.9, roughness: 0.25 });
   const coverM = new THREE.MeshPhysicalMaterial({ color: 0x141518, roughness: 0.3, metalness: 0.3, clearcoat: 0.8 });
   const nutM = new THREE.MeshStandardMaterial({ color: 0xE11B22, metalness: 0.6, roughness: 0.35 });
@@ -551,6 +552,8 @@ export function buildWheel26(helmet = ["#FFA51F", "#16171B"]) {
   return sw;
 }
 const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
+// change the tyres' look (the coloured compound bands and the sidewall lettering) after a pit stop
+export function setTyreLook(car, color, label) { const m = car.userData.rubber; if (!m) return; m.map = tyreMap(color, label, car.userData.grooves); m.needsUpdate = true; }
 
 // ---------- the steering wheel's screen ----------
 // d: { rpm, shiftRpm, gear, kmh, lapTime, delta, lap, ers (0..1), deploy, harvest, clip, overtake, limiter,

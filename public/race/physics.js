@@ -31,6 +31,43 @@ export const ENVELOPE = {
 };
 
 export const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
+
+// ---------- tyres ----------
+// Three dry compounds for the weekend (Pirelli's soft / medium / hard colours). Each tyre has a
+// temperature and wear: grip is best inside the compound's temperature window, drops when it's cold
+// or overheating and as the rubber wears. Sliding a cold tyre grains it (a little grip lost until it
+// cleans up), cooking it blisters it (lost for good), locking a wheel flat-spots it.
+export const COMPOUNDS = {
+  soft: { name: "Soft", letter: "S", color: "#E8002D", grip: 1.045, wear: 1.9, window: [88, 108] },
+  medium: { name: "Medium", letter: "M", color: "#FFD12E", grip: 1.0, wear: 1.0, window: [94, 114] },
+  hard: { name: "Hard", letter: "H", color: "#F0F0F0", grip: 0.965, wear: 0.6, window: [100, 120] },
+};
+export const TYRE_NAMES = ["front left", "front right", "rear left", "rear right"];
+export function fitTyres(c, compound = "medium", temp = 70) { // 70 °C: what the 2026 tyre blankets allow
+  c.compound = compound; c.tyres = [0, 1, 2, 3].map(() => ({ wear: 0, temp, grain: 0, blister: 0, flat: 0 })); c.tyreLaps = 0;
+}
+export function tyreGrip(t, compound) {
+  const C = COMPOUNDS[compound] ?? COMPOUNDS.medium, [lo, hi] = C.window, T = t.temp;
+  const fT = T < lo ? 1 - Math.min(0.16, (lo - T) * 0.0032) : T > hi ? 1 - Math.min(0.14, (T - hi) * 0.004) : 1;
+  const fW = 1 - 0.1 * t.wear ** 1.6 - (t.wear > 0.85 ? (t.wear - 0.85) * 1.2 : 0);
+  return C.grip * fT * fW * (1 - 0.03 * t.grain) * (1 - 0.05 * t.blister) * (1 - 0.012 * t.flat);
+}
+function updateTyres(c, dt, u) {
+  const C = COMPOUNDS[c.compound] ?? COMPOUNDS.medium, [lo, hi] = C.window, au = Math.abs(u);
+  // heat put into the rubber by sliding: sideways force × slip angle × speed, plus driving and braking
+  const pF = Math.abs(c.fyf ?? 0) * c.slipF * au + Math.abs(c.fxf ?? 0) * 0.015 * au + (c.lockF ? 30000 : 0);
+  const pR = Math.abs(c.fyr ?? 0) * c.slipR * au + Math.abs(c.fxr ?? 0) * 0.015 * au + (c.lockR ? 30000 : 0) + c.spin * 60000;
+  const out = (c.ay ?? 0) > 0 ? 1 : 0; // turning left → the right-hand tyres are on the outside and work harder
+  for (let k = 0; k < 4; k++) {
+    const t = c.tyres[k], front = k < 2, P = (front ? pF : pR) * ((k % 2 === out) ? 0.62 : 0.38);
+    t.temp += (P * (front ? 5.6e-4 : 4.7e-4) - 0.01 * (t.temp - 25) * (1 + au / 20)) * dt;
+    const hot = Math.max(0, t.temp - hi);
+    t.wear = Math.min(1, t.wear + C.wear * (P * 3e-8 + au * 1.5e-7) * (1 + hot * 0.04) * dt);
+    if (t.temp < lo - 12 && (front ? c.slipF : c.slipR) > 0.1) t.grain = Math.min(1, t.grain + dt * 0.4); else if (t.temp > lo) t.grain = Math.max(0, t.grain - dt * 0.012);
+    if (t.temp > hi + 18) t.blister = Math.min(1, t.blister + dt * 0.03);
+    if ((front && c.lockF) || (!front && c.lockR)) t.flat = Math.min(1, t.flat + dt * 1.5);
+  }
+}
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 
 export function newCar(tr, i = 0, lat = 0, back = 0) {
@@ -57,6 +94,7 @@ function roadFor(c, tr) {
   if (!P) { c.onPit = false; return tr; }
   if (c.onPit) {
     c.pidx = P.nearestFrom(c.x, c.z, c.pidx, 30);
+    c.idx = tr.nearestFrom(c.x, c.z, tr.wrap(Math.round(P.mj[c.pidx])), 12); // the bit of track beside this bit of pit lane
     const f = P.frame(c.x, c.z, c.pidx), towards = P.tk === 0 ? f.lat : -f.lat; // + = towards the track
     if ((!P.bar[c.pidx] && towards > P.HW + 0.4) || (c.pidx === 0 && f.along < -1) || (c.pidx === P.N - 1 && f.along > 1)) c.onPit = false;
   } else {
@@ -124,7 +162,7 @@ export function stepCar(c, input, track, dt, opts = {}) {
     else if (c.aeroMode === "straight" && (c.brake > 0.05 || c.throttle < 0.6 || !straight)) c.aeroMode = "corner";
   } else if (input.aero) c.aeroMode = c.aeroMode === "corner" && c.brake < 0.05 ? "straight" : "corner";
   const A = P.aero[c.aeroMode];
-  const q = 0.5 * RHO * u * u, down = q * A.cl, drag = q * A.cd;
+  const q = 0.5 * RHO * (track.rho ?? 1) * u * u, down = q * A.cl, drag = q * A.cd; // thinner air at altitude: less of both
 
   // ---- loads ----
   const L = P.a + P.b;
@@ -132,8 +170,9 @@ export function stepCar(c, input, track, dt, opts = {}) {
   const Fzf = Math.max(200, (P.m * G * P.b) / L + down * P.aeroFront - transfer);
   const Fzr = Math.max(200, (P.m * G * P.a) / L + down * (1 - P.aeroFront) + transfer);
   const sens = (Fz, Fz0) => clamp(1 - 0.04 * (Fz / Fz0 - 1), 0.8, 1.05);
-  const Df = P.mu * surfMu * Fzf * sens(Fzf, (P.m * G * P.b) / L);
-  const Dr = P.mu * P.muRear * surfMu * Fzr * sens(Fzr, (P.m * G * P.a) / L);
+  const gF = c.tyres ? (tyreGrip(c.tyres[0], c.compound) + tyreGrip(c.tyres[1], c.compound)) / 2 : 1, gR = c.tyres ? (tyreGrip(c.tyres[2], c.compound) + tyreGrip(c.tyres[3], c.compound)) / 2 : 1;
+  const Df = P.mu * surfMu * gF * Fzf * sens(Fzf, (P.m * G * P.b) / L);
+  const Dr = P.mu * P.muRear * surfMu * gR * Fzr * sens(Fzr, (P.m * G * P.a) / L);
   const Drx = Dr * (P.muRearX / P.muRear); // what the rear tyres can do along the car (drive, brakes)
 
   // ---- gears ----
@@ -210,7 +249,8 @@ export function stepCar(c, input, track, dt, opts = {}) {
   const Dyr = Dr * Math.sqrt(Math.max((c.lockR ? 0.35 : 1) - (Fxr / Drx) ** 2, 0.12 ** 2)); // the friction "ellipse"
 
   const Fyf = -pac(af, Dyf, P.Bf, P.Cf), Fyr = -pac(ar, Dyr, P.Br, P.Cr);
-  c.slipF = Math.abs(af); c.slipR = Math.abs(ar); c.fyf = Fyf; c.fyr = Fyr;
+  c.slipF = Math.abs(af); c.slipR = Math.abs(ar); c.fyf = Fyf; c.fyr = Fyr; c.fxf = Fxf; c.fxr = Fxr;
+  if (c.tyres) updateTyres(c, dt, u);
 
   // ---- slope, drag, rolling ----
   const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw);

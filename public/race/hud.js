@@ -22,10 +22,14 @@ export function createHud(root, tr) {
     <div class="h-ers"><div class="k">Battery <span id="hErsMode"></span></div><div class="h-bar"><i id="hErs"></i></div><div class="mono h-small" id="hErsT">100%</div></div>
     <div class="h-aero"><span class="h-chip" id="hAero">CORNER</span><span class="h-chip pit" id="hPit" hidden>PIT LIMITER</span><span class="k" id="hGearMode">AUTO</span></div>
   </div>
+  <div class="h-tyres box" id="hTyres" hidden><div class="h-tyre-grid">${[0, 1, 2, 3].map((k) => `<div class="h-tyre" id="hT${k}"><b>–</b><span>–</span></div>`).join("")}<i class="h-comp" id="hComp">M</i></div></div>
+  <div class="h-choice box" id="hChoice" hidden><div class="k">New tyres · press 1 2 3 or click</div><div class="h-choice-row">${["soft", "medium", "hard"].map((t, i) => `<button type="button" data-tyre="${t}"><i class="c-${t}">${t[0].toUpperCase()}</i>${i + 1} ${t[0].toUpperCase() + t.slice(1)}</button>`).join("")}</div></div>
   <div class="h-hint box" id="hHint">↑ ↓ ← → or W A S D to drive · E / Q gears · Space overtake · C camera · R reset · L racing line · Esc pause</div>`;
   const $ = (id) => root.querySelector("#" + id);
   const el = { lap: $("hLap"), inv: $("hInv"), cur: $("hCur"), delta: $("hDelta"), last: $("hLast"), best: $("hBest"), msg: $("hMsg"), lights: $("hLights"), gear: $("hGear"), speed: $("hSpeed"), rpm: $("hRpm"), rpmT: $("hRpmT"), ers: $("hErs"), ersT: $("hErsT"), ersMode: $("hErsMode"), aero: $("hAero"), pit: $("hPit"), gearMode: $("hGearMode"), hint: $("hHint"), map: $("hMap"), secs: [0, 1, 2].map((i) => $("hS" + i)) };
   const leds = [...$("hLeds").children];
+  const tyreEl = { box: $("hTyres"), comp: $("hComp"), t: [0, 1, 2, 3].map((k) => $("hT" + k)) }, choice = $("hChoice");
+  const tCol = (temp, C) => (temp < C.window[0] - 8 ? "cold" : temp > C.window[1] + 8 ? "hot" : temp > C.window[1] ? "warm" : "ok");
 
   // track map from the centre line
   let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
@@ -43,6 +47,8 @@ export function createHud(root, tr) {
 
   return {
     message(text, secs = 2.5, kind = "") { el.msg.textContent = text; el.msg.className = "h-msg " + kind; el.msg.hidden = false; msgUntil = performance.now() + secs * 1000; },
+    // the pit stop's tyre choice (null hides it)
+    tyreChoice(k) { choice.hidden = !k; for (const b of choice.querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.tyre === k)); },
     lights(n) { if (n < 0) { el.lights.hidden = true; return; } el.lights.hidden = false; [...el.lights.children].forEach((x, i) => x.classList.toggle("on", i < n)); },
     update(c, t, opts) {
       if (msgUntil && performance.now() > msgUntil) { el.msg.hidden = true; msgUntil = 0; }
@@ -62,13 +68,19 @@ export function createHud(root, tr) {
       put("gearMode", el.gearMode, opts.auto ? "AUTO GEARS" : "MANUAL");
       el.pit.hidden = !c.onPit && !c.overtake; el.aero.hidden = !!c.onPit || !!c.overtake; put("pit", el.pit, c.overtake ? "OVERTAKE" : c.pitLimiter ? "PIT LIMITER · 80" : "PIT LANE"); el.pit.classList.toggle("on", !!c.pitLimiter || !!c.overtake);
       // timing
-      put("lap", el.lap, `LAP ${t.lap}`);
+      put("lap", el.lap, t.outLap ? "OUT LAP" : `LAP ${t.lap}`);
       el.inv.hidden = !t.invalid;
       put("cur", el.cur, t.running ? fmt(t.now - t.lapStart) : fmt(0));
       if (t.delta != null && t.running) { const dd = t.delta; put("delta", el.delta, `${dd >= 0 ? "+" : "−"}${Math.abs(dd).toFixed(2)}`); el.delta.className = "h-delta mono " + (dd < 0 ? "good" : "bad"); } else put("delta", el.delta, "");
       put("last", el.last, fmt(t.lastLap)); put("best", el.best, fmt(t.bestLap));
       t.sectors.forEach((s, i) => { const b = el.secs[i].querySelector("b"); put("s" + i, b, fmtS(s?.time)); el.secs[i].className = "h-sec " + (s?.cls ?? ""); });
       dot.setAttribute("cx", mx(c.x)); dot.setAttribute("cy", mz(c.z));
+      // tyres: wear left and temperature (blue cold, green right, orange/red too hot), a few times a second
+      if (c.tyres && opts.compounds && (last.tyreAt ?? 0) < performance.now() - 250) {
+        last.tyreAt = performance.now(); tyreEl.box.hidden = false; const C = opts.compounds[c.compound];
+        put("comp", tyreEl.comp, C.letter); tyreEl.comp.className = "h-comp c-" + c.compound;
+        c.tyres.forEach((ty, k) => { const e = tyreEl.t[k]; e.className = "h-tyre " + tCol(ty.temp, C) + (ty.wear > 0.75 || ty.flat > 0.35 || ty.blister > 0.25 ? " warn" : ""); e.firstChild.textContent = `${Math.round(ty.temp)}°`; e.lastChild.textContent = `${Math.round((1 - ty.wear) * 100)}%`; });
+      }
     },
   };
 }

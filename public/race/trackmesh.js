@@ -37,10 +37,19 @@ function textures() {
   }));
   const concrete = tex(canvas(128, 128, (g, w, h) => { const img = g.createImageData(w, h); for (let i = 0; i < w * h; i++) { const v = 168 + (Math.random() - 0.5) * 22; img.data[i * 4] = v; img.data[i * 4 + 1] = v; img.data[i * 4 + 2] = v + 3; img.data[i * 4 + 3] = 255; } g.putImageData(img, 0, 0); g.fillStyle = "rgba(0,0,0,.25)"; g.fillRect(0, 0, 2, h); }));
   const checker = tex(canvas(64, 16, (g) => { for (let x = 0; x < 64; x += 8) for (let y = 0; y < 16; y += 8) { g.fillStyle = (x + y) / 8 % 2 ? "#111" : "#F2F2F2"; g.fillRect(x, y, 8, 8); } }));
-  return { asphalt, asphaltN, kerb, grass, grassN, runoff, fence, needle, crowd, concrete, checker };
+  // sand (desert and dune circuits), tree leaves, and the windows of city buildings (by day and lit at night)
+  const sandH = new Float32Array(256 * 256).map(() => Math.random());
+  const sand = tex(canvas(256, 256, (g, w, h) => { const img = g.createImageData(w, h); for (let i = 0; i < w * h; i++) { const n = (sandH[i] - 0.5) * 18, y = Math.floor(i / w), rip = Math.sin(y * 0.18 + Math.sin(i % w * 0.05) * 2) * 4; img.data[i * 4] = 196 + n + rip; img.data[i * 4 + 1] = 168 + n + rip; img.data[i * 4 + 2] = 124 + n * 0.8 + rip; img.data[i * 4 + 3] = 255; } g.putImageData(img, 0, 0); }));
+  const sandN = tex(normalFrom(sandH, 256, 256, 1.6), false);
+  const leaf = tex(canvas(128, 128, (g, w, h) => { g.fillStyle = "#3D6B2E"; g.fillRect(0, 0, w, h); for (let i = 0; i < 900; i++) { const v = 40 + Math.random() * 70; g.fillStyle = `rgb(${v * 0.6},${v + 25},${v * 0.4})`; g.beginPath(); g.ellipse(Math.random() * w, Math.random() * h, 2 + Math.random() * 3, 1 + Math.random() * 2, Math.random() * 3, 0, 7); g.fill(); } }));
+  const windows = (lit) => tex(canvas(256, 512, (g, w, h) => {
+    g.fillStyle = lit ? "#000" : "#B9BEC6"; g.fillRect(0, 0, w, h);
+    for (let y = 8; y < h; y += 32) for (let x = 6; x < w; x += 21) { const on = Math.random(); g.fillStyle = lit ? (on < 0.55 ? `rgba(255,${200 + Math.random() * 40},${120 + Math.random() * 60},1)` : "#000") : on < 0.15 ? "#3A4656" : "#5C6B7E"; g.fillRect(x, y, 14, 20); }
+  }));
+  return { asphalt, asphaltN, kerb, grass, grassN, runoff, fence, needle, crowd, concrete, checker, sand, sandN, leaf, windowsDay: windows(false), windowsNight: windows(true) };
 }
 
-export function buildCircuit(tr, scene, { profile } = {}) {
+export function buildCircuit(tr, scene, { profile, team } = {}) {
   const T = textures(), { N, X, Y, Z, LX, LZ, TX, TZ, dist, kerb } = tr, half = tr.half;
   const at = tr.wrap, W = tr.wall, WT = tr.wallType, pit = tr.pit;
   const sideK = (s) => (s > 0 ? 0 : 1); // +1 = left → wall[0], −1 = right → wall[1]
@@ -89,11 +98,14 @@ export function buildCircuit(tr, scene, { profile } = {}) {
   for (const [a, b] of runs((i) => kerb[i] !== 0, 10)) { strip(a, b, kerbProf(1), kerbMat, { vScale: 6 }); strip(a, b, kerbProf(-1), kerbMat, { vScale: 6 }); }
 
   // ---------- run-off up to the barrier: painted asphalt in the corners, grass on the straights ----------
+  const SC = tr.cfg.scenery ?? "forest", sandy = SC === "desert" || SC === "dunes", night = tr.cfg.time === "night", dusk = tr.cfg.time === "dusk";
   const runMat = new THREE.MeshStandardMaterial({ map: T.runoff, roughness: 0.92 });
-  const grassMat = new THREE.MeshStandardMaterial({ map: T.grass, normalMap: T.grassN, roughness: 1 });
+  const grassMat = sandy ? new THREE.MeshStandardMaterial({ map: T.sand, normalMap: T.sandN, roughness: 1 }) : new THREE.MeshStandardMaterial({ map: T.grass, normalMap: T.grassN, roughness: 1 });
+  const streetMat = new THREE.MeshStandardMaterial({ map: T.asphalt, normalMap: T.asphaltN, normalScale: new THREE.Vector2(0.4, 0.4), color: 0xC9CCD2, roughness: 0.92 });
   for (const s of [1, -1]) {
     const k = sideK(s), prof = (i) => sided(s, [[half + 0.6, -0.005], [W[k][i] + 0.6, -0.03]]);
-    for (const [a, b] of runs((i) => WT[k][i] !== 0, 2)) strip(a, b, prof, runMat, { vScale: 12 });
+    for (const [a, b] of runs((i) => WT[k][i] === 1 || WT[k][i] === 2, 2)) strip(a, b, prof, tr.street ? streetMat : runMat, { vScale: 12 });
+    for (const [a, b] of runs((i) => WT[k][i] === 3, 2)) strip(a, b, prof, streetMat, { vScale: 6 });
     for (const [a, b] of runs((i) => WT[k][i] === 0, 2)) strip(a, b, prof, grassMat, { vScale: 8, uScale: 3 });
   }
 
@@ -194,7 +206,7 @@ export function buildCircuit(tr, scene, { profile } = {}) {
     const BANNER_LEN = 42; // metres for one run of all the sponsors
     for (const s of [1, -1]) {
       const k = sideK(s);
-      for (const [a, b] of runs((i) => WT[k][i] === 1, 6)) {
+      for (const [a, b] of runs((i) => WT[k][i] === 1 || WT[k][i] === 3, 6)) {
         const idx = [], pos = [], uv = [], ind = [];
         let along = 0, px = null, pz = null;
         for (let kk = a; kk <= b; kk++) {
@@ -234,11 +246,16 @@ export function buildCircuit(tr, scene, { profile } = {}) {
     }
     posts.count = np; group.add(posts);
   }
+  // street circuits: concrete walls (painted, with the sponsor band) and a tall catch fence on top
+  {
+    const sw = new THREE.MeshStandardMaterial({ map: T.concrete, color: 0xF0F1F3, roughness: 0.8, side: THREE.DoubleSide });
+    for (const s of [1, -1]) { const k = sideK(s); for (const [a, b] of runs((i) => WT[k][i] === 3, 2)) strip(a, b, (i) => sided(s, [[W[k][i], 0], [W[k][i], 1.05], [W[k][i] + 0.6, 1.05], [W[k][i] + 0.6, 0]]), sw, { vScale: 4 }); }
+  }
   // catch fence behind every barrier (the pit wall has its own)
   {
     const fenceMat = new THREE.MeshStandardMaterial({ map: T.fence, alphaTest: 0.45, side: THREE.DoubleSide, metalness: 0.6, roughness: 0.5 });
     const posts = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.07, 0.07, 4.2, 4, 1, true), new THREE.MeshStandardMaterial({ color: 0x8A9098, metalness: 0.8, roughness: 0.35 }), 6000); let np = 0;
-    const fo = (k, i) => W[k][i] + (WT[k][i] === 1 ? tecBack(k, i) + 0.6 : 1.6);
+    const fo = (k, i) => W[k][i] + (WT[k][i] === 1 ? tecBack(k, i) + 0.6 : WT[k][i] === 3 ? 0.3 : 1.6);
     for (const s of [1, -1]) {
       const k = sideK(s);
       for (const [a, b] of runs((i) => WT[k][i] !== 2, 2)) {
@@ -297,10 +314,14 @@ export function buildCircuit(tr, scene, { profile } = {}) {
     // garages: ten made-up teams, facing the lane, with a painted box in front of each
     const teams = ["RACELIMIT", "AXIOM", "HALCYON", "VORTEX", "NOVA", "KESTREL GP", "MERIDIAN", "ORBIT", "TALON", "SOLSTICE"];
     const cols = ["#FFA51F", "#5AA9FF", "#C9B6FF", "#FF6B3A", "#7FE0B8", "#F5C518", "#E8EAF0", "#FF5A8A", "#9BDB4F", "#3FA0FF"];
+    // your team gets the first garage (nearest the pit entry)
+    if (team && team.team !== "RACELIMIT") { const k = teams.indexOf(team.team); if (k > 0) { [teams[0], teams[k]] = [teams[k], teams[0]]; [cols[0], cols[k]] = [cols[k], cols[0]]; } else { teams[0] = team.team; cols[0] = team.body; } }
     const [g0, g1] = pit.garages, segLen = (g1 - g0) / 10, depth = 18;
     const wallM = new THREE.MeshStandardMaterial({ color: 0xE8EAEE, roughness: 0.6 }), glassM = new THREE.MeshStandardMaterial({ color: 0x223044, metalness: 0.4, roughness: 0.15 }), doorM = new THREE.MeshStandardMaterial({ color: 0x15171C, roughness: 0.8 }), roofM = new THREE.MeshStandardMaterial({ color: 0xBFC4CB, metalness: 0.4, roughness: 0.4 });
+    const pitAt = (j) => { let pi = 0, bd = Infinity; for (let n = 0; n < M; n++) { const q2 = Math.abs(R.mj[n] - j); if (q2 < bd) { bd = q2; pi = n; } } return pi; };
     for (let t = 0; t < 10; t++) {
-      const i = at(Math.round(g0 + (t + 0.5) * segLen)), o = s * (pit.laneOut + depth / 2);
+      // each garage stands behind its stretch of the pit lane, doors facing the lane
+      const pg = pitAt(g0 + (t + 0.5) * segLen), og = -ts * (gOut(pg) + depth / 2);
       const g = new THREE.Group();
       const body = new THREE.Mesh(new THREE.BoxGeometry(segLen + 0.2, 11, depth), wallM); body.position.y = 5.5; g.add(body);
       const door = new THREE.Mesh(new THREE.PlaneGeometry(segLen - 4, 5), doorM); door.position.set(0, 2.6, depth / 2 + 0.01); g.add(door);
@@ -308,19 +329,18 @@ export function buildCircuit(tr, scene, { profile } = {}) {
       const sign = new THREE.Mesh(new THREE.PlaneGeometry(segLen - 4, 1.4), new THREE.MeshBasicMaterial({ map: tex(canvas(512, 64, (cg, w, h) => { cg.fillStyle = "#16181D"; cg.fillRect(0, 0, w, h); cg.fillStyle = cols[t]; cg.fillRect(0, h - 6, w, 6); cg.fillStyle = "#F2F2F2"; cg.font = "700 40px BC, sans-serif"; cg.textAlign = "center"; cg.textBaseline = "middle"; cg.fillText(teams[t], w / 2, h / 2 - 2); })) }));
       sign.position.set(0, 5.9, depth / 2 + 0.03); g.add(sign);
       const roof = new THREE.Mesh(new THREE.BoxGeometry(segLen + 0.4, 0.5, depth + 6), roofM); roof.position.set(0, 11.2, 2); g.add(roof);
-      g.position.set(X[i] + LX[i] * o, Y[i], Z[i] + LZ[i] * o);
-      g.lookAt(X[i], Y[i], Z[i]); // +z of the group (the doors) faces the track
+      g.position.set(R.X[pg] + R.LX[pg] * og, R.Y[pg], R.Z[pg] + R.LZ[pg] * og);
+      g.lookAt(R.X[pg], R.Y[pg], R.Z[pg]); // +z of the group (the doors) faces the lane
       g.traverse((m) => { if (m.isMesh) { m.castShadow = m !== sign; m.receiveShadow = true; } });
       group.add(g);
       // the pit box: a painted rectangle in the working lane in front of the garage
-      let pi = 0, bd = Infinity; for (let n = 0; n < M; n++) { const q = Math.abs(R.mj[n] - (g0 + (t + 0.5) * segLen)); if (q < bd) { bd = q; pi = n; } }
+      const pi = pg;
       const bo = -ts * (R.hw[pi] + (gOut(pi) - R.hw[pi]) * 0.45), bx = R.X[pi] + R.LX[pi] * bo, bz = R.Z[pi] + R.LZ[pi] * bo;
       const box = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 6.4), new THREE.MeshStandardMaterial({ map: tex(canvas(64, 128, (cg, w, h) => { cg.fillStyle = "rgba(0,0,0,0)"; cg.clearRect(0, 0, w, h); cg.strokeStyle = cols[t]; cg.lineWidth = 5; cg.strokeRect(3, 3, w - 6, h - 6); cg.fillStyle = cols[t]; cg.fillRect(6, h * 0.5 - 2, w - 12, 4); })), transparent: true, roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -3 }));
       box.rotation.set(-Math.PI / 2, 0, Math.atan2(R.TX[pi], R.TZ[pi])); box.position.set(bx, R.Y[pi] + 0.03, bz); group.add(box);
       pitInfo.boxes.push({ team: teams[t], color: cols[t], x: bx, z: bz, pidx: pi, yaw: Math.atan2(R.TX[pi], R.TZ[pi]) });
     }
-    const mid = at(Math.round((g0 + g1) / 2));
-    keepOut.push({ x: X[mid] + LX[mid] * s * (pit.laneOut + depth / 2), z: Z[mid] + LZ[mid] * s * (pit.laneOut + depth / 2), hl: (g1 - g0) / 2 + 30, hw: depth / 2 + 20, ang: Math.atan2(TX[mid], TZ[mid]) });
+    { const pm = pitAt((g0 + g1) / 2), om = -ts * (gOut(pm) + depth / 2); keepOut.push({ x: R.X[pm] + R.LX[pm] * om, z: R.Z[pm] + R.LZ[pm] * om, hl: (g1 - g0) / 2 + 30, hw: depth / 2 + 20, ang: Math.atan2(R.TX[pm], R.TZ[pm]) }); }
   }
 
   // ---------- terrain: follows the track, rolling away from it ----------
@@ -348,9 +368,9 @@ export function buildCircuit(tr, scene, { profile } = {}) {
     const pos = g.attributes.position, uv = g.attributes.uv, colA = [];
     for (let i = 0; i < pos.count; i++) { const x = pos.getX(i) + (minX + maxX) / 2, z = pos.getZ(i) + (minZ + maxZ) / 2, { h } = groundAt(x, z); pos.setY(i, h); uv.setXY(i, x / 5, z / 5); const v = 0.88 + Math.sin(x * 0.03) * Math.cos(z * 0.025) * 0.08 + (Math.random() - 0.5) * 0.05; colA.push(v * 0.97, v, v * 0.92); }
     g.setAttribute("color", new THREE.Float32BufferAttribute(colA, 3)); g.computeVertexNormals();
-    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: T.grass, normalMap: T.grassN, vertexColors: true, roughness: 1 }));
+    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: sandy ? T.sand : T.grass, normalMap: sandy ? T.sandN : T.grassN, vertexColors: true, roughness: 1, color: SC === "city" ? 0xB8BDB0 : 0xFFFFFF }));
     m.position.set((minX + maxX) / 2, 0, (minZ + maxZ) / 2); m.receiveShadow = true; group.add(m);
-    const skirt = new THREE.Mesh(new THREE.RingGeometry(Math.max(maxX - minX, maxZ - minZ) * 0.55, 9000, 64, 1), new THREE.MeshStandardMaterial({ color: 0x3E5A34, roughness: 1 }));
+    const skirt = new THREE.Mesh(new THREE.RingGeometry(Math.max(maxX - minX, maxZ - minZ) * 0.55, 9000, 64, 1), new THREE.MeshStandardMaterial({ color: sandy ? 0xB59A6E : 0x3E5A34, roughness: 1 }));
     skirt.rotation.x = -Math.PI / 2; skirt.position.set((minX + maxX) / 2, coarseAt((minX + maxX) / 2, (minZ + maxZ) / 2) - 6, (minZ + maxZ) / 2); group.add(skirt);
   }
 
@@ -398,22 +418,92 @@ export function buildCircuit(tr, scene, { profile } = {}) {
     for (const c of corners) { if (placed >= 4) break; const outside = tr.K[c.i] > 0 ? 1 : -1; /* K > 0 turns right: the outside is on the left */ if (tryStand(c.i, outside, 90, 14) || tryStand(at(c.i - 60), outside, 80, 12)) placed++; }
   }
 
-  // ---------- trees (instanced firs), kept away from the track, pits and stands ----------
+  // ---------- scenery: trees, palms, bushes or city blocks depending on the circuit, kept away from the
+  // track, the pits and the stands. Grouped in 300 m cells so only what's in view is drawn. ----------
   {
-    const mat = new THREE.MeshStandardMaterial({ map: T.needle, roughness: 0.95 }); T.needle.repeat.set(2, 2);
-    const tierG = [0, 1, 2].map((t) => new THREE.ConeGeometry(3.4 - t * 0.9, 4.2, 7, 1, true)), trunkG = new THREE.CylinderGeometry(0.25, 0.4, 4, 5, 1, true), trunkM = new THREE.MeshStandardMaterial({ color: 0x4A3826, roughness: 1 });
-    const trees = []; const c = new THREE.Color(); let n = 0;
-    for (let kk = 0; kk < 60000 && n < 7000; kk++) {
-      const i = Math.floor(rnd() * N), s = rnd() < 0.5 ? -1 : 1, off = s * (W[sideK(s)][i] + 9 + rnd() ** 1.7 * 330);
-      const x = X[i] + LX[i] * off, z = Z[i] + LZ[i] * off, gd = groundAt(x, z); if (gd.d < (gd.flat ?? 0) + 5 || inKeepOut(x, z, 8) || !clearOfTrack(x, z, 6)) continue;
-      const sc = 0.8 + rnd() * 0.9; c.setHSL(0.28 + rnd() * 0.06, 0.25 + rnd() * 0.15, 0.36 + rnd() * 0.14);
-      trees.push({ x, z, h: gd.h, sc, col: c.getHex(), yaw: rnd() * 6 }); n++;
+    // how much of what, per kind of place
+    const MIX = {
+      forest: { fir: 7000 }, alpine: { fir: 4200, leafy: 1400 }, park: { leafy: 4500, fir: 500 }, countryside: { leafy: 1800 },
+      plains: { leafy: 900 }, tropical: { palm: 1600, leafy: 2200 }, desert: { palm: 380 }, dunes: { bush: 2200, leafy: 300 },
+      city: { building: 900, palm: tr.cfg.cc === "MC" || tr.cfg.cc === "SG" || tr.cfg.cc === "US" || tr.cfg.cc === "ES" ? 300 : 0, leafy: tr.cfg.cc === "AZ" ? 250 : 120 },
+    }[SC] ?? { fir: 4000 };
+    const place = (count, near, far, gap) => {
+      const out = []; let tries = 0;
+      while (out.length < count && tries++ < count * 12) {
+        const i = Math.floor(rnd() * N), s = rnd() < 0.5 ? -1 : 1, off = s * (W[sideK(s)][i] + near + rnd() ** 1.7 * far);
+        const x = X[i] + LX[i] * off, z = Z[i] + LZ[i] * off, gd = groundAt(x, z); if (gd.d < (gd.flat ?? 0) + gap || inKeepOut(x, z, gap + 3) || !clearOfTrack(x, z, gap + 1)) continue;
+        out.push({ x, z, h: gd.h, sc: 0.75 + rnd() * 0.8, yaw: rnd() * 6.283, r: rnd() });
+      }
+      return out;
+    };
+    const cellsOf = (list, size = 300) => { const cells = new Map(); for (const t of list) { const key = Math.floor(t.x / size) * 10007 + Math.floor(t.z / size); if (!cells.has(key)) cells.set(key, []); cells.get(key).push(t); } return [...cells.values()]; };
+    const add = (m, pad = 8) => { if (m.instanceColor) m.instanceColor.needsUpdate = true; m.computeBoundingSphere(); m.boundingSphere.radius += pad; group.add(m); };
+    const V = new THREE.Vector3(), Sv = new THREE.Vector3(), c = new THREE.Color();
+    const trunkM = new THREE.MeshStandardMaterial({ color: 0x4A3826, roughness: 1 });
+    // firs
+    if (MIX.fir) {
+      const mat = new THREE.MeshStandardMaterial({ map: T.needle, roughness: 0.95 }); T.needle.repeat.set(2, 2);
+      const tierG = [0, 1, 2].map((t) => new THREE.ConeGeometry(3.4 - t * 0.9, 4.2, 7, 1, true)), trunkG = new THREE.CylinderGeometry(0.25, 0.4, 4, 5, 1, true);
+      for (const list of cellsOf(place(MIX.fir, 9, 330, 5))) {
+        const tiers = tierG.map((g) => new THREE.InstancedMesh(g, mat, list.length)), trunks = new THREE.InstancedMesh(trunkG, trunkM, list.length);
+        list.forEach((t, j) => { c.setHSL(0.28 + t.r * 0.06, 0.25 + t.r * 0.15, 0.36 + (1 - t.r) * 0.14); for (let k = 0; k < 3; k++) { q.setFromAxisAngle(up, t.yaw + k); m4.compose(V.set(t.x, t.h + (4 + k * 2.6) * t.sc, t.z), q, Sv.setScalar(t.sc)); tiers[k].setMatrixAt(j, m4); tiers[k].setColorAt(j, c); } m4.compose(V.set(t.x, t.h + 2 * t.sc, t.z), q, Sv.setScalar(t.sc)); trunks.setMatrixAt(j, m4); });
+        for (const m of [...tiers, trunks]) add(m);
+      }
     }
-    const cells = new Map(); for (const t of trees) { const key = Math.floor(t.x / 300) * 10007 + Math.floor(t.z / 300); if (!cells.has(key)) cells.set(key, []); cells.get(key).push(t); }
-    for (const list of cells.values()) {
-      const tiers = tierG.map((g) => new THREE.InstancedMesh(g, mat, list.length)), trunks = new THREE.InstancedMesh(trunkG, trunkM, list.length);
-      list.forEach((t, j) => { for (let k = 0; k < 3; k++) { q.setFromAxisAngle(up, t.yaw + k); m4.compose(new THREE.Vector3(t.x, t.h + (4 + k * 2.6) * t.sc, t.z), q, new THREE.Vector3(t.sc, t.sc, t.sc)); tiers[k].setMatrixAt(j, m4); tiers[k].setColorAt(j, c.setHex(t.col)); } m4.compose(new THREE.Vector3(t.x, t.h + 2 * t.sc, t.z), q, new THREE.Vector3(t.sc, t.sc, t.sc)); trunks.setMatrixAt(j, m4); });
-      for (const m of [...tiers, trunks]) { if (m.instanceColor) m.instanceColor.needsUpdate = true; m.computeBoundingSphere(); m.boundingSphere.radius += 8; group.add(m); }
+    // broad-leaved trees and bushes: a trunk and a lumpy round crown
+    for (const [kind, count] of [["leafy", MIX.leafy], ["bush", MIX.bush]]) {
+      if (!count) continue;
+      const bush = kind === "bush", leafM = new THREE.MeshStandardMaterial({ map: T.leaf, roughness: 0.95, flatShading: true });
+      const crownG = new THREE.IcosahedronGeometry(1, 1); { const p = crownG.attributes.position; for (let v = 0; v < p.count; v++) { const f = 0.85 + Math.sin(p.getX(v) * 7.1 + p.getZ(v) * 5.3) * 0.12 + Math.cos(p.getY(v) * 6.7) * 0.08; p.setXYZ(v, p.getX(v) * f, p.getY(v) * f * 0.85, p.getZ(v) * f); } crownG.computeVertexNormals(); }
+      const trunkG = new THREE.CylinderGeometry(0.22, 0.35, 1, 5, 1, true);
+      for (const list of cellsOf(place(count, bush ? 4 : 8, bush ? 160 : 300, bush ? 3 : 5))) {
+        const crowns = new THREE.InstancedMesh(crownG, leafM, list.length), trunks = bush ? null : new THREE.InstancedMesh(trunkG, trunkM, list.length);
+        list.forEach((t, j) => {
+          const r = bush ? 1.2 + t.r * 1.4 : 3 + t.r * 2.6, th = bush ? 0 : 2.5 + t.r * 2.5;
+          c.setHSL(0.22 + t.r * 0.1, sandy ? 0.22 : 0.35, (sandy ? 0.32 : 0.3) + (1 - t.r) * 0.12);
+          q.setFromAxisAngle(up, t.yaw); m4.compose(V.set(t.x, t.h + th + r * 0.75, t.z), q, Sv.set(r, r, r)); crowns.setMatrixAt(j, m4); crowns.setColorAt(j, c);
+          if (trunks) { m4.compose(V.set(t.x, t.h + th / 2 + 0.3, t.z), q, Sv.set(1, th + 0.6, 1)); trunks.setMatrixAt(j, m4); }
+        });
+        add(crowns); if (trunks) add(trunks);
+      }
+    }
+    // palms: a tall thin trunk and a crown of drooping fronds
+    if (MIX.palm) {
+      const frondG = (() => { const parts = []; for (let f = 0; f < 7; f++) { const g = new THREE.ConeGeometry(0.55, 4.2, 3, 1, true); g.translate(0, 2.1, 0); g.rotateX(1.25 + (f % 2) * 0.25); g.rotateY((f / 7) * Math.PI * 2); parts.push(g.toNonIndexed()); } const pos = []; for (const g of parts) pos.push(...g.attributes.position.array); const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals(); return g; })();
+      const palmTrunk = new THREE.CylinderGeometry(0.16, 0.26, 1, 6, 1, true), frondM = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, roughness: 0.9, side: THREE.DoubleSide, flatShading: true }), barkM = new THREE.MeshStandardMaterial({ color: 0x8A7558, roughness: 1 });
+      for (const list of cellsOf(place(MIX.palm, SC === "desert" ? 6 : 7, SC === "desert" ? 90 : 220, 4))) {
+        const crowns = new THREE.InstancedMesh(frondG, frondM, list.length), trunks = new THREE.InstancedMesh(palmTrunk, barkM, list.length);
+        list.forEach((t, j) => { const ht = 7 + t.r * 7; c.setHSL(0.24 + t.r * 0.06, 0.45, 0.28 + t.r * 0.1); q.setFromAxisAngle(up, t.yaw); m4.compose(V.set(t.x, t.h + ht / 2, t.z), q, Sv.set(1, ht, 1)); trunks.setMatrixAt(j, m4); m4.compose(V.set(t.x, t.h + ht, t.z), q, Sv.setScalar(0.9 + t.r * 0.3)); crowns.setMatrixAt(j, m4); crowns.setColorAt(j, c); });
+        add(crowns); add(trunks);
+      }
+    }
+    // city blocks: a few shapes of building, windows on every side (lit at night)
+    if (MIX.building) {
+      const shapes = [[22, 20, 58], [32, 26, 28], [16, 16, 92], [42, 30, 14], [26, 22, 40]].map(([w, d, h]) => {
+        const g = new THREE.BoxGeometry(w, h, d); g.translate(0, h / 2, 0);
+        const uv = g.attributes.uv, nrm = g.attributes.normal; for (let v = 0; v < uv.count; v++) { const side = Math.abs(nrm.getX(v)) > 0.5 ? d : w, top = Math.abs(nrm.getY(v)) > 0.5; uv.setXY(v, top ? 0 : uv.getX(v) * side / 24, top ? 0 : uv.getY(v) * h / 48); }
+        return g;
+      });
+      const bm = new THREE.MeshStandardMaterial({ map: T.windowsDay, color: night ? 0x2E333C : 0xFFFFFF, roughness: 0.6, metalness: 0.15, emissiveMap: night || dusk ? T.windowsNight : null, emissive: night || dusk ? 0xFFFFFF : 0x000000, emissiveIntensity: night ? 1.6 : dusk ? 0.5 : 0 });
+      T.windowsNight.wrapS = T.windowsNight.wrapT = THREE.RepeatWrapping;
+      T.windowsDay.wrapS = T.windowsDay.wrapT = THREE.RepeatWrapping;
+      const all = place(MIX.building, 10, 260, 14);
+      for (const list of cellsOf(all, 400)) {
+        const per = shapes.map(() => []); list.forEach((t) => per[Math.floor(t.r * shapes.length) % shapes.length].push(t));
+        per.forEach((ls, si) => { if (!ls.length) return; const m = new THREE.InstancedMesh(shapes[si], bm, ls.length); ls.forEach((t, j) => { const hs = 0.7 + t.sc * 0.5; q.setFromAxisAngle(up, Math.round(t.yaw / (Math.PI / 2)) * (Math.PI / 2) + (t.r - 0.5) * 0.3); m4.compose(V.set(t.x, t.h - 0.5, t.z), q, Sv.set(1, hs, 1)); m.setMatrixAt(j, m4); c.setHSL(0.08 + t.r * 0.5, 0.08 + t.r * 0.12, 0.62 + (1 - t.r) * 0.25); m.setColorAt(j, c); }); m.castShadow = false; m.receiveShadow = true; add(m, 60); });
+      }
+    }
+  }
+
+  // ---------- floodlights for the night races: tall poles all round the track ----------
+  if (night) {
+    const poleG = new THREE.CylinderGeometry(0.18, 0.28, 18, 6, 1, true), headG = new THREE.BoxGeometry(2.6, 1.1, 0.5);
+    const poleM = new THREE.MeshStandardMaterial({ color: 0x6B717A, metalness: 0.6, roughness: 0.5 }), headM = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, emissive: 0xFFF4DD, emissiveIntensity: 3 });
+    const spots = []; for (let i = 0; i < N; i += 55) { const s = (i / 55) % 2 ? 1 : -1, k = sideK(s), o = s * (W[k][i] + (WT[k][i] === 1 ? 3.2 : 2.2)); spots.push({ x: X[i] + LX[i] * o, z: Z[i] + LZ[i] * o, y: Y[i], yaw: Math.atan2(TX[i], TZ[i]) }); }
+    for (const list of [spots]) {
+      const poles = new THREE.InstancedMesh(poleG, poleM, list.length), heads = new THREE.InstancedMesh(headG, headM, list.length);
+      list.forEach((p, j) => { q.setFromAxisAngle(up, p.yaw); m4.compose(new THREE.Vector3(p.x, p.y + 9, p.z), q, new THREE.Vector3(1, 1, 1)); poles.setMatrixAt(j, m4); m4.compose(new THREE.Vector3(p.x, p.y + 18.3, p.z), q, new THREE.Vector3(1, 1, 1)); heads.setMatrixAt(j, m4); });
+      group.add(poles, heads);
     }
   }
 

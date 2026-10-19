@@ -1,10 +1,10 @@
 // RaceLimit Games: a small menu plus three games, one at a time, chosen by the address (#lights,
 // #track, #pit) so each game has its own link you can share.
-import { mountLights } from "./lights.js?v=mvfpiqag";
-import { mountTrack } from "./track-guess.js?v=mvfpiqag";
-import { mountPit } from "./pitstop.js?v=mvfpiqag";
-import { load } from "./common.js?v=mvfpiqag";
-import { soundButton } from "./sfx.js?v=mvfpiqag";
+import { mountLights } from "./lights.js?v=mvfrp5vx";
+import { mountTrack } from "./track-guess.js?v=mvfrp5vx";
+import { mountPit } from "./pitstop.js?v=mvfrp5vx";
+import { load } from "./common.js?v=mvfrp5vx";
+import { soundButton } from "./sfx.js?v=mvfrp5vx";
 
 const GAMES = {
   lights: { title: "Lights Out", mount: mountLights },
@@ -20,10 +20,11 @@ function hub() {
   const lights = load("lights", {});
   const track = load("track.stats", {});
   const pit = load("pit", {});
-  const race = load("race.best.spa", {}) ?? {};
+  // the racing game: your best laps anywhere, and how many circuits you've driven
+  let raceBests = 0; try { raceBests = Object.keys(localStorage).filter((k) => k.startsWith("racelimit.games.race.best.")).length; } catch { /* storage blocked */ }
   const ms = (x) => (x / 1000).toFixed(3) + "s";
   app.innerHTML = `<div class="game">
-    <div class="hub-intro"><h1>Games</h1><p class="muted">Three quick F1 games, and the first test of our racing game.</p></div>
+    <div class="hub-intro"><h1>Games</h1><p class="muted">Three quick F1 games, and our racing game.</p></div>
     <div class="cards">
       <a class="card-link" href="#lights">
         <div class="card-art"><div class="mini-lights"><i></i><i></i><i></i><i></i><i></i></div></div>
@@ -46,9 +47,9 @@ function hub() {
     </div>
     <a class="card-link race-card" href="../race/">
       <div class="card-art">${raceArt()}</div>
-      <div><h2>Race at Spa <span class="tag" style="background:#3A2A0A;color:#F2C14E">Early test</span></h2>
-      <p class="muted small">Drive a 2026-style F1 car around Spa-Francorchamps in 3D. Set a lap and try to beat it. Needs a keyboard or a game controller. AI cars, tyres, pit stops and every circuit are coming next.</p>
-      <div class="card-best">${race.time ? `Your best lap: <b>${Math.floor(race.time / 60)}:${(race.time % 60).toFixed(3).padStart(6, "0")}</b>` : "Not driven yet"}</div></div>
+      <div><h2>Race <span class="tag" style="background:#3A2A0A;color:#F2C14E">Early access</span></h2>
+      <p class="muted small">Drive a 2026-style F1 car in 3D at all 25 circuits, with their real shapes, hills and pit lanes. Practice, hot laps, pit stops and tyres; AI cars are coming next. Needs a keyboard or a game controller.</p>
+      <div class="card-best">${raceBests ? `Lap times set at ${raceBests} circuit${raceBests > 1 ? "s" : ""}` : "Not driven yet"}</div></div>
     </a>
   </div>`;
 }
