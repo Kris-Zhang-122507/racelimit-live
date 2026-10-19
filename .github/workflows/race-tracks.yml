@@ -1,0 +1,42 @@
+# Real track shapes, heights and pit lane paths for the racing game (see scripts/race-tracks.mjs).
+# Runs when the script changes, or by hand (add "--force" to redo circuits that are already saved).
+name: Race game tracks
+
+on:
+  push:
+    branches: [main]
+    paths: [scripts/race-tracks.mjs]
+  workflow_dispatch:
+    inputs:
+      args:
+        description: "Circuit slugs to (re)do, and/or --force"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: race-tracks
+  cancel-in-progress: false
+
+jobs:
+  tracks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Fetch real track data
+        run: node scripts/race-tracks.mjs ${{ github.event.inputs.args }}
+      - name: Save
+        run: |
+          git config user.name "racelimit-archive"
+          git config user.email "actions@users.noreply.github.com"
+          git add public/data/race
+          if git diff --cached --quiet; then echo "Nothing new."; else
+            git commit -m "Race game: real track data"
+            for i in 1 2 3; do git pull --rebase && git push && break; sleep 10; done
+          fi
