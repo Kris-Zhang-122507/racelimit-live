@@ -2,7 +2,7 @@
 // z forward, y up, metres; origin on the ground at the middle of the wheelbase.
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
-import { loft, wing, sweep, cascade, rollWing, plate, ring, DEF, tex, canvas, decal, liveryMap, tyreMap, helmetMap, carbon, carbonMatte, boxUV, span } from "./car-kit.js?v=mvfe7n37";
+import { loft, wing, sweep, cascade, rollWing, plate, ring, DEF, tex, canvas, decal, liveryMap, tyreMap, helmetMap, carbon, carbonMatte, boxUV, span } from "./car-kit.js?v=mvfpiqag";
 
 // ---------- eras ----------
 // wb wheelbase, fo front overhang to the front wing leading edge, ro rear overhang, tf/tr half track,
@@ -542,12 +542,62 @@ export function buildWheel26(helmet = ["#FFA51F", "#16171B"]) {
   for (const [, c, x, y] of WHEEL26_BTN) { const b = new THREE.Mesh(new THREE.CylinderGeometry(mm(5), mm(5.6), mm(4), 20), new THREE.MeshPhysicalMaterial({ color: c, roughness: 0.35, clearcoat: 0.8 })); b.rotation.x = Math.PI / 2; b.position.set(mm(x), mm(y), 0.0165); sw.add(b); }
   const knurl = new THREE.MeshStandardMaterial({ color: 0x8E949C, metalness: 0.9, roughness: 0.3 });
   for (const [x, y, r] of [[-38, -42, 8], [0, -48, 11], [38, -42, 8], [-62, -20, 4.5], [62, -20, 4.5]]) { const rr = new THREE.Mesh(new THREE.CylinderGeometry(mm(r), mm(r + 0.5), mm(9), 24), knurl); rr.rotation.x = Math.PI / 2; rr.position.set(mm(x), mm(y), 0.016); sw.add(rr); const ptr = new THREE.Mesh(new THREE.BoxGeometry(mm(1.4), mm(r * 0.7), mm(1)), new THREE.MeshStandardMaterial({ color: 0xFFB547, emissive: 0xFFB547, emissiveIntensity: 0.4 })); ptr.position.set(mm(x), mm(y + r * 0.35), 0.021); sw.add(ptr); }
-  for (let k = 0; k < 15; k++) { const led = new THREE.Mesh(new THREE.SphereGeometry(mm(2.8), 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x111111, emissive: k < 5 ? 0x22FF55 : k < 10 ? 0xFF2222 : 0x3377FF, emissiveIntensity: k < 9 ? 2.5 : 0.1 })); led.rotation.x = Math.PI / 2; led.position.set(mm(-56 + k * 8), mm(70), 0.0152); sw.add(led); }
+  // the live screen and shift lights: one canvas over the top of the wheel, redrawn while you drive
+  { const cv = canvas(SCR.w, SCR.h, (g, w, h) => { g.fillStyle = "#020304"; g.fillRect(0, 0, w, h); }), st = tex(cv); st.wrapS = st.wrapT = THREE.ClampToEdgeWrapping;
+    const screen = new THREE.Mesh(new THREE.PlaneGeometry(mm(SCR.x1 - SCR.x0), mm(SCR.y1 - SCR.y0)), new THREE.MeshBasicMaterial({ map: st, toneMapped: false }));
+    screen.position.set(mm((SCR.x0 + SCR.x1) / 2), mm((SCR.y0 + SCR.y1) / 2), 0.0158); sw.add(screen); sw.userData.screen = { canvas: cv, tex: st, page: 0 }; }
   const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.026, 0.05, 20), knurl); hub.rotation.x = Math.PI / 2; hub.position.set(0, 0, -0.04); sw.add(hub);
   const back = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.26), new THREE.MeshBasicMaterial({ color: 0x050506, side: THREE.DoubleSide })); back.position.set(0, -0.14, -0.06); sw.add(back);
   return sw;
 }
 const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
+
+// ---------- the steering wheel's screen ----------
+// d: { rpm, shiftRpm, gear, kmh, lapTime, delta, lap, ers (0..1), deploy, harvest, clip, overtake, limiter,
+//      onPit, tyres: [{ wear, temp }] × 4 (FL FR RL RR) or null, compound, brakeBias, message }
+const SCR = { x0: -64, x1: 64, y0: 2, y1: 77, w: 768, h: 450 };
+const fmtLap = (t) => (t == null || !isFinite(t) ? "-:--.---" : `${Math.floor(t / 60)}:${(t % 60).toFixed(3).padStart(6, "0")}`);
+export function drawWheelScreen(sw, d) {
+  const S = sw?.userData?.screen; if (!S) return;
+  const g = S.canvas.getContext("2d"), W = S.canvas.width, H = S.canvas.height, px = W / (SCR.x1 - SCR.x0);
+  const X = (mmx) => (mmx - SCR.x0) * px, Y = (mmy) => (SCR.y1 - mmy) * px;
+  g.fillStyle = "#151619"; g.fillRect(0, 0, W, H); // the wheel's face around the screen
+  // shift lights: green, red, then all blue at the change-up point (solid colours, never flashing)
+  const lit = Math.max(0, Math.min(15, Math.round(((d.rpm - 10200) / (d.shiftRpm - 10200)) * 15))), allBlue = d.rpm >= d.shiftRpm;
+  for (let k = 0; k < 15; k++) {
+    const x = X(-56 + k * 8), y = Y(70), on = allBlue || k < lit, c = allBlue ? "#3B7BFF" : k < 5 ? "#2BFF6A" : k < 10 ? "#FF2B2B" : "#3B7BFF";
+    if (on) { const gr = g.createRadialGradient(x, y, 0, x, y, px * 5); gr.addColorStop(0, c); gr.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = gr; g.beginPath(); g.arc(x, y, px * 5, 0, 7); g.fill(); }
+    g.fillStyle = on ? c : "#24262b"; g.beginPath(); g.arc(x, y, px * 2.6, 0, 7); g.fill();
+  }
+  // the screen
+  const sx0 = -62, sx1 = 62, sy0 = 4, sy1 = 62;
+  g.fillStyle = "#020304"; g.fillRect(X(sx0), Y(sy1), (sx1 - sx0) * px, (sy1 - sy0) * px);
+  g.strokeStyle = "#1f2a33"; g.lineWidth = px * 0.5;
+  for (const [a, b, c2, e] of [[sx0, 49, sx1, 49], [sx0, 22, sx1, 22], [-22, 49, -22, 22], [22, 49, 22, 22]]) { g.beginPath(); g.moveTo(X(a), Y(b)); g.lineTo(X(c2), Y(e)); g.stroke(); }
+  const t = (str, x, y, size, col, align = "left", font = "600 {s}px JB") => { g.fillStyle = col; g.font = font.replace("{s}", Math.round(size * px)); g.textAlign = align; g.textBaseline = "middle"; g.fillText(str, X(x), Y(y)); };
+  // top row: lap time, lap, delta
+  t(fmtLap(d.lapTime), sx0 + 2, 56, 5.2, "#E8EAF0"); t(`L${d.lap ?? 1}`, 0, 56, 4.6, "#9AA3B2", "center");
+  if (d.delta != null) t(`${d.delta >= 0 ? "+" : "−"}${Math.abs(d.delta).toFixed(2)}`, sx1 - 2, 56, 5.2, d.delta < 0 ? "#2FD27A" : "#FF6B6B", "right"); else t("+-.--", sx1 - 2, 56, 5.2, "#4A5260", "right");
+  // middle: speed | gear | battery
+  t(String(Math.round(d.kmh)), -42, 39, 8.5, "#E8EAF0", "center", "700 {s}px BC"); t("KM/H", -42, 29, 3, "#7D8696", "center");
+  t(d.gear, 0, 35, 22, d.limiter ? "#FFB547" : "#FFFFFF", "center", "700 {s}px BC");
+  const ers = Math.max(0, Math.min(1, d.ers ?? 0)), ec = d.overtake ? "#FF8A1F" : d.deploy ? "#5AA9FF" : d.harvest ? "#2FD27A" : "#C3C9D4";
+  t(`${Math.round(ers * 100)}%`, 42, 39, 7, ec, "center", "700 {s}px BC");
+  t(d.overtake ? "OVERTAKE" : d.clip ? "CLIPPING" : d.deploy ? "DEPLOY" : d.harvest ? "CHARGE" : "BATTERY", 42, 29, 3, ec, "center");
+  g.strokeStyle = ec; g.lineWidth = px * 0.5; g.strokeRect(X(26), Y(26.5), 32 * px, 2.4 * px); g.fillStyle = ec; g.fillRect(X(26), Y(26.5), 32 * px * ers, 2.4 * px);
+  // bottom row: tyres (wear % and temperature, coloured blue cold → green → red hot) or the pit lane
+  if (d.limiter || d.onPit) {
+    g.fillStyle = d.limiter ? "#4A3410" : "#1C2230"; g.fillRect(X(sx0 + 1), Y(21), (sx1 - sx0 - 2) * px, 16 * px);
+    t(d.limiter ? "PIT LIMITER  80" : "PIT LANE", 0, 13, 7, d.limiter ? "#FFB547" : "#C3C9D4", "center", "700 {s}px BC");
+  } else if (d.tyres) {
+    const tc = (temp) => (temp < 80 ? "#5AA9FF" : temp < 110 ? "#2FD27A" : temp < 125 ? "#FFB547" : "#FF5A5A");
+    d.tyres.forEach((ty, k) => { const x = [-50, -22, 22, 50][k]; t(`${Math.round(ty.temp)}°`, x, 16, 4.8, tc(ty.temp), "center", "700 {s}px BC"); t(`${Math.round(ty.wear * 100)}%`, x, 8.5, 3.6, "#9AA3B2", "center"); });
+    if (d.compound) { g.fillStyle = d.compound.color; g.beginPath(); g.arc(X(0), Y(13), 4.2 * px, 0, 7); g.fill(); g.fillStyle = "#020304"; g.beginPath(); g.arc(X(0), Y(13), 2.9 * px, 0, 7); g.fill(); t(d.compound.letter, 0, 13, 3.6, d.compound.color, "center", "700 {s}px BC"); }
+  } else {
+    t(`BB ${d.brakeBias ?? 58}`, -42, 13, 5, "#FFB547", "center", "700 {s}px BC"); t(`${d.gearMode ?? ""}`, 42, 13, 4, "#9AA3B2", "center");
+  }
+  S.tex.needsUpdate = true;
+}
 
 export const TEAMS = [
   { team: "RACELIMIT", body: "#FFA51F", accent: "#16171B", stripe: "#F4F4F4", style: "split", number: "27", helmet: ["#FFA51F", "#16171B"] },

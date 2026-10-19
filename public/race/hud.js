@@ -22,7 +22,7 @@ export function createHud(root, tr) {
     <div class="h-ers"><div class="k">Battery <span id="hErsMode"></span></div><div class="h-bar"><i id="hErs"></i></div><div class="mono h-small" id="hErsT">100%</div></div>
     <div class="h-aero"><span class="h-chip" id="hAero">CORNER</span><span class="h-chip pit" id="hPit" hidden>PIT LIMITER</span><span class="k" id="hGearMode">AUTO</span></div>
   </div>
-  <div class="h-hint box" id="hHint">↑ ↓ ← → or W A S D to drive · E / Q gears · C camera · R reset · L racing line · Esc pause</div>`;
+  <div class="h-hint box" id="hHint">↑ ↓ ← → or W A S D to drive · E / Q gears · Space overtake · C camera · R reset · L racing line · Esc pause</div>`;
   const $ = (id) => root.querySelector("#" + id);
   const el = { lap: $("hLap"), inv: $("hInv"), cur: $("hCur"), delta: $("hDelta"), last: $("hLast"), best: $("hBest"), msg: $("hMsg"), lights: $("hLights"), gear: $("hGear"), speed: $("hSpeed"), rpm: $("hRpm"), rpmT: $("hRpmT"), ers: $("hErs"), ersT: $("hErsT"), ersMode: $("hErsMode"), aero: $("hAero"), pit: $("hPit"), gearMode: $("hGearMode"), hint: $("hHint"), map: $("hMap"), secs: [0, 1, 2].map((i) => $("hS" + i)) };
   const leds = [...$("hLeds").children];
@@ -60,7 +60,7 @@ export function createHud(root, tr) {
       el.ers.className = c.deploying ? "dep" : c.harvesting ? "harv" : "";
       put("aero", el.aero, c.aeroMode === "straight" ? "STRAIGHT MODE" : "CORNER MODE"); el.aero.classList.toggle("on", c.aeroMode === "straight");
       put("gearMode", el.gearMode, opts.auto ? "AUTO GEARS" : "MANUAL");
-      el.pit.hidden = !c.onPit; el.aero.hidden = !!c.onPit; put("pit", el.pit, c.pitLimiter ? "PIT LIMITER · 80" : "PIT LANE"); el.pit.classList.toggle("on", !!c.pitLimiter);
+      el.pit.hidden = !c.onPit && !c.overtake; el.aero.hidden = !!c.onPit || !!c.overtake; put("pit", el.pit, c.overtake ? "OVERTAKE" : c.pitLimiter ? "PIT LIMITER · 80" : "PIT LANE"); el.pit.classList.toggle("on", !!c.pitLimiter || !!c.overtake);
       // timing
       put("lap", el.lap, `LAP ${t.lap}`);
       el.inv.hidden = !t.invalid;

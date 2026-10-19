@@ -1,7 +1,7 @@
 // Lights Out: five red lights come on one a second, hold for a random moment, then go out.
 // React as fast as you can. Too early is a jump start.
-import { load, save } from "./common.js?v=mvfe7n37";
-import { sfx } from "./sfx.js?v=mvfe7n37";
+import { load, save } from "./common.js?v=mvfpiqag";
+import { sfx } from "./sfx.js?v=mvfpiqag";
 
 const VERDICTS = [
   [150, "Lightning! That's F1 level — or a very good guess", "good"],

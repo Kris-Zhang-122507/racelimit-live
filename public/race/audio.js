@@ -6,7 +6,7 @@
 // On top: turbo whoosh, a little electric-motor whine, gear-change cracks, overrun pops,
 // tyres, wind and kerbs. With no MGU-H the 2026 exhaust note is rawer, and the engine keeps
 // working (charging the battery) through slow corners, so the note stays up there.
-import { load, save } from "../games/common.js?v=mvfe7n37";
+import { load, save } from "../games/common.js?v=mvfpiqag";
 
 // ---------- small DSP helpers (run once, when the game starts) ----------
 function biquad(type, f, Q, sr) {
@@ -72,6 +72,13 @@ export function createEngineAudio({ engine = "raw" } = {}) {
   let muted = load("muted", false);
   master.gain.value = muted ? 0 : 0.55; master.connect(ctx.destination);
   const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -12; comp.ratio.value = 3; comp.attack.value = 0.005; comp.release.value = 0.12; comp.connect(master);
+  // a little space: the sound bouncing off barriers and grandstands (a short made-up echo, darker and fainter
+  // than the direct sound, slightly different left and right)
+  const verb = ctx.createConvolver(), verbG = ctx.createGain(); verbG.gain.value = 0.1;
+  { const sr = ctx.sampleRate, n = Math.floor(sr * 0.45), ir = ctx.createBuffer(2, n, sr);
+    for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); let lp = 0; for (let i = 0; i < n; i++) { const t = i / sr; lp += ((Math.random() * 2 - 1) - lp) * 0.35; d[i] = lp * Math.exp(-t / 0.09) * (t < 0.012 + ch * 0.004 ? 0 : 1); } }
+    verb.buffer = ir; }
+  verb.connect(verbG).connect(comp);
 
   const noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
   { const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
@@ -83,7 +90,7 @@ export function createEngineAudio({ engine = "raw" } = {}) {
   const engBus = ctx.createGain(); engBus.gain.value = 0;
   const tone = ctx.createBiquadFilter(); tone.type = "lowpass"; tone.Q.value = 0.6; tone.frequency.value = 8000;
   const body = ctx.createBiquadFilter(); body.type = "lowshelf"; body.frequency.value = 220; body.gain.value = 0;
-  engBus.connect(body).connect(tone).connect(comp);
+  engBus.connect(body).connect(tone).connect(comp); tone.connect(verb);
   const layers = [];
   let model = null, engineName = engine;
   const useLoops = () => {
@@ -97,7 +104,7 @@ export function createEngineAudio({ engine = "raw" } = {}) {
   };
   // the modelled engine; if this browser can't run it, the loops instead
   if (ctx.audioWorklet && typeof AudioWorkletNode === "function") {
-    ctx.audioWorklet.addModule(new URL("./engine-worklet.js?v=mvfe7n37", import.meta.url)).then(() => {
+    ctx.audioWorklet.addModule(new URL("./engine-worklet.js?v=mvfpiqag", import.meta.url)).then(() => {
       model = new AudioWorkletNode(ctx, "engine-synth", { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [1] });
       model.port.postMessage({ engine: engineName, gain: 1.1 });
       model.connect(engBus);
@@ -139,7 +146,7 @@ export function createEngineAudio({ engine = "raw" } = {}) {
         model.port.postMessage({ rpm: c.rpm < 3000 ? 3000 : c.rpm, load: load * sparks });
         const vol = (0.5 + 0.5 * Math.min(1, rpm / 12000)) * (0.62 + 0.38 * load);
         set(engBus.gain, vol, 0.02);
-        set(tone.frequency, inside ? 3200 + 3200 * load : 9000 + 6000 * load, 0.05); set(body.gain, inside ? 4 : 0, 0.1);
+        set(tone.frequency, inside ? 3800 + 3600 * load : 9000 + 6000 * load, 0.05); set(body.gain, inside ? 3.5 : 0.5, 0.1); set(verbG.gain, inside ? 0.04 : 0.11, 0.2);
       } else {
         // which loops to use: equal-power crossfade between the two nearest rpm bases
         let i = 0; while (i < BASES.length - 2 && rpm > BASES[i + 1]) i++;

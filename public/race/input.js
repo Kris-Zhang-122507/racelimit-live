@@ -1,10 +1,11 @@
 // Keyboard and game controller input for the racing game.
 // Keyboard: ↑/W throttle, ↓/S brake, ←→/A D steer, E/Q gears, C camera, R reset, L racing line,
-// B look back, M sound, Esc/P pause. Controllers use the standard layout (Xbox / PlayStation).
+// B look back, Space overtake (extra battery power), M sound, Esc/P pause. Controllers use the standard
+// layout (Xbox / PlayStation); A / cross is overtake.
 const BIND = {
   throttle: ["ArrowUp", "KeyW"], brake: ["ArrowDown", "KeyS"], left: ["ArrowLeft", "KeyA"], right: ["ArrowRight", "KeyD"],
   up: ["KeyE", "ShiftRight"], down: ["KeyQ", "ControlRight"], camera: ["KeyC"], reset: ["KeyR"], line: ["KeyL"], back: ["KeyB"],
-  mute: ["KeyM"], pause: ["Escape", "KeyP"], aero: ["KeyF"],
+  mute: ["KeyM"], pause: ["Escape", "KeyP"], aero: ["KeyF"], boost: ["Space", "KeyO"],
 };
 const ONE_SHOT = ["up", "down", "camera", "reset", "line", "mute", "pause", "aero"];
 
@@ -29,7 +30,7 @@ export function createInput() {
     if (!p) return null;
     const b = (i) => p.buttons[i]?.value ?? 0, pressed = (i) => b(i) > 0.5 && !(padPrev[i] > 0.5);
     let steer = -(p.axes[0] ?? 0); if (Math.abs(steer) < 0.08) steer = 0; else steer = Math.sign(steer) * ((Math.abs(steer) - 0.08) / 0.92) ** 1.4;
-    const out = { throttle: b(7), brake: b(6), steer, up: pressed(5) || pressed(1), down: pressed(4) || pressed(2), camera: pressed(3), reset: pressed(8), pause: pressed(9), back: b(0) > 0.5 && false };
+    const out = { throttle: b(7), brake: b(6), steer, up: pressed(5) || pressed(1), down: pressed(4) || pressed(2), camera: pressed(3), reset: pressed(8), pause: pressed(9), boost: b(0) > 0.5 };
     padPrev = p.buttons.map((x) => x.value);
     if (out.throttle > 0.05 || out.brake > 0.05 || Math.abs(out.steer) > 0.1) usingPad = true;
     return out;
@@ -45,7 +46,7 @@ export function createInput() {
       const r = {
         throttle: Math.max(kb.throttle, g?.throttle ?? 0), brake: Math.max(kb.brake, g?.brake ?? 0),
         steer: kSteer !== 0 ? kSteer : g?.steer ?? 0, analog: !useKb && !!g,
-        back: held.has("back"),
+        back: held.has("back"), boost: held.has("boost") || !!g?.boost,
       };
       for (const k of ONE_SHOT) r[k] = events.has(k) || !!g?.[k];
       events.clear();

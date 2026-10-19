@@ -122,15 +122,27 @@ export function buildCircuit(tr, scene, { profile } = {}) {
     const moduleG = (() => {
       const r = ROWD / 2, L = MODL, sh = new THREE.Shape();
       sh.moveTo(-L / 2 + r, -r); sh.lineTo(L / 2 - r, -r); sh.absarc(L / 2 - r, 0, r, -Math.PI / 2, Math.PI / 2, false); sh.lineTo(-L / 2 + r, r); sh.absarc(-L / 2 + r, 0, r, Math.PI / 2, Math.PI * 1.5, false);
-      const body = new THREE.ExtrudeGeometry(sh, { depth: MODH, bevelEnabled: false, curveSegments: 4 }); // already non-indexed body.rotateX(-Math.PI / 2);
-      const dip = new THREE.CircleGeometry(1, 12).toNonIndexed(); dip.rotateX(-Math.PI / 2); dip.scale(L * 0.33, 1, r * 0.62); dip.translate(0, MODH + 0.004, 0);
-      const parts = [[body, [1, 1, 1]], [dip, [0.5, 0.5, 0.53]]], pos = [], nor = [], colA = [];
-      for (const [g, c] of parts) { pos.push(...g.attributes.position.array); nor.push(...g.attributes.normal.array); for (let v = 0; v < g.attributes.position.count; v++) colA.push(...c); }
+      const pos = [], nor = [], colA = [];
+      const add = (g, colourAt) => { const P = g.attributes.position, Nn = g.attributes.normal; for (let v = 0; v < P.count; v += 3) { if (Nn.getY(v) < -0.9 && Nn.getY(v + 1) < -0.9) continue; for (let q = 0; q < 3; q++) { pos.push(P.getX(v + q), P.getY(v + q), P.getZ(v + q)); nor.push(Nn.getX(v + q), Nn.getY(v + q), Nn.getZ(v + q)); const c = colourAt(P.getY(v + q)); colA.push(c, c, c * 1.02); } } };
+      // the moulded plastic body (no bottom: nobody sees it), a bit grubby towards the ground
+      const body = new THREE.ExtrudeGeometry(sh, { depth: MODH, bevelEnabled: false, curveSegments: 4 }); body.rotateX(-Math.PI / 2);
+      add(body, (y) => (y < 0.01 ? 0.55 : 1));
+      // the strap that ties each row together: a dark band round the module
+      const outline = sh.getPoints(4), band = [];
+      for (let k = 0; k < outline.length; k++) {
+        const p0 = outline[k], p1 = outline[(k + 1) % outline.length], grow = 1.012;
+        const q = (p, y) => [p.x * grow, y, -p.y * grow], A = q(p0, 0.52), B = q(p1, 0.52), C = q(p1, 0.6), D = q(p0, 0.6);
+        band.push(...A, ...B, ...C, ...A, ...C, ...D);
+      }
+      const bandG = new THREE.BufferGeometry(); bandG.setAttribute("position", new THREE.Float32BufferAttribute(band, 3)); bandG.computeVertexNormals(); add(bandG, () => 0.16);
+      // the oval dip on top, with a lighter rim
+      const rim = new THREE.CircleGeometry(1, 14).toNonIndexed(); rim.rotateX(-Math.PI / 2); rim.scale(L * 0.37, 1, r * 0.72); rim.translate(0, MODH + 0.002, 0); add(rim, () => 0.78);
+      const dip = new THREE.CircleGeometry(1, 14).toNonIndexed(); dip.rotateX(-Math.PI / 2); dip.scale(L * 0.32, 1, r * 0.6); dip.translate(0, MODH + 0.004, 0); add(dip, () => 0.42);
       const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute("color", new THREE.Float32BufferAttribute(colA, 3));
       return g;
     })();
     const spacerG = new RoundedBoxGeometry(0.34, 1.0, GAP + 0.02, 1, 0.04); spacerG.translate(0, 0.5 + 0.04, 0);
-    const modM = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62, metalness: 0 }), spacerM = new THREE.MeshStandardMaterial({ color: 0xC4262B, roughness: 0.55 });
+    const modM = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, metalness: 0 }), spacerM = new THREE.MeshStandardMaterial({ color: 0xB0242A, roughness: 0.6 });
     const MAX = 16000;
     for (const s of [1, -1]) {
       const k = sideK(s);
@@ -150,7 +162,7 @@ export function buildCircuit(tr, scene, { profile } = {}) {
           const ex = p0.x + (p1.x - p0.x) * f - (X[i] + LX[i] * s * W[k][i]), ez = p0.z + (p1.z - p0.z) * f - (Z[i] + LZ[i] * s * W[k][i]);
           for (let row = 0; row < rows; row++) {
             if (tec.blocks.length >= MAX) break;
-            const shade = 0.17 + ((Math.sin(d * 12.9898 + row * 78.233) * 43758.5453) % 1 + 1) % 1 * 0.05;
+            const shade = 0.12 + ((Math.sin(d * 12.9898 + row * 78.233) * 43758.5453) % 1 + 1) % 1 * 0.045;
             tec.blocks.push({ i, k, s, d, row, rows, w: W[k][i], ex, ez, yaw, twist: 0, color: new THREE.Color(shade, shade + 0.01, shade + 0.025), spacer: row > 0 });
           }
         }

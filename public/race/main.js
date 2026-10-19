@@ -1,15 +1,15 @@
 // RaceLimit Race — step 1: one car at Spa. Drive with the keyboard or a controller.
 import * as THREE from "three";
 import { Sky } from "three/addons/objects/Sky.js";
-import { CIRCUITS, buildTrack, speedProfile, racingLine } from "./trackdata.js?v=mvfe7n37";
-import { newCar, stepCar, resetCar, ENVELOPE } from "./physics.js?v=mvfe7n37";
-import { buildCircuit } from "./trackmesh.js?v=mvfe7n37";
-import { createInput } from "./input.js?v=mvfe7n37";
-import { createHud } from "./hud.js?v=mvfe7n37";
-import { createEngineAudio } from "./audio.js?v=mvfe7n37";
-import { mergeCar } from "./optimize.js?v=mvfe7n37";
-import { sfx } from "../games/sfx.js?v=mvfe7n37";
-import { load, save } from "../games/common.js?v=mvfe7n37";
+import { CIRCUITS, buildTrack, speedProfile, racingLine } from "./trackdata.js?v=mvfpiqag";
+import { newCar, stepCar, resetCar, ENVELOPE, CAR } from "./physics.js?v=mvfpiqag";
+import { buildCircuit } from "./trackmesh.js?v=mvfpiqag";
+import { createInput } from "./input.js?v=mvfpiqag";
+import { createHud } from "./hud.js?v=mvfpiqag";
+import { createEngineAudio } from "./audio.js?v=mvfpiqag";
+import { mergeCar } from "./optimize.js?v=mvfpiqag";
+import { sfx } from "../games/sfx.js?v=mvfpiqag";
+import { load, save } from "../games/common.js?v=mvfpiqag";
 
 const q = new URLSearchParams(location.search);
 const circuitId = q.get("track") && CIRCUITS[q.get("track")] ? q.get("track") : "spa";
@@ -86,7 +86,7 @@ applyLineMode();
 
 // ---------- the car ----------
 await status("Building the car…");
-const { f1car } = await import("./car.js?v=mvfe7n37");
+const { f1car, drawWheelScreen } = await import("./car.js?v=mvfpiqag");
 const livery = { era: 2026, team: "RACELIMIT", body: "#FFA51F", accent: "#16171B", stripe: "#F4F4F4", number: "27", helmet: ["#FFA51F", "#16171B"], tcam: "#111" };
 const car = f1car({ ...livery, aero: "corner" });
 {
@@ -135,6 +135,7 @@ const best = load(`race.best.${circuitId}`, null); // { time, trace: [seconds at
 const T = { lap: 1, running: false, now: 0, lapStart: 0, lastLap: null, bestLap: best?.time ?? null, invalid: false, sectors: [null, null, null], delta: null, trace: [], bestTrace: best?.trace ?? null, bestSectors: [null, null, null], secStart: 0, nextSec: 0, offT: 0 };
 const secAt = [CFG.sectors[0] * tr.len, CFG.sectors[1] * tr.len, tr.len];
 let pitStop = null, wasLimiter = false, wasPit = false; // pit lane state (see pits())
+let wheelDrawnAt = 0;
 let phase = "menu", lightsT = 0, lightsOutAt = 0, paused = false, lastS = c.s, wrongT = 0;
 
 function startLights() {
@@ -294,6 +295,13 @@ function frame(now) {
     }
   }
   showAero(c.aeroMode);
+  // the steering wheel's screen (only redrawn when you can see it, about 15 times a second)
+  if ((viewMode === "cockpit" || viewMode === "tcam") && now - (wheelDrawnAt || 0) > 66) {
+    wheelDrawnAt = now;
+    drawWheelScreen(car.userData.steering, { rpm: c.rpm, shiftRpm: CAR.shiftRpm, gear: c.reverse ? "R" : c.u < 0.5 && c.throttle < 0.05 && !T.running ? "N" : String(c.gear), kmh: Math.abs(c.u) * 3.6,
+      lapTime: T.running ? T.now - T.lapStart : 0, delta: T.delta, lap: T.lap, ers: c.ers / CAR.battery, deploy: c.deploying, harvest: c.harvesting, clip: c.clipping, overtake: c.overtake,
+      limiter: c.pitLimiter, onPit: c.onPit, tyres: c.tyres ? c.tyres.map((ty) => ({ wear: 1 - ty.wear, temp: ty.temp })) : null, compound: c.compound ?? null, brakeBias: Math.round(CAR.bias * 100), gearMode: settings.auto ? "AUTO" : "MANUAL" });
+  }
   // ----- camera -----
   const fwd = tmpV.set(Math.sin(c.yaw), 0, Math.cos(c.yaw));
   const k = 1 - Math.exp(-dt * 7);

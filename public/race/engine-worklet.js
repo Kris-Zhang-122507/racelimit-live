@@ -39,12 +39,12 @@ const ignition = (c, t) => (c > 0.5 && c < t / 2 + 0.5 ? Math.sin(PI2 * ((c - 0.
 const frac = (x) => x - Math.floor(x);
 
 // the engines (parameters are in seconds for pipe delays, as in the original)
-const v6 = ({ hdr, coll, intake, ign, ignT, pipe, exVol, inVol, vib, noise, blow = 0.18, rasp = 0.3 }) => ({
+const v6 = ({ hdr, coll, intake, ign, ignT, pipe, exVol, inVol, vib, noise, blow = 0.2, rasp = 0.38 }) => ({
   // blow: turbulent gas noise when each exhaust valve opens; rasp: harmonics from the gas shock waves
   blowNoise: blow, rasp, raspHP: 1400,
   intakeVolume: inVol, exhaustVolume: exVol, vibrationVolume: vib,
   intakeNoiseFactor: noise, intakeNoiseLP: 9000, vibrationLP: 220,
-  intakeValveShift: 0.02, exhaustValveShift: 0.16, crankFluctuation: 0.006, crankFluctuationLP: 40,
+  intakeValveShift: 0.02, exhaustValveShift: 0.16, crankFluctuation: 0.008, crankFluctuationLP: 40,
   // even firing, 120° of crank (1/6 of the 720° cycle) apart; the two banks have slightly different pipes
   cylinders: [0, 1, 2, 3, 4, 5].map((k) => {
     const bank = k % 2, firing = [0, 3, 1, 4, 2, 5][k] / 6;
@@ -93,7 +93,7 @@ export class EngineSynth {
       // varies a little every time, and on overrun some cycles misfire or pop
       if (crank >= 0.5 && frac(prevCrank + fl + c.crankOffset) < 0.5) {
         const l = this.load, r = this.rnd();
-        c.ign = c.ignitionFactor * (0.12 + 0.88 * l) * (1 + 0.12 * r);
+        c.ign = c.ignitionFactor * (0.12 + 0.88 * l) * (1 + 0.16 * r); // no two bangs are the same
         if (l < 0.15) { const q = (this.rnd() + 1) / 2; if (q < 0.25) c.ign *= 0.2; else if (q > 0.93) c.ign = c.ignitionFactor * 1.1; }
       }
       c.snd = pistonMotion(crank) * c.piston + ignition(crank, c.ignitionTime) * c.ign;
@@ -114,7 +114,7 @@ export class EngineSynth {
     mixed -= this.dc.f(mixed);
     // rasp: the loud pressure waves in a short open exhaust distort (they steepen into shocks), which adds
     // high harmonics that follow the revs; only the top end of the distortion is mixed back in
-    if (P.rasp) { const d = Math.tanh(mixed * 2.2) / 2.2, hp = d - this.rHP.f(d); mixed += hp * P.rasp * 3 * (0.4 + 0.6 * this.load); }
+    if (P.rasp) { const d = Math.tanh(mixed * 2.4) / 2.4, hp = d - this.rHP.f(d), hi = Math.min(1, Math.max(0, (this.rpm - 6000) / 6000)); mixed += hp * P.rasp * 3 * (0.4 + 0.6 * this.load) * (0.6 + 0.6 * hi); }
     return mixed;
   }
 }

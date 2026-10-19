@@ -7,14 +7,19 @@ const G = 9.81, RHO = 1.225;
 // 2026 car, roughly: 768 kg minimum + fuel; about 1,000 hp when the battery is deploying
 export const CAR = {
   m: 800, a: 1.87, b: 1.53, h: 0.22, Iz: 1050,
-  aero: { corner: { cl: 5.2, cd: 1.3 }, straight: { cl: 3.4, cd: 0.78 } }, aeroFront: 0.41,
+  aero: { corner: { cl: 5.2, cd: 1.3 }, straight: { cl: 3.4, cd: 0.72 } }, aeroFront: 0.41,
   // The car is set up to understeer (run wide) at the limit instead of spinning: the wider rear tyres have
   // a lot more grip than the fronts and don't lose grip past their limit (Cr 1), the centre of gravity is
   // low, and the brakes are biased to the front, so even hard trail-braking keeps the rear planted.
   mu: 1.95, muRear: 1.45, Bf: 12, Br: 17, Cf: 1.45, Cr: 1.0,
-  tops: [86, 128, 166, 200, 234, 266, 300, 346], // km/h in each gear at 12,000 rpm
+  // ...but for pulling away and braking the rear tyres are ordinary: a real F1 car is traction-limited
+  // to about 1.2 g off the line (0-100 km/h in about 2.6 s)
+  muRearX: 1.0,
+  tops: [100, 140, 176, 211, 246, 281, 317, 356], // km/h in each gear at 12,000 rpm
   shiftRpm: 11800, limiter: 12500, idle: 4000,
-  pIce: 400e3, pErs: 350e3, battery: 4e6, harvest: 350e3, eff: 0.92,
+  // electric motor: 350 kW is the 2026 maximum; the car's normal map uses less so the battery lasts a lap,
+  // and "overtake" (Space) lets the full 350 kW out and keeps it going to higher speeds
+  pIce: 400e3, pErs: 260e3, pErsBoost: 350e3, battery: 4e6, harvest: 350e3, eff: 0.92,
   bias: 0.62, steerLow: 0.34,
 };
 
@@ -36,7 +41,7 @@ export function newCar(tr, i = 0, lat = 0, back = 0) {
     gear: 1, rpm: CAR.idle, ers: CAR.battery, idx: j, lat, s: tr.dist[j],
     steer: 0, throttle: 0, brake: 0, aeroMode: "corner", shiftT: 0, ax: 0, ay: 0, pitch: 0, roll: 0,
     surface: "track", kerb: false, spin: 0, lockF: false, lockR: false, impact: 0, reverse: false, wheelRot: 0, slipF: 0, slipR: 0,
-    deploying: false, harvesting: false, offTrack: false, revT: 0, hit: null, assist: 0, inBarrier: false, onPit: false, pidx: 0, pitLimiter: false,
+    deploying: false, harvesting: false, overtake: false, offTrack: false, revT: 0, hit: null, assist: 0, inBarrier: false, onPit: false, pidx: 0, pitLimiter: false,
   };
 }
 
@@ -93,7 +98,7 @@ export function stepCar(c, input, track, dt, opts = {}) {
   c.throttle += (thr - c.throttle) * clamp(dt * thrRate, 0, 1);
   c.brake += (brk - c.brake) * clamp(dt * 18, 0, 1);
   const u = c.u, speed = Math.hypot(c.u, c.v), kmh = Math.max(0, u) * 3.6;
-  const dMax = P.steerLow / (1 + Math.max(0, u) / (input.analog ? 40 : 30)) + 0.07 * clamp(1 - Math.abs(u) / 12, 0, 1); // a little extra lock at walking pace (hairpins, the pit exit)
+  const dMax = P.steerLow / (1 + Math.max(0, u - 8) / (input.analog ? 36 : 27)) + 0.14 * clamp(1 - Math.abs(u) / 14, 0, 1); // full lock below ~30 km/h, a bit more at walking pace (hairpins, the pit lane), less as speed rises
   let target = clamp(input.steer, -1, 1) * dMax;
   // steering help: never ask the front tyres for more than their best slip angle, measured from the
   // direction the front of the car is really moving. When the rear slides this turns into countersteer.
@@ -129,6 +134,7 @@ export function stepCar(c, input, track, dt, opts = {}) {
   const sens = (Fz, Fz0) => clamp(1 - 0.04 * (Fz / Fz0 - 1), 0.8, 1.05);
   const Df = P.mu * surfMu * Fzf * sens(Fzf, (P.m * G * P.b) / L);
   const Dr = P.mu * P.muRear * surfMu * Fzr * sens(Fzr, (P.m * G * P.a) / L);
+  const Drx = Dr * (P.muRearX / P.muRear); // what the rear tyres can do along the car (drive, brakes)
 
   // ---- gears ----
   c.shiftT = Math.max(0, c.shiftT - dt);
@@ -144,13 +150,17 @@ export function stepCar(c, input, track, dt, opts = {}) {
   c.rpm = Math.max(P.idle + c.throttle * 3000 * (1 - smooth(0, 60, kmh)), Math.min(rpmRaw, P.limiter + 50));
 
   // ---- power unit ----
-  const vmaxErs = 345 / 3.6, taper = clamp((vmaxErs - u) / ((345 - 290) / 3.6), 0, 1);
+  // 2026 rules: the electric motor's power tapers off from 290 km/h and is gone by 355 km/h
+  c.overtake = !!input.boost && c.ers > 0.08 * P.battery && c.throttle > 0.5 && !c.pitLimiter;
+  const vmaxErs = 355 / 3.6, taperFrom = c.overtake ? 325 : 290, taper = clamp((vmaxErs - u) / ((355 - taperFrom) / 3.6), 0, 1);
   c.deploying = c.throttle > 0.9 && c.ers > 0 && u > 3 && !c.reverse;
   const pIce = c.throttle * P.pIce * iceShape(c.rpm) * (rpmRaw > P.limiter ? 0 : 1);
   const soc = c.ers / P.battery, mode = soc > 0.7 ? 1 : soc > 0.25 ? 0.25 + ((soc - 0.25) / 0.45) * 0.75 : soc; // the car's computer spreads the energy over the lap
-  const pErs = c.deploying ? P.pErs * taper * mode : 0;
-  c.ers = Math.max(0, c.ers - pErs * dt);
-  const clipCost = c.throttle > 0.9 && u > 305 / 3.6 && c.ers < 0.8 * P.battery ? 200e3 * clamp((u - 305 / 3.6) / 6, 0, 1) : 0;
+  const pErs = c.deploying ? (c.overtake ? P.pErsBoost : P.pErs * mode) * taper : 0; // what the battery could give (it's charged for what's used, below)
+  // "super clipping": with the battery getting low, the end of a long straight is used to recharge it at
+  // full throttle, which costs some speed (at Spa in 2026 about 328 → 316 km/h before Les Combes)
+  const clipping = c.throttle > 0.9 && u > 318 / 3.6 && c.ers < 0.45 * P.battery;
+  const clipCost = clipping ? 130e3 * clamp((u - 318 / 3.6) / 5, 0, 1) : 0;
   let Fdrive = c.shiftT > 0.02 ? 0 : (P.eff * (pIce + pErs - clipCost)) / Math.max(u, 4);
   if (c.throttle < 0.05 && u > 2) Fdrive = -(350 + 1100 * (c.rpm / 12000)); // engine braking (gentle, so lifting mid-corner doesn't spin you)
   if (c.pitLimiter && u > 79.5 / 3.6 && Fdrive > 0) Fdrive = 0; // the limiter holds the car at 80
@@ -167,22 +177,25 @@ export function stepCar(c, input, track, dt, opts = {}) {
   // making now plus a margin, so getting on the power out of a corner can't snap the rear round
   const fyrNow = Math.abs(c.fyr ?? 0), fyfNow = Math.abs(c.fyf ?? 0);
   const keepR = Math.min(Dr * 0.97, Math.max(1.3 * fyrNow, 0.5 * Dr)), keepF = Math.min(Df * 0.97, Math.max(1.2 * fyfNow, 0.4 * Df));
-  const roomR = Math.sqrt(Math.max(0, Dr * Dr - keepR * keepR)), roomF = Math.sqrt(Math.max(0, Df * Df - keepF * keepF));
+  const roomR = Drx * Math.sqrt(Math.max(0, 1 - (keepR / Dr) ** 2)), roomF = Math.sqrt(Math.max(0, Df * Df - keepF * keepF));
   if (Fxr > 0) {
-    let lim = tc ? Math.max(roomR, 0.25 * Dr) : Dr;
+    let lim = tc ? Math.max(roomR, 0.25 * Drx) : Drx;
     // stability help: ease the power while the rear is sliding
     if (stability) { const ar0 = Math.abs(Math.atan2(c.v - P.b * c.r, Math.max(Math.abs(u), 5))); lim *= clamp(1 - (ar0 - 0.07) * 7, 0.25, 1); }
-    if (Fxr > lim) { if (!tc && Fxr > Dr) c.spin = clamp((Fxr - Dr) / Dr, 0, 1); Fxr = c.spin ? Dr * 0.7 : lim; }
+    if (Fxr > lim) { if (!tc && Fxr > Drx) c.spin = clamp((Fxr - Drx) / Drx, 0, 1); Fxr = c.spin ? Drx * 0.7 : lim; }
   }
   if (-Fxf > Df * 0.92 || (abs && -Fxf > Math.max(roomF, 0.6 * Df))) { if (abs) Fxf = -Math.min(Df * 0.92, Math.max(roomF, 0.6 * Df)); else if (-Fxf > Df) { Fxf = -Df * 0.85; c.lockF = true; } }
-  if (-Fxr > Dr * 0.86 || (abs && -Fxr > Math.max(roomR, 0.45 * Dr))) { if (abs) Fxr = -Math.min(Dr * 0.86, Math.max(roomR, 0.45 * Dr)); else if (-Fxr > Dr) { Fxr = -Dr * 0.85; c.lockR = true; } }
+  if (-Fxr > Drx * 0.86 || (abs && -Fxr > Math.max(roomR, 0.45 * Drx))) { if (abs) Fxr = -Math.min(Drx * 0.86, Math.max(roomR, 0.45 * Drx)); else if (-Fxr > Drx) { Fxr = -Drx * 0.85; c.lockR = true; } }
+  // the battery only pays for the power the tyres actually put down (the engine's share comes first), so
+  // wheelspin-limited launches don't waste it
+  if (pErs > 0 && Fxr > 0) c.ers = Math.max(0, c.ers - Math.min(pErs, Math.max(0, (Fxr * Math.max(u, 4)) / P.eff - pIce)) * dt);
   const Fbr = Math.max(0, -Fxr);
   // battery charges under braking and when lifting
   // battery: charges under braking (the motor works as a generator), a little when lifting, and by
   // "super-clipping" at full throttle at the very end of long straights, like the 2026 cars
-  const clip = c.throttle > 0.9 && u > 305 / 3.6 && c.ers < 0.8 * P.battery;
+  const clip = clipping; c.clipping = clipping;
   c.harvesting = u > 5 && (c.brake > 0.05 || c.throttle < 0.9 || clip);
-  const pHarv = c.brake > 0.05 ? P.harvest * Math.min(1, c.brake * 2) : clip ? 200e3 * clamp((u - 305 / 3.6) / 6, 0, 1) : c.throttle < 0.05 ? 250e3 : c.throttle < 0.9 && u > 15 ? 120e3 : 0;
+  const pHarv = c.brake > 0.05 ? P.harvest * Math.min(1, c.brake * 2) : clip ? clipCost : c.throttle < 0.05 ? 250e3 : c.throttle < 0.9 && u > 15 ? 120e3 : 0;
   if (c.harvesting) c.ers = Math.min(P.battery, c.ers + pHarv * dt);
 
   // reversing: about 0.8 g back to ~35 km/h (a real F1 reverse gear is slow, this is kinder)
@@ -194,7 +207,8 @@ export function stepCar(c, input, track, dt, opts = {}) {
   const ar = Math.atan2(c.v - P.b * c.r, Math.abs(ue));
   const pac = (alpha, D, B, C) => D * Math.sin(C * Math.atan(B * alpha));
   const Dyf = Math.sqrt(Math.max((c.lockF ? 0.15 : 1) * Df * Df - Fxf * Fxf, (0.12 * Df) ** 2));
-  const Dyr = Math.sqrt(Math.max((c.lockR ? 0.35 : 1) * Dr * Dr - Fxr * Fxr, (0.12 * Dr) ** 2));
+  const Dyr = Dr * Math.sqrt(Math.max((c.lockR ? 0.35 : 1) - (Fxr / Drx) ** 2, 0.12 ** 2)); // the friction "ellipse"
+
   const Fyf = -pac(af, Dyf, P.Bf, P.Cf), Fyr = -pac(ar, Dyr, P.Br, P.Cr);
   c.slipF = Math.abs(af); c.slipR = Math.abs(ar); c.fyf = Fyf; c.fyr = Fyr;
 

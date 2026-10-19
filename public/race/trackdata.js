@@ -170,7 +170,7 @@ function buildPitRoad(tr, P) {
   const HW = 3.2, WALL = 0.45, laneOut = half + 17; // half the fast lane; pit wall thickness; garage fronts
   const sm = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
   // round the inside of a hairpin the lane narrows a little so its wall can stay clear of the kerb
-  const HWA = 2.0, hwAt = (j) => HW - (HW - HWA) * sm(P.apex[0] - 50, P.apex[0], j) * (1 - sm(P.apex[1], P.apex[1] + 50, j));
+  const HWA = 2.3, hwAt = (j) => HW - (HW - HWA) * sm(P.apex[0] - 50, P.apex[0], j) * (1 - sm(P.apex[1], P.apex[1] + 50, j));
   const laneC = half + 3 + WALL + HW, apexO = half + 3.0 + WALL + HWA, mergeO = half - 1.5;
   const knots = [[P.entry, mergeO], [P.lane[0], laneC], [P.lane[1], laneC], [P.apex[0], apexO], [P.apex[1], apexO], [P.exit[0], laneC], [P.exit[1], mergeO]];
   const offAt = (j) => { let n = 0; while (n < knots.length - 2 && j > knots[n + 1][0]) n++; const [j0, o0] = knots[n], [j1, o1] = knots[n + 1]; return o0 + (o1 - o0) * sm(j0, j1, j); };
@@ -190,13 +190,13 @@ function buildPitRoad(tr, P) {
   for (let i = 0; i < M; i++) { const a = cl(i - 1), b = cl(i + 1), dx = PX[b] - PX[a], dz = PZ[b] - PZ[a], l = Math.hypot(dx, dz) || 1; TX[i] = dx / l; TZ[i] = dz / l; PLX[i] = TZ[i]; PLZ[i] = -TX[i]; slope[i] = (PY[b] - PY[a]) / l; if (i) dist[i] = dist[i - 1] + Math.hypot(PX[i] - PX[i - 1], PZ[i] - PZ[i - 1]); }
   for (let i = 0; i < M; i++) { const a = cl(i - 6), b = cl(i + 6); K[i] = Math.atan2(TX[a] * TZ[b] - TZ[a] * TX[b], TX[a] * TX[b] + TZ[a] * TZ[b]) / Math.max(1, dist[b] - dist[a]); }
   // walls, as distances from the pit road's middle: tk = the side facing the track
-  const tk = s > 0 ? 1 : 0, gk = 1 - tk, inG = (j) => j >= P.garages[0] && j <= P.garages[1];
+  const tk = s > 0 ? 1 : 0, gk = 1 - tk, inG = (j) => j >= P.garages[0] - 24 && j <= P.garages[1] + 24; // (the wall ramps in beyond the garages, not in front of them)
   const bar = new Uint8Array(M), hws = new Float32Array(M), wall = [new Float32Array(M), new Float32Array(M)], type = [new Uint8Array(M).fill(2), new Uint8Array(M).fill(2)];
   for (let i = 0; i < M; i++) {
     const o = offAt(mj[i]), hw = hwAt(mj[i]); hws[i] = hw;
     bar[i] = o - hw - WALL >= half + 1.2 ? 1 : 0; // room for a wall between the track and the lane
     wall[tk][i] = bar[i] ? hw : 40;
-    wall[gk][i] = inG(mj[i]) ? laneOut - o : mj[i] > P.apex[0] - 30 && mj[i] < P.apex[1] + 30 ? hw + 2.6 : hw + 1.4;
+    wall[gk][i] = inG(mj[i]) ? laneOut - o : mj[i] > P.apex[0] - 40 && mj[i] < P.apex[1] + 40 ? hw + 4.2 : hw + 1.6;
   }
   { // ramps, not steps
     const m = Float32Array.from(wall[gk]); for (let i = 0; i < M; i++) { let v = m[i]; for (let d = -10; d <= 10; d++) v = Math.min(v, m[cl(i + d)]); wall[gk][i] = v; }
