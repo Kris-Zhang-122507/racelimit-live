@@ -4,8 +4,8 @@
 // start gantry and brake boards. Everything is generated, nothing is downloaded.
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
-import { addProps } from "./trackprops.js?v=mvg3lsn9";
-import { prepareMap, buildMap } from "./trackworld.js?v=mvg3lsn9";
+import { addProps } from "./trackprops.js?v=mvgcbjuz";
+import { prepareMap, buildMap } from "./trackworld.js?v=mvgcbjuz";
 
 const smoothstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
@@ -155,13 +155,17 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
   const gravelMat = new THREE.MeshStandardMaterial({ map: T.gravel, normalMap: T.gravelN, normalScale: new THREE.Vector2(1.2, 1.2), color: sandy ? 0xF2DDB8 : 0xFFFFFF, roughness: 1 });
   const apronMat = new THREE.MeshStandardMaterial({ map: T.apron, normalMap: T.asphaltN, normalScale: new THREE.Vector2(0.35, 0.35), roughness: 0.9 });
   const SURF_MAT = [grassMat, runMat, gravelMat, streetMat], AP = tr.apron, SF = tr.surf;
+  // (escape roads: the run-off's own surface up to where the road starts, then the road out to the barrier)
+  const ESC = tr.esc, escMat = new THREE.MeshStandardMaterial({ map: T.asphalt, normalMap: T.asphaltN, normalScale: new THREE.Vector2(0.4, 0.4), color: 0xB4B8BF, roughness: 0.93 });
   for (const s of [1, -1]) {
-    const k = sideK(s), e0 = half + 0.6, ap = (i) => (AP ? AP[k][i] : 0);
+    const k = sideK(s), e0 = half + 0.6, ap = (i) => (AP ? AP[k][i] : 0), es = (i) => (ESC ? ESC[k][i] : 0);
     for (const [a, b] of runs((i) => ap(i) > 0.05 && SF?.[k][i] !== 3, 2)) strip(a, b, (i) => sided(s, [[e0, -0.005], [e0 + ap(i), -0.008]]), apronMat, { vScale: 8 });
     for (let code = 0; code < 4; code++) {
-      const h = code === 2 ? -0.06 : -0.02, prof = (i) => sided(s, [[e0 + ap(i), code === 2 ? -0.01 : -0.008], [e0 + ap(i) + (code === 2 ? 0.35 : 0.01), h], [W[k][i] + 0.6, h - 0.01]]);
+      const h = code === 2 ? -0.06 : -0.02, end = (i) => (es(i) > e0 + ap(i) + 0.5 ? es(i) : es(i) ? e0 + ap(i) + 0.5 : W[k][i] + 0.6);
+      const prof = (i) => sided(s, [[e0 + ap(i), code === 2 ? -0.01 : -0.008], [Math.min(end(i) - 0.05, e0 + ap(i) + (code === 2 ? 0.35 : 0.01)), h], [end(i), h - 0.01]]);
       for (const [a, b] of runs((i) => (SF ? SF[k][i] : WT[k][i] === 3 ? 3 : WT[k][i] === 0 ? 0 : 1) === code, 2)) strip(a, b, prof, SURF_MAT[code], { vScale: code === 0 ? 8 : code === 2 ? 5 : 12, uScale: code === 0 ? 3 : code === 2 ? 2 : 1 });
     }
+    if (ESC) for (const [a, b] of runs((i) => es(i) > 0, 4)) strip(a, b, (i) => { const e1 = Math.max(es(i), e0 + ap(i) + 0.5); return sided(s, [[e1, -0.012], [W[k][i] + 0.6, -0.022]]); }, escMat, { vScale: 10 });
   }
 
   // ---------- barriers ----------
@@ -342,17 +346,20 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
     const order = (pts) => (pts[0][0] <= pts[pts.length - 1][0] ? pts : pts.slice().reverse()); // right to left, so faces point up
     const prunsP = (test) => { const out = []; let a = -1; for (let i = 0; i <= M; i++) { const ok = i < M && test(i); if (ok && a < 0) a = i; if (!ok && a >= 0) { if (i - a > 1) out.push([a, i - 1]); a = -1; } } return out; };
     const conc = new THREE.MeshStandardMaterial({ map: T.concrete, roughness: 0.85, side: THREE.DoubleSide });
-    const gOut = (i) => R.wall[R.gk][i], tIn = (i) => (R.bar[i] ? R.hw[i] : R.hw[i] + 0.3);
+    // (garTrack: the garages stand on the track's side of the lane — Monaco; GS is the garages' side, gDoor where their doors are)
+    const garTrack = !!R.garTrack, GS = garTrack ? ts : -ts, inGar = (i) => R.mj[i] >= R.garages[0] - 24 && R.mj[i] <= R.garages[1] + 24;
+    const gOut = (i) => R.wall[R.gk][i], gDoor = (i) => (garTrack ? R.wall[R.tk][i] : gOut(i));
+    const tIn = (i) => (garTrack && inGar(i) ? R.wall[R.tk][i] : R.bar[i] ? R.hw[i] : R.hw[i] + 0.3);
     // the surface: from the pit wall (or the track's edge where they merge) out to the garages / outer wall
     pstrip(0, M - 1, (i) => order([[ts * tIn(i), 0.0], [-ts * gOut(i), 0.0]]), asphaltMat, { vScale: 6, lift: 0.012 });
     // white lines: along the edge on the track side where they merge (you mustn't cross it), the fast
     // lane / working lane line by the garages, and the speed-limit lines across the lane
     for (const [a, b] of prunsP((i) => !R.bar[i])) pstrip(a, b, (i) => order([[ts * (R.hw[i] + 0.05), 0.02], [ts * (R.hw[i] + 0.3), 0.02]]), lineMat, { lift: 0.012 });
     const gIdx = []; for (let i = 0; i < M; i++) if (R.mj[i] >= R.garages[0] && R.mj[i] <= R.garages[1]) gIdx.push(i);
-    if (gIdx.length) pstrip(gIdx[0], gIdx[gIdx.length - 1], order([[-ts * (R.hw[gIdx[0]] - 0.05), 0.02], [-ts * (R.hw[gIdx[0]] + 0.15), 0.02]]), lineMat, { lift: 0.012 });
+    if (gIdx.length) pstrip(gIdx[0], gIdx[gIdx.length - 1], order([[GS * (R.hw[gIdx[0]] - 0.05), 0.02], [GS * (R.hw[gIdx[0]] + 0.15), 0.02]]), lineMat, { lift: 0.012 });
     const limitLine = (d, label) => {
       let i = 0; while (i < M - 1 && R.dist[i] < d) i++;
-      pstrip(i, i + 1, order([[ts * R.hw[i], 0.022], [-ts * gOut(i), 0.022]]), lineMat, { lift: 0.012 });
+      pstrip(i, i + 1, order([[ts * tIn(i), 0.022], [-ts * gOut(i), 0.022]]), lineMat, { lift: 0.012 });
       // a sign on the pit wall side: the speed limit
       const sign = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.0, 0.06), new THREE.MeshStandardMaterial({ map: tex(canvas(128, 128, (g) => { g.fillStyle = "#F4F4F4"; g.fillRect(0, 0, 128, 128); g.lineWidth = 12; g.strokeStyle = label === "end" ? "#16181D" : "#C8161A"; g.beginPath(); g.arc(64, 64, 52, 0, 7); g.stroke(); g.fillStyle = "#16181D"; g.font = "700 50px BC, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("80", 64, 67); if (label === "end") { g.lineWidth = 8; g.beginPath(); g.moveTo(26, 102); g.lineTo(102, 26); g.stroke(); } })), roughness: 0.6 }));
       const o = -ts * (gOut(i) - 0.4); sign.position.set(R.X[i] + R.LX[i] * o, R.Y[i] + 1.6, R.Z[i] + R.LZ[i] * o); sign.rotation.y = Math.atan2(R.TX[i], R.TZ[i]) + Math.PI; group.add(sign);
@@ -362,7 +369,7 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
     // the pit wall between the track and the lane, with a debris fence along the garages
     // (each end of the pit wall gets a striped crash cushion, like the real ones)
     const noseM = new THREE.MeshStandardMaterial({ map: tex(canvas(64, 64, (g) => { g.fillStyle = "#F5C518"; g.fillRect(0, 0, 64, 64); g.fillStyle = "#16181D"; for (let k = -64; k < 128; k += 22) { g.beginPath(); g.moveTo(k, 0); g.lineTo(k + 11, 0); g.lineTo(k + 11 - 64, 64); g.lineTo(k - 64, 64); g.fill(); } })), roughness: 0.6 });
-    for (const [a, b] of prunsP((i) => R.bar[i])) {
+    for (const [a, b] of prunsP((i) => R.bar[i] && !(garTrack && inGar(i)))) {
       pstrip(a, b, (i) => order([[ts * R.hw[i], 0], [ts * R.hw[i], 1.1], [ts * (R.hw[i] + R.WALL), 1.1], [ts * (R.hw[i] + R.WALL), 0]]), conc, { vScale: 4 });
       for (const [e, dir] of [[a, -1], [b, 1]]) {
         const o = ts * (R.hw[e] + R.WALL / 2), nose = new THREE.Mesh(new RoundedBoxGeometry(0.95, 1.1, 2.2, 2, 0.3), noseM);
@@ -370,21 +377,23 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
       }
     }
     const pf = new THREE.MeshStandardMaterial({ map: T.fence, alphaTest: 0.45, side: THREE.DoubleSide, metalness: 0.6, roughness: 0.5 });
-    if (gIdx.length) pstrip(Math.max(0, gIdx[0] - 40), Math.min(M - 1, gIdx[gIdx.length - 1] + 40), (i) => [[ts * (R.hw[i] + 0.2), 1.1], [ts * (R.hw[i] + 0.2), 4.2]], pf, { vScale: 3, uScale: 0.8 });
-    // the outer wall where there are no garages
-    for (const [a, b] of prunsP((i) => !(R.mj[i] >= R.garages[0] && R.mj[i] <= R.garages[1]))) pstrip(a, b, (i) => order([[-ts * gOut(i), 0], [-ts * gOut(i), 1.0], [-ts * (gOut(i) + 0.4), 1.0]]), conc, { vScale: 4 });
+    if (gIdx.length) pstrip(Math.max(0, gIdx[0] - 40), Math.min(M - 1, gIdx[gIdx.length - 1] + 40), (i) => (garTrack ? [[-ts * (gOut(i) + 0.1), 1.0], [-ts * (gOut(i) + 0.1), 4.0]] : [[ts * (R.hw[i] + 0.2), 1.1], [ts * (R.hw[i] + 0.2), 4.2]]), pf, { vScale: 3, uScale: 0.8 });
+    // the outer wall where there are no garages (with the garages on the track side, all the way)
+    for (const [a, b] of prunsP((i) => garTrack || !(R.mj[i] >= R.garages[0] && R.mj[i] <= R.garages[1]))) pstrip(a, b, (i) => order([[-ts * gOut(i), 0], [-ts * gOut(i), 1.0], [-ts * (gOut(i) + 0.4), 1.0]]), conc, { vScale: 4 });
     // garages: ten made-up teams, facing the lane, with a painted box in front of each
     const teams = ["RACELIMIT", "AXIOM", "HALCYON", "VORTEX", "NOVA", "KESTREL GP", "MERIDIAN", "ORBIT", "TALON", "SOLSTICE"];
     const cols = ["#FFA51F", "#5AA9FF", "#C9B6FF", "#FF6B3A", "#7FE0B8", "#F5C518", "#E8EAF0", "#FF5A8A", "#9BDB4F", "#3FA0FF"];
     // your team gets the first garage (nearest the pit entry)
     if (team && team.team !== "RACELIMIT") { const k = teams.indexOf(team.team); if (k > 0) { [teams[0], teams[k]] = [teams[k], teams[0]]; [cols[0], cols[k]] = [cols[k], cols[0]]; } else { teams[0] = team.team; cols[0] = team.body; } }
-    const [g0, g1] = pit.garages, segLen = (g1 - g0) / 10, depth = 18;
+    const [g0, g1] = pit.garages, segLen = (g1 - g0) / 10;
+    // (on the track side the garages are only as deep as the room between the track's barrier and the lane allows)
+    const depthAt = (pg) => (garTrack ? Math.max(7, Math.min(18, R.off[pg] - gDoor(pg) - (W[pit.k][at(Math.round(R.mj[pg]))] + 1.2))) : 18), depth = 18;
     const wallM = new THREE.MeshStandardMaterial({ color: 0xE8EAEE, roughness: 0.6 }), glassM = new THREE.MeshStandardMaterial({ color: 0x223044, metalness: 0.4, roughness: 0.15 }), doorM = new THREE.MeshStandardMaterial({ color: 0x15171C, roughness: 0.8 }), roofM = new THREE.MeshStandardMaterial({ color: 0xBFC4CB, metalness: 0.4, roughness: 0.4 });
-    pitInfo.garageRow = { at: [], out: [], depth, cols, len: g1 - g0 };
+    pitInfo.garageRow = { at: [], out: [], depth, cols, len: g1 - g0, trackSide: garTrack };
     const pitAt = (j) => { let pi = 0, bd = Infinity; for (let n = 0; n < M; n++) { const q2 = Math.abs(R.mj[n] - j); if (q2 < bd) { bd = q2; pi = n; } } return pi; };
     for (let t = 0; t < 10; t++) {
       // each garage stands behind its stretch of the pit lane, doors facing the lane
-      const pg = pitAt(g0 + (t + 0.5) * segLen), og = -ts * (gOut(pg) + depth / 2);
+      const pg = pitAt(g0 + (t + 0.5) * segLen), depth = depthAt(pg), og = GS * (gDoor(pg) + depth / 2);
       pitInfo.garageRow.at.push(pg); pitInfo.garageRow.out.push(gOut(pg));
       const g = new THREE.Group();
       const body = new THREE.Mesh(new THREE.BoxGeometry(segLen + 0.2, 11, depth), wallM); body.position.y = 5.5; g.add(body);
@@ -399,12 +408,12 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
       group.add(g);
       // the pit box: a painted rectangle in the working lane in front of the garage
       const pi = pg;
-      const bo = -ts * (R.hw[pi] + (gOut(pi) - R.hw[pi]) * 0.45), bx = R.X[pi] + R.LX[pi] * bo, bz = R.Z[pi] + R.LZ[pi] * bo;
+      const bo = GS * (R.hw[pi] + (gDoor(pi) - R.hw[pi]) * 0.45), bx = R.X[pi] + R.LX[pi] * bo, bz = R.Z[pi] + R.LZ[pi] * bo;
       const box = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 6.4), new THREE.MeshStandardMaterial({ map: tex(canvas(64, 128, (cg, w, h) => { cg.fillStyle = "rgba(0,0,0,0)"; cg.clearRect(0, 0, w, h); cg.strokeStyle = cols[t]; cg.lineWidth = 5; cg.strokeRect(3, 3, w - 6, h - 6); cg.fillStyle = cols[t]; cg.fillRect(6, h * 0.5 - 2, w - 12, 4); })), transparent: true, roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -3 }));
       box.rotation.set(-Math.PI / 2, 0, Math.atan2(R.TX[pi], R.TZ[pi])); box.position.set(bx, R.Y[pi] + 0.03, bz); group.add(box);
       pitInfo.boxes.push({ team: teams[t], color: cols[t], x: bx, z: bz, pidx: pi, yaw: Math.atan2(R.TX[pi], R.TZ[pi]) });
     }
-    { const pm = pitAt((g0 + g1) / 2), om = -ts * (gOut(pm) + depth / 2); keepOut.push({ x: R.X[pm] + R.LX[pm] * om, z: R.Z[pm] + R.LZ[pm] * om, hl: (g1 - g0) / 2 + 30, hw: depth / 2 + 20, ang: Math.atan2(R.TX[pm], R.TZ[pm]) }); }
+    { const pm = pitAt((g0 + g1) / 2), om = GS * (gDoor(pm) + depthAt(pm) / 2); keepOut.push({ x: R.X[pm] + R.LX[pm] * om, z: R.Z[pm] + R.LZ[pm] * om, hl: (g1 - g0) / 2 + 30, hw: depth / 2 + 20, ang: Math.atan2(R.TX[pm], R.TZ[pm]) }); }
   }
 
   // ---------- terrain: follows the track, rolling away from it ----------

@@ -34,7 +34,8 @@ for (const [id, cfg] of Object.entries(CIRCUITS)) {
   if (!existsSync(src)) { console.log(`${id}: no OSM data yet`); continue; }
   const osm = JSON.parse(readFileSync(src, "utf8"));
   let real = null; try { real = JSON.parse(readFileSync(`${ROOT}public/data/race/${cfg.slug}.json`, "utf8")); } catch {}
-  const tr = buildTrack(JSON.parse(readFileSync(`${ROOT}public/data/tracks/${cfg.slug}.json`, "utf8")), cfg, real);
+  // (without the escape roads: those are cut short at runtime where these buildings stand)
+  const tr = buildTrack(JSON.parse(readFileSync(`${ROOT}public/data/tracks/${cfg.slug}.json`, "utf8")), { ...cfg, noEscape: true }, real);
   const { N, X, Z } = tr;
 
   // ---------- which roads to fit to: the raceway if it's mapped well enough, otherwise every road ----------
@@ -247,7 +248,7 @@ for (const [id, cfg] of Object.entries(CIRCUITS)) {
     if (wet < 3) { const rows = []; for (let iz = 0; iz < nz; iz++) { let ix = 0; while (ix < nx) { if (M[iz * nx + ix] === 2) { const a = ix; while (ix < nx && M[iz * nx + ix] === 2) ix++; rows.push([iz, a, ix - a]); } else ix++; } } sea = { x0: r1(bbox.x0), z0: r1(bbox.z0), cell: SC, rows }; }
     else console.log(`  (sea flood leaked onto the track — skipped)`);
   }
-  const out = { slug: cfg.slug, fit: { mean: r1(best.sc), within8: Math.round(fit * 100) / 100, roads: usedRace ? "raceway" : "roads", rot: r1((P.th * 180) / Math.PI), mirror: P.m < 0, scale: Math.round(P.s * 1000) / 1000 }, good, tunnels: ranges(tunnel), bridges: ranges(onBridge), crossings, roads, runoff: run[0][0] === 255 && run[1][0] === 255 ? null : [rle(run[0], apron[0], far[0]), rle(run[1], apron[1], far[1])], buildings, areas, trees, sea, attribution: "Map data © OpenStreetMap contributors (ODbL)" };
+  const out = { slug: cfg.slug, fit: { mean: r1(best.sc), within8: Math.round(fit * 100) / 100, roads: usedRace ? "raceway" : "roads", rot: r1((P.th * 180) / Math.PI), mirror: P.m < 0, scale: Math.round(P.s * 1000) / 1000 }, good, tunnels: ranges(tunnel), bridges: ranges(onBridge), crossings, roads, runoff: run[0][0] === 255 && run[1][0] === 255 ? null : [rle(run[0], apron[0], far[0]), rle(run[1], apron[1], far[1])], buildings, areas, trees, sea, race: good ? race.map((r) => r.p.map(([e, n]) => W(e, n).map(r1))) : [], attribution: "Map data © OpenStreetMap contributors (ODbL)" };
   writeFileSync(`${OUT}/${cfg.slug}.json`, JSON.stringify(out));
   console.log(`  ${good ? "" : "POOR FIT, scenery not used · "}${buildings.length} buildings, ${areas.length} areas (${areas.filter((a) => a.k === "water").length} water, ${areas.filter((a) => a.k === "pool").length} pools, ${areas.filter((a) => a.k === "gravel" || a.k === "sand").length} gravel/sand, ${areas.filter((a) => a.k === "wood").length} woods), ${trees.length} trees, sea ${sea ? sea.rows.length + " rows" : "none"}, tunnels ${JSON.stringify(out.tunnels)}, bridges ${JSON.stringify(out.bridges)}, ${crossings.length} crossings, ${roads.length} roads, run-off from map: ${out.runoff ? "yes (" + gravelMapped + " traps)" : "no"}`);
 }

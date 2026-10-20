@@ -5,7 +5,7 @@ const mapFor = (cfg) => { try { return JSON.parse(readFileSync(new URL("../../pu
 const R = ROOT + "public/race/";
 const { CIRCUITS, buildTrack, speedProfile, racingLine } = await import(R + "trackdata.js?" + Date.now());
 const { newCar, stepCar, ENVELOPE, CAR } = await import(R + "physics.js?" + Date.now()); Object.assign(CAR, JSON.parse(process.env.CAR || "{}"));
-const cfg = CIRCUITS[process.env.TRACK || "spa"], raw = JSON.parse(readFileSync(ROOT + "public/data/tracks/" + cfg.slug + ".json", "utf8")); let realD = null; try { realD = JSON.parse(readFileSync(ROOT + "public/data/race/" + cfg.slug + ".json", "utf8")); } catch {}
+const cfg = { ...CIRCUITS[process.env.TRACK || "spa"], noSnap: !!process.env.NOSNAP, noEscape: !!process.env.NOESC }, raw = JSON.parse(readFileSync(ROOT + "public/data/tracks/" + cfg.slug + ".json", "utf8")); let realD = null; try { realD = JSON.parse(readFileSync(ROOT + "public/data/race/" + cfg.slug + ".json", "utf8")); } catch {}
 const tr = buildTrack(raw, cfg, realD, mapFor(cfg)), line = racingLine(tr), vp = speedProfile({ ...tr, K: line.K }, ENVELOPE, 0.92);
 const opts = JSON.parse(process.argv[2] || "{}"), aggr = +(process.argv[3] || 1.0), seedArg = +(process.argv[4] || 1);
 let seed = seedArg; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };

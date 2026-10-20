@@ -6,7 +6,7 @@
 // On top: turbo whoosh, a little electric-motor whine, gear-change cracks, overrun pops,
 // tyres, wind and kerbs. With no MGU-H the 2026 exhaust note is rawer, and the engine keeps
 // working (charging the battery) through slow corners, so the note stays up there.
-import { load, save } from "../games/common.js?v=mvg3lsn9";
+import { load, save } from "../games/common.js?v=mvgcbjuz";
 
 // ---------- small DSP helpers (run once, when the game starts) ----------
 function biquad(type, f, Q, sr) {
@@ -104,7 +104,7 @@ export function createEngineAudio({ engine = "raw" } = {}) {
   };
   // the modelled engine; if this browser can't run it, the loops instead
   if (ctx.audioWorklet && typeof AudioWorkletNode === "function") {
-    ctx.audioWorklet.addModule(new URL("./engine-worklet.js?v=mvg3lsn9", import.meta.url)).then(() => {
+    ctx.audioWorklet.addModule(new URL("./engine-worklet.js?v=mvgcbjuz", import.meta.url)).then(() => {
       model = new AudioWorkletNode(ctx, "engine-synth", { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [1] });
       model.port.postMessage({ engine: engineName, gain: 1.1 });
       model.connect(engBus);

@@ -1,27 +1,29 @@
 // RaceLimit Race — step 1: one car at Spa. Drive with the keyboard or a controller.
 import * as THREE from "three";
 import { Sky } from "three/addons/objects/Sky.js";
-import { CIRCUITS, buildTrack, speedProfile, racingLine } from "./trackdata.js?v=mvg3lsn9";
-import { newCar, stepCar, resetCar, ENVELOPE, CAR, COMPOUNDS, fitTyres, TYRE_NAMES } from "./physics.js?v=mvg3lsn9";
-import { buildCircuit } from "./trackmesh.js?v=mvg3lsn9";
-import { createInput } from "./input.js?v=mvg3lsn9";
-import { createHud } from "./hud.js?v=mvg3lsn9";
-import { createEngineAudio } from "./audio.js?v=mvg3lsn9";
-import { mergeCar } from "./optimize.js?v=mvg3lsn9";
-import { sfx } from "../games/sfx.js?v=mvg3lsn9";
-import { load, save } from "../games/common.js?v=mvg3lsn9";
+import { CIRCUITS, buildTrack, speedProfile, racingLine } from "./trackdata.js?v=mvgcbjuz";
+import { newCar, stepCar, resetCar, ENVELOPE, CAR, COMPOUNDS, fitTyres, TYRE_NAMES } from "./physics.js?v=mvgcbjuz";
+import { buildCircuit } from "./trackmesh.js?v=mvgcbjuz";
+import { createInput } from "./input.js?v=mvgcbjuz";
+import { createHud } from "./hud.js?v=mvgcbjuz";
+import { createEngineAudio } from "./audio.js?v=mvgcbjuz";
+import { mergeCar } from "./optimize.js?v=mvgcbjuz";
+import { sfx } from "../games/sfx.js?v=mvgcbjuz";
+import { load, save } from "../games/common.js?v=mvgcbjuz";
 
 const q = new URLSearchParams(location.search);
-const settings = Object.assign({ auto: true, abs: true, tc: true, stability: true, line: "full", camera: "chase", quality: "high", engine: "raw", hud: "large" }, load("race.settings", {}));
+const settings = Object.assign({ auto: true, abs: true, tc: true, stability: true, line: "full", camera: "chase", quality: "high", engine: "raw", hud: "normal", hudInfo: "full" }, load("race.settings", {}));
+// (the display went back to normal size once it showed more: "bigger" was meant as "more on it")
+if (!settings.hudV) { settings.hud = "normal"; settings.hudV = 2; }
 // the on-screen display's size (Settings): every panel is scaled together
-const applyHud = () => document.documentElement.style.setProperty("--hud", { normal: 1, large: 1.25, xl: 1.5 }[settings.hud] ?? 1.25);
+const applyHud = () => document.documentElement.style.setProperty("--hud", { normal: 1, large: 1.2, xl: 1.4 }[settings.hud] ?? 1);
 applyHud();
 const saveSettings = () => save("race.settings", settings);
 // ---------- what to drive: the menus (skipped when the address says what, for testing) ----------
-const { f1car, drawWheelScreen, TEAMS, setTyreLook } = await import("./car.js?v=mvg3lsn9");
+const { f1car, drawWheelScreen, TEAMS, setTyreLook } = await import("./car.js?v=mvgcbjuz");
 let choice;
 if (q.get("track") || q.get("place") || q.get("auto")) choice = { track: q.get("track") && CIRCUITS[q.get("track")] ? q.get("track") : "spa", session: q.get("session") || (q.get("auto") ? "grid" : "practice") };
-else { document.getElementById("loading").hidden = true; const { openMenus } = await import("./menu.js?v=mvg3lsn9"); choice = await openMenus({ CIRCUITS, settings, saveSettings, TEAMS }); document.getElementById("loading").hidden = false; }
+else { document.getElementById("loading").hidden = true; const { openMenus } = await import("./menu.js?v=mvgcbjuz"); choice = await openMenus({ CIRCUITS, settings, saveSettings, TEAMS }); document.getElementById("loading").hidden = false; }
 const circuitId = choice.track, CFG = CIRCUITS[circuitId], SESSION = choice.session;
 document.title = `${CFG.short} · Race — RaceLimit Live`;
 const $ = (id) => document.getElementById(id);
@@ -85,13 +87,14 @@ const raw = await (await fetch(`../data/tracks/${CFG.slug}.json`)).json();
 // the real shape, heights and pit lane (from F1's position data), if we have them for this circuit
 const real = await fetch(`../data/race/${CFG.slug}.json`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
 // and its real surroundings from OpenStreetMap, lined up with the track (buildings, water, tunnels, gravel traps…)
-const map = await fetch(`../data/race-world/${CFG.slug}.json?v=mvg3lsn9`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+const map = await fetch(`../data/race-world/${CFG.slug}.json?v=mvgcbjuz`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
 const tr = buildTrack(raw, CFG, real, map);
 const line = racingLine(tr);
 const vp = speedProfile({ ...tr, K: line.K }, ENVELOPE, 0.95);
-// for the racing line's colours: the same, but braking a fair bit less hard than the car can, so the red
-// starts early enough to react to and brake in time
-const vpCue = speedProfile({ ...tr, K: line.K }, { ...ENVELOPE, brake: (v) => ENVELOPE.brake(v) * 0.72 }, 0.93);
+// for the racing line's colours: the most you can carry into each corner (braking a fair bit less hard than the car
+// can, so the red starts early enough to react to), without the limit on how fast it can accelerate out of the last
+// one — so a straight never shows red just because you came out of a corner well
+const vpCue = speedProfile({ ...tr, K: line.K }, { ...ENVELOPE, accel: () => 1e4, brake: (v) => ENVELOPE.brake(v) * 0.72 }, 0.93);
 await status("Building the track…");
 const myTeam = TEAMS.find((t) => t.team === load("race.team", "RACELIMIT")) ?? TEAMS[0];
 const circuit = buildCircuit(tr, scene, { profile: vp, team: myTeam });
@@ -102,19 +105,25 @@ const lineMesh = (() => {
   const N = tr.N, pos = new Float32Array((N + 1) * 2 * 3), col = new Float32Array((N + 1) * 2 * 3), idx = [];
   for (let k = 0; k <= N; k++) {
     const i = k % N, o = line.off[i];
-    for (const [m, w] of [[0, -0.24], [1, 0.24]]) { const p = (k * 2 + m) * 3, y = tr.yAt(i, o + w) + crown(o) + 0.014; pos[p] = line.x[i] + tr.LX[i] * w; pos[p + 1] = y; pos[p + 2] = line.z[i] + tr.LZ[i] * w; col[p] = 0.2; col[p + 1] = 0.85; col[p + 2] = 0.45; }
+    for (const [m, w] of [[0, -0.27], [1, 0.27]]) { const p = (k * 2 + m) * 3, y = tr.yAt(i, o + w) + crown(o) + 0.022; pos[p] = line.x[i] + tr.LX[i] * w; pos[p + 1] = y; pos[p + 2] = line.z[i] + tr.LZ[i] * w; col[p] = 0.2; col[p + 1] = 0.85; col[p + 2] = 0.45; }
     if (k < N) idx.push(k * 2, k * 2 + 2, k * 2 + 1, k * 2 + 1, k * 2 + 2, k * 2 + 3);
   }
   const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("color", new THREE.BufferAttribute(col, 3)); g.setIndex(idx);
-  const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.75, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+  const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.82, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -6 }));
   m.renderOrder = 1; scene.add(m); return m;
 })();
+// The whole lap is coloured every frame, ahead of the car by the speed you'll be doing when you get there if you stay
+// flat out from here (and brake only where you have to): red where that's more than you can take, amber just before.
+// So every braking zone shows at its full length from far away, not only once you're already going fast enough.
 function colourLine(c) {
-  const attr = lineMesh.geometry.attributes.color, a = attr.array, u = Math.max(0, c.u), N = tr.N;
-  for (let k = -40; k < 650; k++) {
-    const i = tr.wrap(c.idx + k), v = vpCue[i], braking = settings.line === "braking";
+  const attr = lineMesh.geometry.attributes.color, a = attr.array, u = Math.max(0, c.u), N = tr.N, braking = settings.line === "braking";
+  let up = u;
+  for (let k = -40; k < N - 40; k++) {
+    const i = tr.wrap(c.idx + k), v = vpCue[i], s = k < 0 ? u : up;
     let r = 0.2, g = 0.85, b = 0.45;
-    if (u > v + 0.5) { r = 0.95; g = 0.2; b = 0.18; } else if (u > v - 9) { r = 0.98; g = 0.78; b = 0.15; } else if (braking) { r = g = b = -1; }
+    const lim = v < ENVELOPE.vmax - 1; // (a corner, or braking for one, limits the speed here)
+    if (lim && s > v + 0.5) { r = 0.95; g = 0.2; b = 0.18; } else if (lim && s > v - 9) { r = 0.98; g = 0.78; b = 0.15; } else if (braking) { r = g = b = -1; }
+    if (k >= 0) { const ds = tr.dist[tr.wrap(i + 1)] - tr.dist[i]; up = Math.min(up, v); up = Math.sqrt(up * up + 2 * ENVELOPE.accel(up) * (ds > 0 ? ds : 1)); }
     for (const kk of i === 0 ? [i, N] : [i]) for (const m of [0, 1]) { const p = (kk * 2 + m) * 3; if (r < 0) { a[p] = a[p + 1] = a[p + 2] = 0; } else { a[p] = r; a[p + 1] = g; a[p + 2] = b; } }
   }
   attr.needsUpdate = true;
@@ -204,7 +213,10 @@ function updateSparks(c, dt) {
 }
 
 // ---------- game state ----------
-const hud = createHud($("hud"), tr);
+const SESSION_NAME = { practice: "Practice", hotlap: "Hot laps", daily: "Daily challenge", grid: "Race start" }[SESSION] ?? "";
+const hud = createHud($("hud"), tr, { vp, session: SESSION_NAME, circuit: CFG.name });
+const applyHudInfo = () => hud.setSimple(settings.hudInfo === "simple");
+applyHudInfo();
 const input = createInput();
 let audio = null;
 const c = newCar(tr, tr.wrap(-14), tr.half * 0.45);
@@ -294,7 +306,7 @@ function syncSettingsUI() {
 document.addEventListener("click", (e) => {
   const b = e.target.closest("[data-set]"); if (!b) return;
   const [k, v] = b.dataset.set.split("="); settings[k] = v === "true" ? true : v === "false" ? false : v; saveSettings();
-  if (k === "line") applyLineMode(); if (k === "camera") viewMode = v; if (k === "quality") applyQuality(); if (k === "hud") applyHud(); if (k === "engine") audio?.setEngine(v); syncSettingsUI();
+  if (k === "line") applyLineMode(); if (k === "camera") viewMode = v; if (k === "quality") applyQuality(); if (k === "hud") applyHud(); if (k === "hudInfo") applyHudInfo(); if (k === "engine") audio?.setEngine(v); syncSettingsUI();
 });
 $("muteBtn").addEventListener("click", () => { const m = !(audio?.muted() ?? load("muted", false)); if (audio) audio.setMuted(m); else save("muted", m); syncSettingsUI(); });
 $("resumeBtn").addEventListener("click", () => setPause(false));
@@ -365,6 +377,8 @@ function frame(now) {
   if (inp.pause && phase !== "menu") setPause(!paused);
   if (inp.mute && audio) { audio.setMuted(!audio.muted()); syncSettingsUI(); }
   if (inp.camera) { viewMode = VIEWS[(VIEWS.indexOf(viewMode) + 1) % VIEWS.length]; settings.camera = viewMode; saveSettings(); }
+  if (inp.info) { settings.hudInfo = settings.hudInfo === "simple" ? "full" : "simple"; saveSettings(); applyHudInfo(); syncSettingsUI(); }
+  if ((inp.biasUp || inp.biasDown) && phase !== "menu") { c.bias = Math.round(Math.max(0.5, Math.min(0.7, (c.bias ?? CAR.bias) + (inp.biasUp ? 0.005 : -0.005))) * 1000) / 1000; hud.message(`Brake bias ${(c.bias * 100).toFixed(1)}% front`, 1.1); }
   if (inp.line) { settings.line = { full: "braking", braking: "off", off: "full" }[settings.line]; saveSettings(); applyLineMode(); hud.message(`Racing line: ${settings.line}`, 1.2); }
   const opts = { auto: settings.auto, abs: settings.abs, tc: settings.tc, stability: settings.stability, aeroAuto: true, compounds: COMPOUNDS };
   if (!paused && phase !== "menu") {

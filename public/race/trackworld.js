@@ -137,13 +137,30 @@ export function buildMap(ctx) {
   const waterM = new THREE.MeshStandardMaterial({ color: isNight ? 0x0C2235 : 0x2C5E78, roughness: 0.12, metalness: 0.25, normalMap: waterN, normalScale: new THREE.Vector2(0.35, 0.35), envMapIntensity: 1.2 });
   const poolM = new THREE.MeshStandardMaterial({ color: 0x3FB5D8, roughness: 0.1, metalness: 0.1, normalMap: waterN, normalScale: new THREE.Vector2(0.15, 0.15) });
   const rimM = new THREE.MeshStandardMaterial({ color: 0xE9ECEF, roughness: 0.7 });
+  // a competition pool seen from above: bright water over a pale floor, dark lane lines with T-ends
+  const lanesT = tex(canvas(512, 256, (g2, w, h) => { const gr = g2.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, "#45C3E4"); gr.addColorStop(0.5, "#5ACDE8"); gr.addColorStop(1, "#45C3E4"); g2.fillStyle = gr; g2.fillRect(0, 0, w, h); g2.fillStyle = "#1E5C8C"; for (let k = 1; k < 8; k++) { const y = (k / 8) * h; g2.fillRect(w * 0.06, y - 3, w * 0.88, 6); g2.fillRect(w * 0.06, y - 10, 6, 20); g2.fillRect(w * 0.94 - 6, y - 10, 6, 20); } g2.fillRect(w * 0.06, 0, 4, h); g2.fillRect(w * 0.94 - 4, 0, 4, h); }));
+  const poolLanesM = new THREE.MeshStandardMaterial({ map: lanesT, roughness: 0.08, metalness: 0.05, normalMap: waterN, normalScale: new THREE.Vector2(0.08, 0.08) });
   for (const w of tr.water ?? []) {
     const P = w.p, tri = THREE.ShapeUtils.triangulateShape(P.map(([x, z]) => new THREE.Vector2(x, z)), []), pos = [], uv = [];
     for (const [a, b, c] of tri) for (const q of [P[a], P[c], P[b]]) { pos.push(q[0], w.level, q[1]); uv.push(q[0], q[1]); }
     const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2)); g.computeVertexNormals();
     // (make sure it faces up)
     if (g.attributes.normal.getY(0) < 0) { const p2 = g.attributes.position.array; for (let i = 0; i < p2.length; i += 9) for (let k = 0; k < 3; k++) { const t = p2[i + 3 + k]; p2[i + 3 + k] = p2[i + 6 + k]; p2[i + 6 + k] = t; } g.computeVertexNormals(); }
-    const m = new THREE.Mesh(g, w.pool ? poolM : waterM); m.receiveShadow = true; group.add(m);
+    // (a big pool gets lane lines along its length and a paved deck round it)
+    const big = w.pool && area(P) > 250;
+    if (big) {
+      let bl = 0, ang = 0; for (let i = 0; i < P.length; i++) { const [x0, z0] = P[i], [x1, z1] = P[(i + 1) % P.length], L = Math.hypot(x1 - x0, z1 - z0); if (L > bl) { bl = L; ang = Math.atan2(z1 - z0, x1 - x0); } }
+      const ca = Math.cos(-ang), sa = Math.sin(-ang), loc = P.map(([x, z]) => [x * ca - z * sa, x * sa + z * ca]);
+      const u0 = Math.min(...loc.map((q) => q[0])), u1 = Math.max(...loc.map((q) => q[0])), v0 = Math.min(...loc.map((q) => q[1])), v1 = Math.max(...loc.map((q) => q[1]));
+      const ua = g.attributes.uv.array, pa = g.attributes.position.array;
+      for (let i = 0, j = 0; i < pa.length; i += 3, j += 2) { const x = pa[i], z = pa[i + 2]; ua[j] = (x * ca - z * sa - u0) / (u1 - u0); ua[j + 1] = (x * sa + z * ca - v0) / (v1 - v0); }
+      const deck = [], o = 3.2, n = P.length, cw = (() => { let a = 0; for (let i = 0, j = n - 1; i < n; j = i++) a += (P[j][0] - P[i][0]) * (P[j][1] + P[i][1]); return a > 0 ? 1 : -1; })();
+      const outP = P.map((q, i) => { const a = P[(i + n - 1) % n], b = P[(i + 1) % n], n1 = [q[1] - a[1], a[0] - q[0]], n2 = [b[1] - q[1], q[0] - b[0]], l1 = Math.hypot(...n1) || 1, l2 = Math.hypot(...n2) || 1, nx = n1[0] / l1 + n2[0] / l2, nz = n1[1] / l1 + n2[1] / l2, l = Math.hypot(nx, nz) || 1; return [q[0] - (cw * nx / l) * o, q[1] - (cw * nz / l) * o]; });
+      for (let i = 0; i < n; i++) { const a = P[i], b = P[(i + 1) % n], c = outP[(i + 1) % n], d = outP[i]; for (const q of [a, b, c, a, c, d]) deck.push(q[0], w.level + 0.32, q[1]); }
+      const gd = new THREE.BufferGeometry(); gd.setAttribute("position", new THREE.Float32BufferAttribute(deck, 3)); gd.computeVertexNormals();
+      group.add(new THREE.Mesh(gd, new THREE.MeshStandardMaterial({ color: 0xD9D6CF, roughness: 0.85, side: THREE.DoubleSide })));
+    }
+    const m = new THREE.Mesh(g, big ? poolLanesM : w.pool ? poolM : waterM); m.receiveShadow = true; group.add(m);
     if (w.pool) { // a white edge round the pool
       const pos2 = []; for (let i = 0; i < P.length; i++) { const [x0, z0] = P[i], [x1, z1] = P[(i + 1) % P.length]; pos2.push(x0, w.level + 0.3, z0, x1, w.level + 0.3, z1, x1, w.level - 0.4, z1, x0, w.level + 0.3, z0, x1, w.level - 0.4, z1, x0, w.level - 0.4, z0); }
       const g2 = new THREE.BufferGeometry(); g2.setAttribute("position", new THREE.Float32BufferAttribute(pos2, 3)); g2.computeVertexNormals(); group.add(new THREE.Mesh(g2, new THREE.MeshStandardMaterial({ color: 0xDDE6EA, roughness: 0.6, side: THREE.DoubleSide })));
@@ -163,12 +180,21 @@ export function buildMap(ctx) {
   if (M.tunnels?.length) {
     const lightG = new THREE.BoxGeometry(0.5, 0.08, 1.6), lightM = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, emissive: 0xFFE9C4, emissiveIntensity: 2.2 }), spots = [];
     const tunM = new THREE.MeshStandardMaterial({ color: 0xBFC3C8, roughness: 0.85, side: THREE.DoubleSide });
+    // (Monaco's tunnel is open on the harbour side: a row of square pillars under the roof's edge instead of a wall)
+    const open = tr.cfg.tunnelOpen, pillars = [];
     for (const [a, b] of M.tunnels) {
       const H = 6.4, wl = (i) => W[0][i], wr = (i) => W[1][i];
-      strip(a, b, (i) => [[-wr(i), 0], [-wr(i), H], [-wr(i) - 0.5, H + 1.6], [wl(i) + 0.5, H + 1.6], [wl(i), H], [wl(i), 0]].reverse(), tunM, { vScale: 6 }).castShadow = true; // (its shadow darkens the inside round the car)
+      const prof = (i) => open === "left" ? [[-wr(i), 0], [-wr(i), H], [-wr(i) - 0.5, H + 1.6], [wl(i) + 1.7, H + 1.6], [wl(i) + 1.7, H - 0.9], [wl(i) + 0.2, H - 0.9]] : open === "right" ? [[-wr(i) - 0.2, H - 0.9], [-wr(i) - 1.7, H - 0.9], [-wr(i) - 1.7, H + 1.6], [wl(i) + 0.5, H + 1.6], [wl(i), H], [wl(i), 0]] : [[-wr(i), 0], [-wr(i), H], [-wr(i) - 0.5, H + 1.6], [wl(i) + 0.5, H + 1.6], [wl(i), H], [wl(i), 0]];
+      strip(a, b, (i) => prof(i).reverse(), tunM, { vScale: 6 }).castShadow = true; // (its shadow darkens the inside round the car)
+      if (open) for (let i = a + 4; i < b - 2; i += 8) pillars.push([i, open === "left" ? wl(i) + 1.0 : -(wr(i) + 1.0), H]);
       for (let i = a + 3; i < b; i += 7) spots.push(i);
       // portal faces: a band of wall above each opening
       for (const [e, dir] of [[a, -1], [b, 1]]) strip(e, e + 1, (i) => [[-wr(i) - 3, H], [-wr(i) - 3, H + 6], [wl(i) + 3, H + 6], [wl(i) + 3, H]].reverse(), tunM, { vScale: 6 });
+    }
+    if (pillars.length) {
+      const pg = new THREE.BoxGeometry(1.3, 1, 1.5), pm = new THREE.InstancedMesh(pg, tunM, pillars.length), m = new THREE.Matrix4(), qq = new THREE.Quaternion(), upv = new THREE.Vector3(0, 1, 0);
+      pillars.forEach(([i, o, H], j) => { qq.setFromAxisAngle(upv, Math.atan2(TX[i], TZ[i])); const y0 = Y[i] - 0.3, h = H - 0.9 + 0.3; m.compose(new THREE.Vector3(X[i] + LX[i] * o, y0 + h / 2 + (tr.bankH ? tr.bankH(i, o) : 0), Z[i] + LZ[i] * o), qq, new THREE.Vector3(1, h, 1)); pm.setMatrixAt(j, m); });
+      pm.castShadow = true; pm.receiveShadow = true; group.add(pm);
     }
     const im = new THREE.InstancedMesh(lightG, lightM, spots.length), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
     spots.forEach((i, j) => { q.setFromAxisAngle(up, Math.atan2(TX[i], TZ[i])); m4.compose(new THREE.Vector3(X[i], Y[i] + 6.3, Z[i]), q, new THREE.Vector3(1, 1, 1)); im.setMatrixAt(j, m4); });

@@ -1,7 +1,7 @@
 // The racing game's menus: the main menu (modes), a race weekend (pick a circuit and a session),
 // the garage (your team's colours) and settings. Plain DOM, shown before any 3D is built; resolves
 // with what to drive: { track, session }.
-import { load, save } from "../games/common.js?v=mvg3lsn9";
+import { load, save } from "../games/common.js?v=mvgcbjuz";
 
 // the 2026 calendar, in order (the Bahrain GP was held at Sepang), then circuits only raced in 2025
 export const CALENDAR = ["melbourne", "shanghai", "suzuka", "miami", "montreal", "monte-carlo", "catalunya", "spielberg", "silverstone", "spa", "hungaroring", "zandvoort", "monza", "madring", "baku", "kuala-lumpur", "singapore", "austin", "mexico-city", "interlagos", "las-vegas", "lusail", "yas-marina-circuit", "sakhir", "jeddah"];
@@ -47,7 +47,7 @@ export function openMenus({ CIRCUITS, settings, saveSettings, TEAMS }) {
       root.innerHTML = ""; root.append(header("Main menu"));
       const grid = el("div", "mm-grid");
       const hero = el("button", "mm-card hero"); hero.type = "button";
-      hero.innerHTML = `<img src="img/hero.jpg?v=mvg3lsn9" alt="" loading="eager"><div class="mm-card-body"><span class="pill gold">Main mode</span><h2>Race weekend</h2><p>Practice and hot laps at any of the ${CALENDAR.length} circuits, with their real shapes, hills and pit lanes. Races against AI cars are coming.</p></div>`;
+      hero.innerHTML = `<img src="img/hero.jpg?v=mvgcbjuz" alt="" loading="eager"><div class="mm-card-body"><span class="pill gold">Main mode</span><h2>Race weekend</h2><p>Practice and hot laps at any of the ${CALENDAR.length} circuits, with their real shapes, hills and pit lanes. Races against AI cars are coming.</p></div>`;
       hero.onclick = weekend; grid.append(hero);
       const today = dailyTrack(), dbest = load(`race.daily.${new Date().toISOString().slice(0, 10)}`, null);
       const cards = [
@@ -152,15 +152,15 @@ export function openMenus({ CIRCUITS, settings, saveSettings, TEAMS }) {
       const rows = [
         ["Gears", "auto", [["true", "Automatic"], ["false", "Manual"]]], ["Anti-lock brakes", "abs", [["true", "On"], ["false", "Off"]]], ["Traction control", "tc", [["true", "On"], ["false", "Off"]]],
         ["Stability help", "stability", [["true", "On"], ["false", "Off"]]], ["Racing line", "line", [["full", "Full"], ["braking", "Braking only"], ["off", "Off"]]],
-        ["Engine sound", "engine", [["raw", "Raw"], ["deep", "Deep"]]], ["Graphics", "quality", [["high", "High"], ["low", "Low (faster)"]]], ["On-screen display size", "hud", [["normal", "Normal"], ["large", "Large"], ["xl", "Extra large"]]], ["Camera", "camera", [["chase", "Chase"], ["far", "Far"], ["tcam", "T-cam"], ["cockpit", "Cockpit"]]],
+        ["Engine sound", "engine", [["raw", "Raw"], ["deep", "Deep"]]], ["Graphics", "quality", [["high", "High"], ["low", "Low (faster)"]]], ["On-screen info", "hudInfo", [["full", "Full"], ["simple", "Simple"]]], ["On-screen display size", "hud", [["normal", "Normal"], ["large", "Large"], ["xl", "Extra large"]]], ["Camera", "camera", [["chase", "Chase"], ["far", "Far"], ["tcam", "T-cam"], ["cockpit", "Cockpit"]]],
       ];
       for (const [label, k, opts] of rows) {
         const d = el("div", "set"); d.innerHTML = `<span>${label}</span>`; const s = el("div", "seg");
         for (const [v, t] of opts) { const b = el("button", "", t); b.type = "button"; b.setAttribute("aria-pressed", String(String(settings[k]) === v)); b.onclick = () => { settings[k] = v === "true" ? true : v === "false" ? false : v; saveSettings(); for (const x of s.children) x.setAttribute("aria-pressed", String(x === b)); }; s.append(b); }
         d.append(s); wrap.append(d);
       }
-      wrap.append(el("div", "keys", `<div><b>↑ / W</b> throttle</div><div><b>↓ / S</b> brake (hold when stopped to reverse)</div><div><b>← → / A D</b> steer</div><div><b>E / Q</b> gear up / down</div><div><b>Space</b> overtake (full battery power)</div><div><b>C</b> change camera</div><div><b>B</b> look behind</div><div><b>R</b> back on track</div><div><b>L</b> racing line</div><div><b>M</b> sound · <b>Esc</b> pause</div>`));
-      wrap.append(el("p", "muted small", "A game controller works too: right trigger throttle, left trigger brake, stick to steer, bumpers for gears, A for overtake, Y for camera."));
+      wrap.append(el("div", "keys", `<div><b>↑ / W</b> throttle</div><div><b>↓ / S</b> brake (hold when stopped to reverse)</div><div><b>← → / A D</b> steer</div><div><b>E / Q</b> gear up / down</div><div><b>Space</b> overtake (full battery power)</div><div><b>C</b> change camera</div><div><b>B</b> look behind</div><div><b>R</b> back on track</div><div><b>L</b> racing line</div><div><b>[ ]</b> brake bias back / forward</div><div><b>Tab</b> more / less on-screen info</div><div><b>M</b> sound · <b>Esc</b> pause</div>`));
+      wrap.append(el("p", "muted small", "A game controller works too: right trigger throttle, left trigger brake, stick to steer, bumpers for gears, A for overtake, Y for camera, d-pad up / down for brake bias."));
       root.append(wrap);
     }
 

@@ -19,7 +19,7 @@ for (const id of ids) {
   let pi = 0, t = 0, hits = 0, maxHit = 0, ev = [], wasPit = false, lim = false, limMax = 0;
   for (let step = 0; step < 240 * 150 && pi < path.length - 6; step++) {
     let best = pi, bd = Infinity; for (let k = pi; k < Math.min(path.length, pi + 80); k++) { const d = (path[k][0] - c.x) ** 2 + (path[k][1] - c.z) ** 2; if (d < bd) { bd = d; best = k; } } pi = best;
-    const la = Math.min(path.length - 1, pi + 6 + Math.round(c.u * 0.3)), [tx, tz] = path[la], vt = Math.min(...path.slice(pi, pi + 25).map((p) => p[2]));
+    const la = Math.min(path.length - 1, pi + 5 + Math.round(c.u * (c.onPit ? 0.15 : 0.3))), [tx, tz] = path[la], vt = Math.min(...path.slice(pi, pi + 25).map((p) => p[2]));
     const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), lx = Math.cos(c.yaw), lz = -Math.sin(c.yaw), dx = tx - c.x, dz = tz - c.z;
     stepCar(c, { steer: Math.max(-1, Math.min(1, Math.atan2(dx * lx + dz * lz, dx * fx + dz * fz) * 4)), throttle: c.u < vt - 0.5 ? 1 : 0, brake: c.u > vt + 2 ? 0.8 : 0, analog: true }, tr, 1 / 240, {});
     t += 1 / 240;

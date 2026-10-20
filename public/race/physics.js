@@ -147,7 +147,7 @@ export function stepCar(c, input, track, dt, opts = {}) {
   // grass (slippery, slows you a bit), gravel (very little grip, and it drags the car to a stop fast),
   // painted tarmac or a street circuit's road
   const sk = f.lat >= 0 ? 0 : 1, ap = tr.apron ? tr.apron[sk][ix] : 0;
-  c.surface = alat <= half ? "track" : c.kerb ? "kerb" : !tr.surf || alat <= half + 0.6 + ap ? "apron" : SURF_NAMES[tr.surf[sk][ix]];
+  c.surface = alat <= half ? "track" : c.kerb ? "kerb" : !tr.surf || alat <= half + 0.6 + ap ? "apron" : tr.esc?.[sk][ix] && alat >= tr.esc[sk][ix] ? "tarmac" : SURF_NAMES[tr.surf[sk][ix]];
   const SM = SURFACES[c.surface] ?? SURFACES.apron, au0 = Math.abs(c.u);
   const surfMu = SM.mu, surfDrag = Math.min(0.95, SM.drag + SM.dragV * au0) * P.m * G * Math.min(1, au0 / 2);
 
@@ -235,8 +235,9 @@ export function stepCar(c, input, track, dt, opts = {}) {
 
   // ---- longitudinal tyre forces (drive or engine braking + brakes), limited by grip ----
   const Fb = Math.abs(u) > 0.6 && !c.reverse ? c.brake * (Df + Dr) * Math.sign(u) : 0;
-  let Fxf = -Fb * P.bias, Fxr = Fdrive - Fb * (1 - P.bias);
-  c.spin = 0; c.lockF = c.lockR = false;
+  const bias = c.bias ?? P.bias; // brake bias (share on the front), adjustable from the cockpit
+  let Fxf = -Fb * bias, Fxr = Fdrive - Fb * (1 - bias);
+  c.spin = 0; c.lockF = c.lockR = false; c.absOn = c.tcOn = false;
   // traction control and ABS always keep back enough grip for cornering: at least what the tyre is
   // making now plus a margin, so getting on the power out of a corner can't snap the rear round
   // (below ~30 km/h the car moves like it's on rails, see the end, so the slip-model side forces there are
@@ -249,13 +250,14 @@ export function stepCar(c, input, track, dt, opts = {}) {
     let lim = tc ? Math.max(roomR, 0.25 * Drx) : Drx;
     // stability help: ease the power while the rear is sliding
     if (stability) { const ar0 = Math.abs(Math.atan2(c.v - P.b * c.r, Math.max(Math.abs(u), 5))) * wLow; lim *= clamp(1 - (ar0 - 0.07) * 7, 0.25, 1); }
-    if (Fxr > lim) { if (!tc && Fxr > Drx) c.spin = clamp((Fxr - Drx) / Drx, 0, 1); Fxr = c.spin ? Drx * 0.7 : lim; }
+    if (Fxr > lim) { if (!tc && Fxr > Drx) c.spin = clamp((Fxr - Drx) / Drx, 0, 1); c.tcOn = tc && u > 2 && Fxr > lim * 1.03; Fxr = c.spin ? Drx * 0.7 : lim; }
   }
-  if (-Fxf > Df * 0.92 || (abs && -Fxf > Math.max(roomF, 0.6 * Df))) { if (abs) Fxf = -Math.min(Df * 0.92, Math.max(roomF, 0.6 * Df)); else if (-Fxf > Df) { Fxf = -Df * 0.85; c.lockF = true; } }
-  if (-Fxr > Drx * 0.86 || (abs && -Fxr > Math.max(roomR, 0.45 * Drx))) { if (abs) Fxr = -Math.min(Drx * 0.86, Math.max(roomR, 0.45 * Drx)); else if (-Fxr > Drx) { Fxr = -Drx * 0.85; c.lockR = true; } }
+  if (-Fxf > Df * 0.92 || (abs && -Fxf > Math.max(roomF, 0.6 * Df))) { if (abs) { c.absOn = u > 3; Fxf = -Math.min(Df * 0.92, Math.max(roomF, 0.6 * Df)); } else if (-Fxf > Df) { Fxf = -Df * 0.85; c.lockF = true; } }
+  if (-Fxr > Drx * 0.86 || (abs && -Fxr > Math.max(roomR, 0.45 * Drx))) { if (abs) { c.absOn = u > 3; Fxr = -Math.min(Drx * 0.86, Math.max(roomR, 0.45 * Drx)); } else if (-Fxr > Drx) { Fxr = -Drx * 0.85; c.lockR = true; } }
   // the battery only pays for the power the tyres actually put down (the engine's share comes first), so
   // wheelspin-limited launches don't waste it
-  if (pErs > 0 && Fxr > 0) c.ers = Math.max(0, c.ers - Math.min(pErs, Math.max(0, (Fxr * Math.max(u, 4)) / P.eff - pIce)) * dt);
+  c.pDeploy = pErs > 0 && Fxr > 0 ? Math.min(pErs, Math.max(0, (Fxr * Math.max(u, 4)) / P.eff - pIce)) : 0; // (watts, for the display)
+  if (c.pDeploy > 0) c.ers = Math.max(0, c.ers - c.pDeploy * dt);
   const Fbr = Math.max(0, -Fxr);
   // battery charges under braking and when lifting
   // battery: charges under braking (the motor works as a generator), a little when lifting, and by
@@ -263,6 +265,7 @@ export function stepCar(c, input, track, dt, opts = {}) {
   const clip = clipping; c.clipping = clipping;
   c.harvesting = u > 5 && (c.brake > 0.05 || c.throttle < 0.9 || clip);
   const pHarv = c.brake > 0.05 ? P.harvest * Math.min(1, c.brake * 2) : clip ? clipCost : c.throttle < 0.05 ? 250e3 : c.throttle < 0.9 && u > 15 ? 120e3 : 0;
+  c.pHarvest = c.harvesting && c.ers < P.battery ? pHarv : 0;
   if (c.harvesting) c.ers = Math.min(P.battery, c.ers + pHarv * dt);
 
   // reversing: about 0.8 g back to ~35 km/h (a real F1 reverse gear is slow, this is kinder)
@@ -295,10 +298,11 @@ export function stepCar(c, input, track, dt, opts = {}) {
   let MZ = P.a * (Fyf * cd + Fxf * sd) - P.b * Fyr;
   // stability help (like the assist in racing games): if the car starts rotating faster than its grip
   // allows, or the rear slides, a correcting turn force calms it down — so a quick flick doesn't spin you
+  c.scOn = (c.assist ?? 0) > 0.02;
   if (stability && u > 8) {
     const rLim = (0.95 * (17.5 + 0.006 * u * u)) / u, rRef = clamp((u * Math.tan(delta)) / L, -rLim, rLim);
     const err = c.r - rRef, slide = Math.abs(ar) > 0.08 || Math.abs(c.r) > rLim;
-    if (slide) MZ -= clamp(err * P.Iz * 9, -9000, 9000);
+    if (slide) { MZ -= clamp(err * P.Iz * 9, -9000, 9000); if (Math.abs(err) > 0.02) c.scOn = true; }
   }
   const w = smooth(3, 9, Math.abs(u)); // below ~30 km/h blend into a simple no-slip model
   let du = FX / P.m + c.r * c.v, dv = FY / P.m - c.r * u, dr = MZ / P.Iz;

@@ -3,7 +3,7 @@
 // track, TV camera towers, the paddock behind the garages, street lamps, barns and rocks. Everything is
 // generated and drawn with instancing; `ctx` comes from buildCircuit (trackmesh.js).
 import * as THREE from "three";
-import { facadeMaterials } from "./trackworld.js?v=mvg3lsn9";
+import { facadeMaterials } from "./trackworld.js?v=mvgcbjuz";
 
 let seed = 911; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
 const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), V = new THREE.Vector3(), Sv = new THREE.Vector3(), col = new THREE.Color();
@@ -50,7 +50,7 @@ export function addProps(ctx) {
   const take = (x, z, hl, hw) => taken.push({ x, z, r: Math.hypot(hl, hw) });
 
   // ---------- the paddock behind the garages: team motorhomes and trucks ----------
-  if (tr.pitRoad && pitInfo.garageRow) {
+  if (tr.pitRoad && pitInfo.garageRow && !pitInfo.garageRow.trackSide) {
     const R = tr.pitRoad, gr = pitInfo.garageRow, ts = R.tk === 0 ? 1 : -1;
     const mhG = boxes([{ w: 15, h: 4.6, d: 5.2, uw: 15, vh: 4.6, roof: 0.85 }]), trG = boxes([{ w: 16, h: 4, d: 2.6, uw: 16, vh: 4, roof: 0.8 }, { w: 2.6, h: 3.4, d: 2.5, x: 9.4, roof: 0.8, shade: 0.9 }]);
     const mhTex = tex(canvas(256, 80, (g, w, h) => { g.fillStyle = "#F4F5F7"; g.fillRect(0, 0, w, h); g.fillStyle = "#1A1E26"; g.fillRect(8, 16, w - 16, 26); g.fillStyle = "rgba(0,0,0,.18)"; for (let x = 24; x < w; x += 40) g.fillRect(x, 16, 2, 26); g.fillStyle = "#C9CDD4"; g.fillRect(0, h - 10, w, 10); }));
