@@ -43,6 +43,11 @@ async function overpass(query) {
 // Douglas–Peucker, so long smooth outlines don't carry thousands of points
 function simplify(pts, tol) {
   if (pts.length < 4) return pts;
+  // a closed outline (first point = last): split it at the point furthest from the start, simplify both halves
+  if (pts[0][0] === pts[pts.length - 1][0] && pts[0][1] === pts[pts.length - 1][1]) {
+    let m = 1, md = -1; for (let i = 1; i < pts.length - 1; i++) { const d = (pts[i][0] - pts[0][0]) ** 2 + (pts[i][1] - pts[0][1]) ** 2; if (d > md) { md = d; m = i; } }
+    return [...simplify(pts.slice(0, m + 1), tol), ...simplify(pts.slice(m), tol).slice(1)];
+  }
   const keep = new Uint8Array(pts.length); keep[0] = keep[pts.length - 1] = 1;
   const st = [[0, pts.length - 1]];
   while (st.length) {
