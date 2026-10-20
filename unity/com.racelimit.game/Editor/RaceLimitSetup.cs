@@ -84,25 +84,8 @@ namespace RaceLimit.EditorTools
                 // ---- the circuit ----
                 var track = (GameObject)PrefabUtility.InstantiatePrefab(trackAsset);
                 track.name = "Track · " + sceneName;
-                int ground = 0, walls = 0;
-                foreach (var r in track.GetComponentsInChildren<MeshRenderer>(true))
-                {
-                    var mf = r.GetComponent<MeshFilter>(); if (mf == null || mf.sharedMesh == null) continue;
-                    string mn = r.sharedMaterial != null ? r.sharedMaterial.name : "";
-                    if (mn.Contains("rl_col_wall"))
-                    {
-                        r.enabled = false;
-                        var mc = r.gameObject.AddComponent<MeshCollider>(); mc.sharedMesh = mf.sharedMesh; r.gameObject.AddComponent<RLWall>(); walls++;
-                        continue;
-                    }
-                    SurfaceKind kind;
-                    if (RLSurface.TryParse(mn, out kind))
-                    {
-                        var mc = r.gameObject.AddComponent<MeshCollider>(); mc.sharedMesh = mf.sharedMesh;
-                        r.gameObject.AddComponent<RLSurface>().kind = kind; ground++;
-                    }
-                    GameObjectUtility.SetStaticEditorFlags(r.gameObject, StaticEditorFlags.BatchingStatic);
-                }
+                // (colliders are added by TrackInfo each time the game starts, so a re-exported model can't leave the track hollow;
+                // and no static batching: it swaps each piece's mesh for one combined mesh, which the colliders can't use)
                 var info = track.AddComponent<TrackInfo>(); info.trackJson = json; info.model = track.transform;
                 info.Load();
                 EditorUtility.DisplayProgressBar("RaceLimit", "Sun, sky and car…", 0.6f);
@@ -152,7 +135,7 @@ namespace RaceLimit.EditorTools
                 string path = OUT + "/Scenes/" + sceneName + ".unity";
                 EditorSceneManager.SaveScene(scene, path);
                 var list = EditorBuildSettings.scenes.Where(s => s.path != path).ToList(); list.Insert(0, new EditorBuildSettingsScene(path, true)); EditorBuildSettings.scenes = list.ToArray();
-                Debug.Log("RaceLimit: built " + path + " — " + ground + " ground pieces with colliders, " + walls + " wall pieces. Press Play to drive.");
+                Debug.Log("RaceLimit: built " + path + ". Press Play to drive.");
                 Selection.activeGameObject = carRoot;
                 if (SceneView.lastActiveSceneView != null) SceneView.lastActiveSceneView.FrameSelected();
             }

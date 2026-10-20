@@ -42,7 +42,91 @@ namespace RaceLimit
         Vector3 o, ex, ey, ez;
         bool ready;
 
-        void Awake() { Load(); }
+        void Awake()
+        {
+            if (!Load()) return;
+            int ground, walls; AddColliders(out ground, out walls);
+            BuildSafetyGround();
+            Debug.Log("RaceLimit: " + data.name + " — " + ground + " ground pieces and " + walls + " barrier pieces made solid, plus the safety ground under the track");
+        }
+
+        // Every piece of the circuit model whose material says what it is gets a collider, every time the game starts
+        // (not saved in the scene, so a re-exported model can't leave the track hollow): rl_ground_<surface> → ground
+        // with that surface for the tyres, rl_col_wall → an invisible barrier.
+        public void AddColliders(out int ground, out int walls)
+        {
+            ground = walls = 0;
+            var seen = new System.Collections.Generic.HashSet<string>();
+            foreach (var r in model.GetComponentsInChildren<MeshRenderer>(true))
+            {
+                var mf = r.GetComponent<MeshFilter>(); if (mf == null || mf.sharedMesh == null) continue;
+                string mn = r.sharedMaterial != null ? r.sharedMaterial.name : "";
+                if (seen.Count < 40) seen.Add(mn);
+                bool wall = mn.Contains("rl_col_wall"); SurfaceKind kind;
+                bool isGround = !wall && RLSurface.TryParse(mn, out kind);
+                if (!wall && !isGround) continue;
+                if (mf.sharedMesh.name.StartsWith("Combined Mesh")) { Debug.LogWarning("RaceLimit: the circuit is static-batched, so its pieces can't be made solid (the safety ground still holds the car). Rebuild the scene with RaceLimit > Build Spa scene."); continue; }
+                if (!mf.sharedMesh.isReadable) Debug.LogWarning("RaceLimit: mesh " + mf.sharedMesh.name + " isn't readable, so it can't be made solid. Select the circuit's .glb and tick Read/Write in its import settings.");
+                var mc = r.GetComponent<MeshCollider>(); if (mc == null) mc = r.gameObject.AddComponent<MeshCollider>();
+                mc.sharedMesh = mf.sharedMesh;
+                if (wall) { r.enabled = false; mc.sharedMaterial = RLWall.Material; walls++; continue; }
+                var sf = r.GetComponent<RLSurface>(); if (sf == null) sf = r.gameObject.AddComponent<RLSurface>();
+                RLSurface.TryParse(mn, out sf.kind); ground++;
+            }
+            if (ground == 0) Debug.LogError("RaceLimit: no ground pieces found in the circuit model. Material names seen: " + string.Join(", ", seen));
+        }
+
+        // An invisible surface just under the road, from barrier to barrier all the way round (and along the pit lane),
+        // built from the centre line: whatever happens to the model, the car can't fall through the world.
+        public void BuildSafetyGround()
+        {
+            if (transform.Find("RL_SafetyGround") != null) return;
+            var root = new GameObject("RL_SafetyGround").transform; root.SetParent(transform, false);
+            root.position = Vector3.zero; root.rotation = Quaternion.identity; root.localScale = Vector3.one;
+            int n = N;
+            Band(root, "track", SurfaceKind.Track, n, (i) => -data.half - 0.5f, (i) => data.half + 0.5f, 0.07f);
+            Band(root, "left", SurfaceKind.Runoff, n, (i) => data.half + 0.5f, (i) => Mathf.Max(data.half + 1f, data.wallL[i] + 2f), 0.09f);
+            Band(root, "right", SurfaceKind.Runoff, n, (i) => -Mathf.Max(data.half + 1f, data.wallR[i] + 2f), (i) => -data.half - 0.5f, 0.09f);
+            if (pit != null && pit.Length > 2)
+            {
+                var v = new System.Collections.Generic.List<Vector3>(); var t = new System.Collections.Generic.List<int>();
+                for (int i = 0; i < pit.Length; i++)
+                {
+                    Vector3 f = pit[Mathf.Min(pit.Length - 1, i + 1)] - pit[Mathf.Max(0, i - 1)]; f.y = 0; f.Normalize();
+                    Vector3 l = -Vector3.Cross(Vector3.up, f);
+                    v.Add(pit[i] + l * 7f - Vector3.up * 0.09f); v.Add(pit[i] - l * 7f - Vector3.up * 0.09f);
+                    if (i > 0) { int b = 2 * i; t.Add(b - 2); t.Add(b); t.Add(b - 1); t.Add(b - 1); t.Add(b); t.Add(b + 1); }
+                }
+                Piece(root, "pit", SurfaceKind.Track, v, t);
+            }
+        }
+
+        delegate float Off(int i);
+        void Band(Transform root, string name, SurfaceKind kind, int n, Off from, Off to, float below)
+        {
+            // in pieces of 600 m, each its own collider
+            for (int a = 0; a < n; a += 600)
+            {
+                var v = new System.Collections.Generic.List<Vector3>(); var t = new System.Collections.Generic.List<int>();
+                int b = Mathf.Min(n, a + 601);
+                for (int i = a; i <= b; i++)
+                {
+                    int j = Wrap(i);
+                    v.Add(centre[j] + left[j] * from(j) - Vector3.up * below); v.Add(centre[j] + left[j] * to(j) - Vector3.up * below);
+                    if (i > a) { int q = 2 * (i - a); t.Add(q - 2); t.Add(q - 1); t.Add(q); t.Add(q - 1); t.Add(q + 1); t.Add(q); }
+                }
+                Piece(root, name + "_" + a, kind, v, t);
+            }
+        }
+
+        static void Piece(Transform root, string name, SurfaceKind kind, System.Collections.Generic.List<Vector3> v, System.Collections.Generic.List<int> t)
+        {
+            var go = new GameObject(name); go.transform.SetParent(root, false);
+            var m = new Mesh { name = "RL_Safety_" + name, indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+            m.SetVertices(v); m.SetTriangles(t, 0); m.RecalculateNormals(); m.RecalculateBounds();
+            go.AddComponent<MeshCollider>().sharedMesh = m;
+            go.AddComponent<RLSurface>().kind = kind;
+        }
 
         public bool Load()
         {
