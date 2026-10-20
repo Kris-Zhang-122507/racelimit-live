@@ -4,8 +4,8 @@
 // start gantry and brake boards. Everything is generated, nothing is downloaded.
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
-import { addProps } from "./trackprops.js?v=mvgcbjuz";
-import { prepareMap, buildMap } from "./trackworld.js?v=mvgcbjuz";
+import { addProps } from "./trackprops.js?v=mvh5nvwo";
+import { prepareMap, buildMap } from "./trackworld.js?v=mvh5nvwo";
 
 const smoothstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
@@ -63,6 +63,8 @@ function textures() {
   return { gravel, gravelN, apron, asphalt, asphaltN, kerb, grass, grassN, runoff, fence, needle, crowd, concrete, checker, sand, sandN, leaf, windowsDay: windows(false), windowsNight: windows(true) };
 }
 
+// (materials the Unity export classifies by name: rl_ground_* get colliders and a surface type)
+const named = (n, m) => { m.name = n; return m; };
 export function buildCircuit(tr, scene, { profile, team } = {}) {
   const T = textures(), { N, X, Y, Z, LX, LZ, TX, TZ, dist, kerb } = tr, half = tr.half;
   const at = tr.wrap, W = tr.wall, WT = tr.wallType, pit = tr.pit;
@@ -100,7 +102,7 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
     g.setAttribute("color", new THREE.BufferAttribute(c, 3)); if (!mat.vertexColors) { mat.vertexColors = true; mat.needsUpdate = true; }
   };
   prepareMap(tr); // (the water's level and where the ground must go under it, before the terrain is built)
-  const group = new THREE.Group(); scene.add(group);
+  const group = new THREE.Group(); group.name = "RL_Circuit"; scene.add(group);
   const keepOut = []; // rectangles (centre, half-sizes, angle) where nothing else may go: pits, stands
 
   // a strip along the track with a cross-section [[offset, height], …] from index a to b;
@@ -128,9 +130,9 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
   const sided = (s, pts) => (s > 0 ? pts : pts.map(([o, h]) => [-o, h]).reverse());
 
   // ---------- asphalt, lines, start line, grid ----------
-  const asphaltMat = new THREE.MeshStandardMaterial({ map: T.asphalt, normalMap: T.asphaltN, normalScale: new THREE.Vector2(0.5, 0.5), roughness: 0.9 });
+  const asphaltMat = named("rl_ground_track", new THREE.MeshStandardMaterial({ map: T.asphalt, normalMap: T.asphaltN, normalScale: new THREE.Vector2(0.5, 0.5), roughness: 0.9 }));
   strip(0, N, [[-half - 0.6, 0.0], [-half / 2, 0.035], [0, 0.05], [half / 2, 0.035], [half + 0.6, 0.0]], asphaltMat, { vScale: 6 });
-  const lineMat = new THREE.MeshStandardMaterial({ color: 0xF2F2EE, roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  const lineMat = named("rl_ground_line", new THREE.MeshStandardMaterial({ color: 0xF2F2EE, roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
   strip(0, N, [[half - 0.32, 0.012], [half - 0.12, 0.012]], lineMat); strip(0, N, [[-half + 0.12, 0.012], [-half + 0.32, 0.012]], lineMat);
   {
     const sl = new THREE.Mesh(new THREE.PlaneGeometry(half * 2, 1.0), new THREE.MeshStandardMaterial({ map: T.checker, roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -2 }));
@@ -141,7 +143,7 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
   }
 
   // ---------- kerbs ----------
-  const kerbMat = new THREE.MeshStandardMaterial({ map: T.kerb, roughness: 0.55 });
+  const kerbMat = named("rl_ground_kerb", new THREE.MeshStandardMaterial({ map: T.kerb, roughness: 0.55 }));
   const kerbProf = (side) => { const pts = []; for (let k = 0; k <= 6; k++) { const u = k / 6; pts.push([side * (half - 0.05 + u * 1.55), 0.008 + 0.07 * Math.sin(Math.min(1, u * 1.15) * Math.PI / 2) ** 0.8 - (u > 0.9 ? (u - 0.9) * 0.6 : 0)]); } return side > 0 ? pts : pts.reverse(); };
   for (const [a, b] of runs((i) => (kerb[i] & 1) !== 0, 10)) strip(a, b, kerbProf(1), kerbMat, { vScale: 6 }); // left (bit 1)
   for (const [a, b] of runs((i) => (kerb[i] & 2) !== 0, 10)) strip(a, b, kerbProf(-1), kerbMat, { vScale: 6 }); // right (bit 2)
@@ -149,14 +151,14 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
   // ---------- run-off up to the barrier (see computeWalls): a tarmac apron just past the kerb, then grass,
   // a gravel trap, painted tarmac or (street circuits) the road ----------
   const SC = tr.cfg.scenery ?? "forest", sandy = SC === "desert" || SC === "dunes", night = tr.cfg.time === "night", dusk = tr.cfg.time === "dusk";
-  const runMat = new THREE.MeshStandardMaterial({ map: T.runoff, roughness: 0.92 });
-  const grassMat = sandy ? new THREE.MeshStandardMaterial({ map: T.sand, normalMap: T.sandN, roughness: 1 }) : new THREE.MeshStandardMaterial({ map: T.grass, normalMap: T.grassN, roughness: 1 });
-  const streetMat = new THREE.MeshStandardMaterial({ map: T.asphalt, normalMap: T.asphaltN, normalScale: new THREE.Vector2(0.4, 0.4), color: 0xC9CCD2, roughness: 0.92 });
-  const gravelMat = new THREE.MeshStandardMaterial({ map: T.gravel, normalMap: T.gravelN, normalScale: new THREE.Vector2(1.2, 1.2), color: sandy ? 0xF2DDB8 : 0xFFFFFF, roughness: 1 });
-  const apronMat = new THREE.MeshStandardMaterial({ map: T.apron, normalMap: T.asphaltN, normalScale: new THREE.Vector2(0.35, 0.35), roughness: 0.9 });
+  const runMat = named("rl_ground_runoff", new THREE.MeshStandardMaterial({ map: T.runoff, roughness: 0.92 }));
+  const grassMat = named("rl_ground_grass", sandy ? new THREE.MeshStandardMaterial({ map: T.sand, normalMap: T.sandN, roughness: 1 }) : new THREE.MeshStandardMaterial({ map: T.grass, normalMap: T.grassN, roughness: 1 }));
+  const streetMat = named("rl_ground_street", new THREE.MeshStandardMaterial({ map: T.asphalt, normalMap: T.asphaltN, normalScale: new THREE.Vector2(0.4, 0.4), color: 0xC9CCD2, roughness: 0.92 }));
+  const gravelMat = named("rl_ground_gravel", new THREE.MeshStandardMaterial({ map: T.gravel, normalMap: T.gravelN, normalScale: new THREE.Vector2(1.2, 1.2), color: sandy ? 0xF2DDB8 : 0xFFFFFF, roughness: 1 }));
+  const apronMat = named("rl_ground_apron", new THREE.MeshStandardMaterial({ map: T.apron, normalMap: T.asphaltN, normalScale: new THREE.Vector2(0.35, 0.35), roughness: 0.9 }));
   const SURF_MAT = [grassMat, runMat, gravelMat, streetMat], AP = tr.apron, SF = tr.surf;
   // (escape roads: the run-off's own surface up to where the road starts, then the road out to the barrier)
-  const ESC = tr.esc, escMat = new THREE.MeshStandardMaterial({ map: T.asphalt, normalMap: T.asphaltN, normalScale: new THREE.Vector2(0.4, 0.4), color: 0xB4B8BF, roughness: 0.93 });
+  const ESC = tr.esc, escMat = named("rl_ground_escape", new THREE.MeshStandardMaterial({ map: T.asphalt, normalMap: T.asphaltN, normalScale: new THREE.Vector2(0.4, 0.4), color: 0xB4B8BF, roughness: 0.93 }));
   for (const s of [1, -1]) {
     const k = sideK(s), e0 = half + 0.6, ap = (i) => (AP ? AP[k][i] : 0), es = (i) => (ESC ? ESC[k][i] : 0);
     for (const [a, b] of runs((i) => ap(i) > 0.05 && SF?.[k][i] !== 3, 2)) strip(a, b, (i) => sided(s, [[e0, -0.005], [e0 + ap(i), -0.008]]), apronMat, { vScale: 8 });
@@ -214,7 +216,7 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
       return g;
     })();
     const spacerG = new RoundedBoxGeometry(0.34, 1.0, GAP + 0.02, 1, 0.04); spacerG.translate(0, 0.5 + 0.04, 0);
-    const modM = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, metalness: 0 }), spacerM = new THREE.MeshStandardMaterial({ color: 0xB0242A, roughness: 0.6 });
+    const modM = named("rl_tecpro", new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, metalness: 0 })), spacerM = new THREE.MeshStandardMaterial({ color: 0xB0242A, roughness: 0.6 });
     const MAX = 16000;
     for (const s of [1, -1]) {
       const k = sideK(s);
@@ -295,7 +297,7 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
   }
   // armco: two rails on posts
   {
-    const armMat = new THREE.MeshStandardMaterial({ color: 0xC9CED4, metalness: 0.8, roughness: 0.35, side: THREE.DoubleSide });
+    const armMat = named("rl_armco", new THREE.MeshStandardMaterial({ color: 0xC9CED4, metalness: 0.8, roughness: 0.35, side: THREE.DoubleSide }));
     const posts = new THREE.InstancedMesh(new THREE.BoxGeometry(0.1, 0.9, 0.1), new THREE.MeshStandardMaterial({ color: 0x8A9098, metalness: 0.6, roughness: 0.5 }), 6000); let np = 0;
     for (const s of [1, -1]) {
       const k = sideK(s);
@@ -313,7 +315,7 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
   }
   // catch fence behind every barrier (the pit wall has its own)
   {
-    const fenceMat = new THREE.MeshStandardMaterial({ map: T.fence, alphaTest: 0.45, side: THREE.DoubleSide, metalness: 0.6, roughness: 0.5 });
+    const fenceMat = named("rl_fence", new THREE.MeshStandardMaterial({ map: T.fence, alphaTest: 0.45, side: THREE.DoubleSide, metalness: 0.6, roughness: 0.5 }));
     const posts = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.07, 0.07, 4.2, 4, 1, true), new THREE.MeshStandardMaterial({ color: 0x8A9098, metalness: 0.8, roughness: 0.35 }), 6000); let np = 0;
     for (const s of [1, -1]) {
       const k = sideK(s);
@@ -388,7 +390,7 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
     const [g0, g1] = pit.garages, segLen = (g1 - g0) / 10;
     // (on the track side the garages are only as deep as the room between the track's barrier and the lane allows)
     const depthAt = (pg) => (garTrack ? Math.max(7, Math.min(18, R.off[pg] - gDoor(pg) - (W[pit.k][at(Math.round(R.mj[pg]))] + 1.2))) : 18), depth = 18;
-    const wallM = new THREE.MeshStandardMaterial({ color: 0xE8EAEE, roughness: 0.6 }), glassM = new THREE.MeshStandardMaterial({ color: 0x223044, metalness: 0.4, roughness: 0.15 }), doorM = new THREE.MeshStandardMaterial({ color: 0x15171C, roughness: 0.8 }), roofM = new THREE.MeshStandardMaterial({ color: 0xBFC4CB, metalness: 0.4, roughness: 0.4 });
+    const wallM = named("rl_concrete", new THREE.MeshStandardMaterial({ color: 0xE8EAEE, roughness: 0.6 })), glassM = new THREE.MeshStandardMaterial({ color: 0x223044, metalness: 0.4, roughness: 0.15 }), doorM = new THREE.MeshStandardMaterial({ color: 0x15171C, roughness: 0.8 }), roofM = new THREE.MeshStandardMaterial({ color: 0xBFC4CB, metalness: 0.4, roughness: 0.4 });
     pitInfo.garageRow = { at: [], out: [], depth, cols, len: g1 - g0, trackSide: garTrack };
     const pitAt = (j) => { let pi = 0, bd = Infinity; for (let n = 0; n < M; n++) { const q2 = Math.abs(R.mj[n] - j); if (q2 < bd) { bd = q2; pi = n; } } return pi; };
     for (let t = 0; t < 10; t++) {
@@ -454,7 +456,7 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
     for (let i = 0; i < pos.count; i++) { const x = pos.getX(i) + (minX + maxX) / 2, z = pos.getZ(i) + (minZ + maxZ) / 2, ix = Math.round((x - x0) / STEP), iz = Math.round((z - z0) / STEP), h = H[iz * (nx + 1) + ix]; pos.setY(i, h); uv.setXY(i, x / 5, z / 5); const v = (0.88 + Math.sin(x * 0.03) * Math.cos(z * 0.025) * 0.08 + (Math.random() - 0.5) * 0.05) * (lit ? lightAt(x, z) : 1); colA.push(v * 0.97, v, v * 0.92); }
     g.setAttribute("color", new THREE.Float32BufferAttribute(colA, 3)); g.computeVertexNormals();
     // (in a city the ground between the buildings is paved, not grass)
-    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: SC === "city" ? T.apron : sandy ? T.sand : T.grass, normalMap: SC === "city" ? T.asphaltN : sandy ? T.sandN : T.grassN, vertexColors: true, roughness: 1, color: SC === "city" ? 0xD8D6D0 : 0xFFFFFF }));
+    const m = new THREE.Mesh(g, named("rl_ground_terrain", new THREE.MeshStandardMaterial({ map: SC === "city" ? T.apron : sandy ? T.sand : T.grass, normalMap: SC === "city" ? T.asphaltN : sandy ? T.sandN : T.grassN, vertexColors: true, roughness: 1, color: SC === "city" ? 0xD8D6D0 : 0xFFFFFF })));
     m.position.set((minX + maxX) / 2, 0, (minZ + maxZ) / 2); m.receiveShadow = true; group.add(m);
     const skirt = new THREE.Mesh(new THREE.RingGeometry(Math.max(maxX - minX, maxZ - minZ) * 0.55, 9000, 64, 1), new THREE.MeshStandardMaterial({ color: sandy ? 0xB59A6E : 0x3E5A34, roughness: 1 }));
     skirt.rotation.x = -Math.PI / 2; skirt.position.set((minX + maxX) / 2, coarseAt((minX + maxX) / 2, (minZ + maxZ) / 2) - 6, (minZ + maxZ) / 2); group.add(skirt);

@@ -1,0 +1,8 @@
+{
+  "name": "com.racelimit.game",
+  "version": "0.1.0",
+  "displayName": "RaceLimit",
+  "description": "The RaceLimit F1 racing game: circuits exported from the web game (with real OpenStreetMap surroundings), the car, its physics, cameras, timing and HUD. Menu: RaceLimit > Build Spa scene.",
+  "unity": "6000.0",
+  "author": { "name": "RaceLimit" }
+}
