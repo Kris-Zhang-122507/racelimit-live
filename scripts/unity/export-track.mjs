@@ -129,9 +129,10 @@ const res = await p.evaluate(async () => {
 const slug = JSON.parse(res.data).slug, dir = OUT + "Tracks/" + slug + "/";
 mkdirSync(dir, { recursive: true }); mkdirSync(OUT + "Cars", { recursive: true });
 writeFileSync(dir + slug + ".glb", Buffer.from(res.glb, "base64"));
-// (squeezed with gltfpack when it's there: 16-bit positions, 8-bit normals — KHR_mesh_quantization, which glTFast reads —
-// and meshes sharing a material merged; names, materials and extras kept. Spa: ~77 MB → ~38 MB)
-if (process.env.GLTFPACK) { const { execFileSync } = await import("node:child_process"); execFileSync("node", [process.env.GLTFPACK, "-i", dir + slug + ".glb", "-o", dir + slug + ".glb", "-kn", "-km", "-ke"], { stdio: "inherit" }); }
+// (tidied with gltfpack when it's there: meshes sharing a material merged, names, materials and extras kept. NOT quantized
+// (-noq): its 14-bit positions are relative to each mesh's size, and a strip running round the whole lap came out in
+// ~0.4 m steps — a lumpy, spiky track. Spa: ~77 MB → ~59 MB)
+if (process.env.GLTFPACK) { const { execFileSync } = await import("node:child_process"); execFileSync("node", [process.env.GLTFPACK, "-i", dir + slug + ".glb", "-o", dir + slug + ".glb", "-kn", "-km", "-ke", "-noq"], { stdio: "inherit" }); }
 writeFileSync(dir + slug + ".track.json", res.data);
 writeFileSync(OUT + "Cars/car.glb", Buffer.from(res.car, "base64"));
 console.log(slug, "glb", (Buffer.from(res.glb, "base64").length / 1e6).toFixed(1), "MB", "car", (Buffer.from(res.car, "base64").length / 1e6).toFixed(1), "MB", JSON.stringify(res.info));
