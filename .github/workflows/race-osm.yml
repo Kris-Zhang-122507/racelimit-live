@@ -1,0 +1,42 @@
+# OpenStreetMap data round each circuit for the racing game's scenery (see scripts/race-osm.mjs).
+# Runs when the script changes, or by hand (add "--force" to redo circuits that are already saved).
+name: Race game map data
+
+on:
+  push:
+    branches: [main]
+    paths: [scripts/race-osm.mjs]
+  workflow_dispatch:
+    inputs:
+      args:
+        description: "Circuit slugs to (re)do, and/or --force"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: race-osm
+  cancel-in-progress: false
+
+jobs:
+  osm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Fetch OpenStreetMap data
+        run: node scripts/race-osm.mjs ${{ github.event.inputs.args }}
+      - name: Save
+        run: |
+          git config user.name "racelimit-archive"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/race-osm
+          if git diff --cached --quiet; then echo "Nothing new."; else
+            git commit -m "Race game: OpenStreetMap data"
+            for i in 1 2 3; do git pull --rebase && git push && break; sleep 10; done
+          fi
