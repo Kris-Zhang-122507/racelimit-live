@@ -1,10 +1,9 @@
 // Exports a circuit and the car from the web game for the Unity version:
 //   unity/com.racelimit.game/Tracks/<slug>/<slug>.glb   the whole circuit as the web game builds it (track, kerbs,
-//        run-off, walls, terrain, real buildings, trees…), plus invisible wall strips for collisions (material
-//        "rl_col_wall") and four axis markers (RL_O / RL_X / RL_Y / RL_Z, 100 m apart) so Unity can work out how the
-//        importer turned the axes
-//   unity/com.racelimit.game/Tracks/<slug>/<slug>.track.json   the centre line, widths and walls (for lap timing,
-//        resets, the minimap), in the same (three.js) coordinates as the markers
+//        run-off, walls, terrain, real buildings, trees…; not the Tecpro rows, Unity makes those) and four axis markers
+//        (RL_O / RL_X / RL_Y / RL_Z, 100 m apart) so Unity can work out how the importer turned the axes
+//   unity/com.racelimit.game/Tracks/<slug>/<slug>.track.json   the centre line, widths, Tecpro, the barriers' faces for
+//        collisions, the pit lane (for lap timing, resets, the minimap), in the same (three.js) coordinates as the markers
 //   unity/com.racelimit.game/Cars/car.glb   the car, wheels named RL_Wheel_FL/FR/RL/RR
 // Ground materials are named rl_ground_<surface> in trackmesh.js; Unity gives those colliders and a surface type.
 // Needs the local server: (cd public && python3 -m http.server 8791). Run: node scripts/unity/export-track.mjs spa
@@ -98,18 +97,20 @@ const res = await p.evaluate(async () => {
     if (A.hasUV) bg.setAttribute("uv", new THREE.Float32BufferAttribute(A.U, 2)); bg.setAttribute("color", new THREE.Float32BufferAttribute(A.C, 3)); bg.setIndex(A.I);
     const mesh = new THREE.Mesh(bg, A.mat); mesh.name = (A.mat.name || "scenery") + "_baked"; G.add(mesh);
   }
-  // collision walls: a 2.5 m strip along every barrier (the track's both sides, the pit lane's), breaking where it's open
-  const colMat = new THREE.MeshBasicMaterial({ color: 0xff00ff, name: "rl_col_wall" }), col = new THREE.Group(); col.name = "RL_Collision";
-  const wallStrip = (n, pt, closed, name) => {
+  // collision walls: every barrier's face (the track's both sides, the pit lane's) as lines of points, each with the
+  // direction away from the road; Unity stands solid boxes behind them (TrackInfo.BuildWalls). (They were invisible
+  // one-sided strips in the model before, and a car could go through them from behind.)
+  const wallRuns = [];
+  const wallStrip = (n, pt, closed, name, thick) => {
     let run = [];
-    const flush = () => { if (run.length > 1) { const pos = [], idx = []; run.forEach(([x, y, z], k) => { pos.push(x, y - 0.6, z, x, y + 1.9, z); if (k) idx.push(2 * k - 2, 2 * k - 1, 2 * k, 2 * k - 1, 2 * k + 1, 2 * k); }); const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals(); const m = new THREE.Mesh(g, colMat); m.name = name; col.add(m); } run = []; };
-    for (let i = 0; i <= n; i++) { if (!closed && i === n) break; const q = pt(i % n); if (!q) { flush(); continue; } run.push(q); if (run.length >= 400) { const last = run[run.length - 1]; flush(); run.push(last); } }
+    const flush = () => { if (run.length > 1) wallRuns.push({ name, thick, pts: run }); run = []; };
+    for (let i = 0; i <= n; i++) { if (!closed && i === n) break; const q = pt(i % n); if (!q) { flush(); continue; } run.push(q); }
     flush();
   };
   // (in front of Tecpro the hard wall is the concrete behind the rows, as far back as they can be squashed: Unity's
   // TecproBarrier slows the car in the foam before that)
   const tecRows = (k, i) => (tr.wallType[k][i] === 1 && tr.crush ? (tr.crush[k][i] > 1 ? 3 : 2) : 0);
-  const wallPt = (k, s, i) => { const o = s * (tr.wall[k][i] + (tecRows(k, i) ? tr.crush[k][i] : 0)); return [tr.X[i] + tr.LX[i] * o, tr.yAt(i, o), tr.Z[i] + tr.LZ[i] * o]; };
+  const wallPt = (k, s, i) => { const o = s * (tr.wall[k][i] + (tecRows(k, i) ? tr.crush[k][i] : 0)); return [tr.X[i] + tr.LX[i] * o, tr.yAt(i, o), tr.Z[i] + tr.LZ[i] * o, s * tr.LX[i], s * tr.LZ[i]]; };
   // Beside the pit lane the track's barrier on that side is, bit by bit, the pit wall (where there is one) or the pit
   // road's far wall (where the lane is still joining the track). Both have strips of their own, drawn along the pit
   // road below, so the track's strip leaves them out: joined up with the track's own barrier it ran straight across the
@@ -120,9 +121,8 @@ const res = await p.evaluate(async () => {
   for (const [k, s] of [[0, 1], [1, -1]]) wallStrip(tr.N, (i) => {
     if (besidePit(k, i)) return null;
     return wallPt(k, s, i);
-  }, true, k ? "RL_Wall_R" : "RL_Wall_L");
-  if (P) for (const [k, s] of [[0, 1], [1, -1]]) wallStrip(P.N, (i) => { const w = P.wall[k][i]; if (w >= 40) return null; const o = s * w; return [P.X[i] + P.LX[i] * o, P.Y[i], P.Z[i] + P.LZ[i] * o]; }, false, k ? "RL_PitWall_R" : "RL_PitWall_L");
-  G.add(col);
+  }, true, k ? "RL_Wall_R" : "RL_Wall_L", 0.8);
+  if (P) for (const [k, s] of [[0, 1], [1, -1]]) wallStrip(P.N, (i) => { const w = P.wall[k][i]; if (w >= 40) return null; const o = s * w; return [P.X[i] + P.LX[i] * o, P.Y[i], P.Z[i] + P.LZ[i] * o, s * P.LX[i], s * P.LZ[i]]; }, false, k ? "RL_PitWall_R" : "RL_PitWall_L", 0.45);
   const marks = [["RL_O", 0, 0, 0], ["RL_X", 100, 0, 0], ["RL_Y", 0, 100, 0], ["RL_Z", 0, 0, 100]].map(([n, x, y, z]) => { const o = new THREE.Object3D(); o.name = n; o.position.set(x, y, z); G.add(o); return o; });
   const ex = new GLTFExporter(), toB64 = (buf) => { const u = new Uint8Array(buf); let s = ""; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); };
   const glb = await ex.parseAsync(G, { binary: true, onlyVisible: false, maxTextureSize: 1024 });
@@ -148,6 +148,9 @@ const res = await p.evaluate(async () => {
     x: A(tr.N, (i) => r2(tr.X[i])), y: A(tr.N, (i) => r2(tr.Y[i])), z: A(tr.N, (i) => r2(tr.Z[i])), wallL: A(tr.N, (i) => r1(tr.wall[0][i])), wallR: A(tr.N, (i) => r1(tr.wall[1][i])),
     // the ground's height at the track's edges and just behind the barriers (for Unity's safety ground, so it follows
     // the real camber and the slope of the run-off instead of lying flat at the centre line's height)
+    walls: wallRuns.map((w) => ({ name: w.name, thick: w.thick, x: w.pts.map((q) => r2(q[0])), y: w.pts.map((q) => r2(q[1])), z: w.pts.map((q) => r2(q[2])), ox: w.pts.map((q) => Math.round(q[3] * 1000) / 1000), oz: w.pts.map((q) => Math.round(q[4] * 1000) / 1000) })),
+    // the pit lane's walls either side of its middle (m; 40 = open), per 2 m like pitX
+    pitWallL: pk.map((i) => r1(P.wall[0][i])), pitWallR: pk.map((i) => r1(P.wall[1][i])),
     tecL: A(tr.N, (i) => tecRows(0, i)), tecR: A(tr.N, (i) => tecRows(1, i)), wallYL: A(tr.N, (i) => r2(tr.yAt(i, tr.wall[0][i]))), wallYR: A(tr.N, (i) => r2(tr.yAt(i, -tr.wall[1][i]))),
     edgeL: A(tr.N, (i) => r2(tr.yAt(i, tr.half + 0.5))), edgeR: A(tr.N, (i) => r2(tr.yAt(i, -tr.half - 0.5))),
     outL: A(tr.N, (i) => r2(tr.yAt(i, Math.max(tr.half + 1, tr.wall[0][i] + 2)))), outR: A(tr.N, (i) => r2(tr.yAt(i, -Math.max(tr.half + 1, tr.wall[1][i] + 2)))),

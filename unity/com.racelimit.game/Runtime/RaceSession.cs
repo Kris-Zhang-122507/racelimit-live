@@ -93,10 +93,18 @@ namespace RaceLimit
             // track limits: all four wheels on grass or gravel for a moment
             if (car.offTrack && car.kmh > 30) { offT += Time.deltaTime; if (offT > 0.25f && running && !lapInvalid) { lapInvalid = true; Say("Track limits: lap deleted", 2.2f); } } else offT = 0;
             // the pit limiter, between the lines
-            float pd = track.PitDistance(p);
-            onPit = track.PitDistance(p, 6.5f) >= 0;
-            bool lim = pd >= 0 && pd >= track.data.pitLimitFrom && pd <= track.data.pitLimitTo;
-            if (lim != car.pitLimiter) { car.pitLimiter = lim; Say(lim ? "Pit limiter on · 80 km/h" : "Limiter off", 1.4f); }
+            // (in the pit lane: between its walls, measured from the lane's own middle — the working lane by the garages too)
+            float pd; bool inLane = track.InPitLane(p, out pd);
+            if (inLane && Mathf.Abs(track.Lateral(p, idx)) < track.data.half - 0.3f) inLane = false; // (still on the track where the lane leaves or joins it)
+            if (inLane && !onPit && !car.pitLimiter) Say("Pit lane", 1.2f);
+            onPit = inLane;
+            bool lim = inLane && pd >= track.data.pitLimitFrom && pd <= track.data.pitLimitTo;
+            if (lim != car.pitLimiter)
+            {
+                car.pitLimiter = lim;
+                if (lim) Say(car.kmh > 82 ? "Pit limiter on — you came in at " + Mathf.RoundToInt(car.kmh) + " km/h!" : "Pit limiter on · 80 km/h", 2.2f);
+                else Say("Limiter off", 1.4f);
+            }
         }
 
         public static string Fmt(float t)

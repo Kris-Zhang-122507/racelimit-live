@@ -222,6 +222,8 @@ namespace RaceLimit
             if (pitLimiter && u > 79.5f / 3.6f && drive > 0) drive = 0;
             if (reverse) drive = u > -9.5f ? -6500 * brake : 0;
             float brakeTotal = Mathf.Abs(u) > 0.6f && !reverse ? brake : 0;
+            // the pit limiter holds 80 km/h: no power above it, and it brings a car that came in too fast down to it
+            if (pitLimiter && u > 80.5f / 3.6f) brakeTotal = Mathf.Max(brakeTotal, Mathf.Clamp((u * 3.6f - 80f) / 25f, 0.08f, 0.5f));
 
             // ---- wheels: first where each one touches and how hard it's pressed down ----
             absActive = tcActive = lockFront = lockRear = wheelspin = false; offTrack = true;

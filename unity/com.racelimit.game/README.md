@@ -28,8 +28,8 @@ A controller works too (triggers, left stick, bumpers for gears, A overtake, Y c
 | `Editor/` | `RaceLimitSetup`: the RaceLimit menu (installs glTFast, builds scenes). |
 
 Ground pieces are found by material name (`rl_ground_track`, `_kerb`, `_grass`, `_gravel`…): they get a Mesh Collider and a surface
-type for the tyres. Barriers collide through invisible strips (`rl_col_wall`); in front of Tecpro the strip is the concrete behind
-the rows, and `TecproBarrier` slows the car in the foam before that and squashes the rows where it went in. Car settings (grip, aero, power, springs, aids) are on
+type for the tyres. Barriers are invisible solid boxes that `TrackInfo` stands behind each barrier's face (the faces come in the
+`.track.json`); in front of Tecpro the box is the concrete behind the rows, and `TecproBarrier` slows the car in the foam before that and squashes the rows where it went in. Car settings (grip, aero, power, springs, aids) are on
 the **RaceCar** component of `PlayerCar` and can be changed in the Inspector while playing.
 
 Map data © OpenStreetMap contributors (ODbL).

@@ -12,6 +12,9 @@ namespace RaceLimit
         public class Corner { public int n; public string name; public int i; }
 
         [Serializable]
+        public class WallRun { public string name; public float thick; public float[] x, y, z, ox, oz; } // a barrier's face, and which way is away from the road
+
+        [Serializable]
         public class Data
         {
             public string slug, name;
@@ -26,6 +29,8 @@ namespace RaceLimit
             public bool hasPit;
             public float pitLimitFrom, pitLimitTo;
             public float[] pitX, pitY, pitZ, pitDist;
+            public float[] pitWallL, pitWallR;       // the pit lane's walls either side of its middle (40 = open)
+            public WallRun[] walls;
             public float carEyeZ, wheelRadius;
         }
 
@@ -49,6 +54,7 @@ namespace RaceLimit
         {
             if (!Load()) return;
             int ground, walls; AddColliders(out ground, out walls);
+            if (data.walls != null && data.walls.Length > 0) walls = BuildWalls();
             BuildSafetyGround();
             Debug.Log("RaceLimit: " + data.name + " — " + ground + " ground pieces and " + walls + " barrier pieces made solid, plus the safety ground under the track");
         }
@@ -72,11 +78,53 @@ namespace RaceLimit
                 if (!mf.sharedMesh.isReadable) Debug.LogWarning("RaceLimit: mesh " + mf.sharedMesh.name + " isn't readable, so it can't be made solid. Select the circuit's .glb and tick Read/Write in its import settings.");
                 var mc = r.GetComponent<MeshCollider>(); if (mc == null) mc = r.gameObject.AddComponent<MeshCollider>();
                 mc.sharedMesh = mf.sharedMesh;
-                if (wall) { r.enabled = false; mc.sharedMaterial = RLWall.Material; walls++; continue; }
+                if (wall) { r.enabled = false; mc.sharedMaterial = RLWall.Material; walls++; if (data.walls != null && data.walls.Length > 0) mc.enabled = false; continue; }
                 var sf = r.GetComponent<RLSurface>(); if (sf == null) sf = r.gameObject.AddComponent<RLSurface>();
                 RLSurface.TryParse(mn, out sf.kind); ground++;
             }
             if (ground == 0) Debug.LogError("RaceLimit: no ground pieces found in the circuit model. Material names seen: " + string.Join(", ", seen));
+        }
+
+        // The barriers: solid boxes standing behind each barrier's face, end to end along it (a new box every 3 m, or
+        // sooner where it bends), 2.5 m tall, as thick as a wall. Solid from every side, so nothing gets through them
+        // (the old wall strips were one-sided: from behind, a car went straight through).
+        public int BuildWalls()
+        {
+            if (transform.Find("RL_Walls") != null) return 0;
+            var root = new GameObject("RL_Walls").transform; root.SetParent(transform, false);
+            root.position = Vector3.zero; root.rotation = Quaternion.identity; root.localScale = Vector3.one;
+            int count = 0;
+            foreach (var w in data.walls)
+            {
+                if (w.x == null || w.x.Length < 2) continue;
+                int n = w.x.Length; float thick = w.thick > 0 ? w.thick : 0.8f;
+                var p = new Vector3[n]; var outw = new Vector3[n];
+                for (int i = 0; i < n; i++) { p[i] = Map(w.x[i], w.y[i], w.z[i]); Vector3 d = ex * w.ox[i] + ez * w.oz[i]; d.y = 0; outw[i] = d.sqrMagnitude > 1e-6f ? d.normalized : Vector3.zero; }
+                int a = 0;
+                while (a < n - 1)
+                {
+                    // as far along as stays nearly straight (and no more than 3 m)
+                    int b = a + 1; Vector3 dir0 = p[b] - p[a]; dir0.y = 0;
+                    while (b < n - 1)
+                    {
+                        Vector3 d2 = p[b + 1] - p[a]; Vector3 f2 = d2; f2.y = 0;
+                        Vector3 step = p[b + 1] - p[b]; step.y = 0;
+                        if (f2.magnitude > 3f || Vector3.Angle(dir0, step) > 4f || Vector3.Distance(p[b + 1], p[b]) > 3f) break;
+                        b++;
+                    }
+                    Vector3 A = p[a], B = p[b], along = B - A;
+                    if (along.sqrMagnitude > 1e-4f)
+                    {
+                        Vector3 ow = (outw[a] + outw[b]); ow.y = 0; if (ow.sqrMagnitude < 1e-6f) ow = Vector3.Cross(Vector3.up, along); ow.Normalize();
+                        var go = new GameObject(w.name + "_" + a); go.transform.SetParent(root, false);
+                        go.transform.SetPositionAndRotation((A + B) / 2 + ow * (thick / 2) + Vector3.up * 0.65f, Quaternion.LookRotation(along.normalized, Vector3.up));
+                        var bc = go.AddComponent<BoxCollider>(); bc.size = new Vector3(thick, 2.5f, along.magnitude + 0.06f); bc.sharedMaterial = RLWall.Material;
+                        count++;
+                    }
+                    a = b;
+                }
+            }
+            return count;
         }
 
         // An invisible surface just under the road, from barrier to barrier all the way round (and along the pit lane),
@@ -212,6 +260,26 @@ namespace RaceLimit
             float w2 = within * within;
             for (int i = 0; i < pit.Length; i++) if ((pit[i] - p).sqrMagnitude < w2) return true;
             return false;
+        }
+
+        // Is a point in the pit lane (between its walls, or within the lane's width where a side is open to the track)?
+        // If so, how far along it (m).
+        public bool InPitLane(Vector3 p, out float along)
+        {
+            along = -1;
+            if (pit == null || pit.Length < 2) return false;
+            int best = 0; float bd = float.MaxValue;
+            for (int i = 0; i < pit.Length; i++) { Vector3 d = pit[i] - p; d.y = 0; float q = d.sqrMagnitude; if (q < bd) { bd = q; best = i; } }
+            if (bd > 30f * 30f || Mathf.Abs(pit[best].y - p.y) > 4f) return false;
+            Vector3 f = pit[Mathf.Min(pit.Length - 1, best + 1)] - pit[Mathf.Max(0, best - 1)]; f.y = 0; f.Normalize();
+            Vector3 l = -Vector3.Cross(Vector3.up, f), dp = p - pit[best]; dp.y = 0;
+            float lat = Vector3.Dot(dp, l), fwd = Vector3.Dot(dp, f);
+            if ((best == 0 && fwd < -1f) || (best == pit.Length - 1 && fwd > 1f)) return false;
+            float wl = data.pitWallL != null && best < data.pitWallL.Length ? data.pitWallL[best] : 40, wr = data.pitWallR != null && best < data.pitWallR.Length ? data.pitWallR[best] : 40;
+            float L = wl >= 40 ? 3.7f : wl + 0.5f, R = wr >= 40 ? 3.7f : wr + 0.5f;
+            if (lat > L || -lat > R) return false;
+            along = data.pitDist[best] + fwd;
+            return true;
         }
 
         // where along the pit lane (m) a point is, or -1 if it isn't in it
