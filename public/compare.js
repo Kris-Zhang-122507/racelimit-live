@@ -1,6 +1,6 @@
 // Compare: two drivers head to head.
-import { lapSeconds } from "./lib/race.js?v=mvfw9v6x";
-import { fade } from "./tyres.js?v=mvfw9v6x";
+import { lapSeconds } from "./lib/race.js?v=mvg3lsn9";
+import { fade } from "./tyres.js?v=mvg3lsn9";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const num = (v) => { const n = parseFloat(String(v ?? "").replace("+", "")); return Number.isFinite(n) ? n : null; };

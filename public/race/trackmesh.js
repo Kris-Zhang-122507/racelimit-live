@@ -4,7 +4,8 @@
 // start gantry and brake boards. Everything is generated, nothing is downloaded.
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
-import { addProps } from "./trackprops.js?v=mvfw9v6x";
+import { addProps } from "./trackprops.js?v=mvg3lsn9";
+import { prepareMap, buildMap } from "./trackworld.js?v=mvg3lsn9";
 
 const smoothstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
@@ -75,7 +76,7 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
   if (lit) {
     for (let i = 0; i < N; i += 24) for (const s of [1, -1]) {
       if ((i / 24 + (s > 0 ? 0 : 1)) % 2) continue; // staggered: each side every 48 m
-      const k = sideK(s); if (WT[k][i] === 2) continue; // not along the pit wall
+      const k = sideK(s); if (WT[k][i] === 2 || tr.tunnel?.[i] > 0) continue; // not along the pit wall, nor in a tunnel
       const base = W[k][i] + (WT[k][i] === 1 ? 2.8 : WT[k][i] === 3 ? 1.3 : 2.4), reach = Math.min(4, base - half - 0.5);
       const px = X[i] + LX[i] * s * base, pz = Z[i] + LZ[i] * s * base, py = hAt(i, s * base);
       // the lamps are aimed at the track: the middle of their pool of light is on the near half of the track
@@ -89,22 +90,30 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
     for (let a = -2; a <= 2; a++) for (let b = -2; b <= 2; b++) for (const n of lampGrid.get((gx + a) * 100003 + gz + b) ?? []) { const l = lamps[n], d2 = (l.ax - x) ** 2 + (l.az - z) ** 2; sum += Math.exp(-d2 / (2 * 12 * 12)); }
     return isNight ? 0.3 + 0.95 * Math.min(1.25, sum) : 0.9 + 0.15 * Math.min(1, sum);
   };
-  // vertex colours carrying that light, for a ribbon's positions
-  const lightUp = (g, mat, pos) => { if (!lit) return; const c = new Float32Array(pos.length); for (let v = 0; v < pos.length; v += 3) { const L = lightAt(pos[v], pos[v + 2]); c[v] = L; c[v + 1] = L; c[v + 2] = L * 0.97; } g.setAttribute("color", new THREE.BufferAttribute(c, 3)); if (!mat.vertexColors) { mat.vertexColors = true; mat.needsUpdate = true; } };
+  // vertex colours carrying that light, for a ribbon's positions (and, inside a tunnel, the gloom: `rows`
+  // gives each vertex's track sample)
+  const hasTunnel = tr.tunnel?.some((v) => v > 0);
+  const lightUp = (g, mat, pos, rows) => {
+    if (!lit && !hasTunnel && !mat.vertexColors) return; // (a material that already uses them needs them on every mesh)
+    const c = new Float32Array(pos.length);
+    for (let v = 0; v < pos.length; v += 3) { const L = (lit ? lightAt(pos[v], pos[v + 2]) : 1) * (rows ? 1 - 0.7 * tr.tunnel[rows[v / 3]] : 1); c[v] = L; c[v + 1] = L; c[v + 2] = L * 0.97; }
+    g.setAttribute("color", new THREE.BufferAttribute(c, 3)); if (!mat.vertexColors) { mat.vertexColors = true; mat.needsUpdate = true; }
+  };
+  prepareMap(tr); // (the water's level and where the ground must go under it, before the terrain is built)
   const group = new THREE.Group(); scene.add(group);
   const keepOut = []; // rectangles (centre, half-sizes, angle) where nothing else may go: pits, stands
 
   // a strip along the track with a cross-section [[offset, height], …] from index a to b;
   // `prof` can also be a function of the track index
   function strip(a, b, prof, mat, { vScale = 10, uScale = 1 } = {}) {
-    const P0 = typeof prof === "function" ? prof(at(a)) : prof, M = P0.length, pos = [], uv = [], idx = [];
+    const P0 = typeof prof === "function" ? prof(at(a)) : prof, M = P0.length, pos = [], uv = [], idx = [], rows = [];
     for (let k = 0; k <= b - a; k++) {
       const i = at(a + k), d = dist[i] + (a + k >= N ? tr.len : 0) - (a + k < 0 ? tr.len : 0), pr = typeof prof === "function" ? prof(i) : prof;
-      for (let m = 0; m < M; m++) { const [o, h] = pr[m]; pos.push(X[i] + LX[i] * o, hAt(i, o) + h, Z[i] + LZ[i] * o); uv.push((m / (M - 1)) * uScale, d / vScale); }
+      for (let m = 0; m < M; m++) { const [o, h] = pr[m]; pos.push(X[i] + LX[i] * o, hAt(i, o) + h, Z[i] + LZ[i] * o); uv.push((m / (M - 1)) * uScale, d / vScale); rows.push(i); }
       if (k < b - a) for (let m = 0; m < M - 1; m++) { const o = k * M + m; idx.push(o, o + M, o + 1, o + 1, o + M, o + M + 1); }
     }
     const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
-    lightUp(g, mat, pos);
+    lightUp(g, mat, pos, rows);
     const m = new THREE.Mesh(g, mat); m.receiveShadow = true; group.add(m); return m;
   }
   // runs of the lap where `test(i)` holds, as [start, end] index pairs (end may pass N)
@@ -304,7 +313,7 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
     const posts = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.07, 0.07, 4.2, 4, 1, true), new THREE.MeshStandardMaterial({ color: 0x8A9098, metalness: 0.8, roughness: 0.35 }), 6000); let np = 0;
     for (const s of [1, -1]) {
       const k = sideK(s);
-      for (const [a, b] of runs((i) => WT[k][i] !== 2, 2)) {
+      for (const [a, b] of runs((i) => WT[k][i] !== 2 && !(tr.tunnel?.[i] > 0.3), 2)) { // (none inside a tunnel)
         strip(a, b, (i) => sided(s, [[fo(k, i), 0], [fo(k, i), 4.0]]), fenceMat, { vScale: 3, uScale: 1.3 });
         for (let kk = a; kk < b; kk += 6) { const i = at(kk), o = s * fo(k, i); m4.makeTranslation(X[i] + LX[i] * o, hAt(i, o) + 2.1, Z[i] + LZ[i] * o); if (np < 6000) posts.setMatrixAt(np++, m4); }
       }
@@ -351,8 +360,14 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
     };
     limitLine(R.limitFrom, "start"); limitLine(R.limitTo, "end");
     // the pit wall between the track and the lane, with a debris fence along the garages
+    // (each end of the pit wall gets a striped crash cushion, like the real ones)
+    const noseM = new THREE.MeshStandardMaterial({ map: tex(canvas(64, 64, (g) => { g.fillStyle = "#F5C518"; g.fillRect(0, 0, 64, 64); g.fillStyle = "#16181D"; for (let k = -64; k < 128; k += 22) { g.beginPath(); g.moveTo(k, 0); g.lineTo(k + 11, 0); g.lineTo(k + 11 - 64, 64); g.lineTo(k - 64, 64); g.fill(); } })), roughness: 0.6 });
     for (const [a, b] of prunsP((i) => R.bar[i])) {
       pstrip(a, b, (i) => order([[ts * R.hw[i], 0], [ts * R.hw[i], 1.1], [ts * (R.hw[i] + R.WALL), 1.1], [ts * (R.hw[i] + R.WALL), 0]]), conc, { vScale: 4 });
+      for (const [e, dir] of [[a, -1], [b, 1]]) {
+        const o = ts * (R.hw[e] + R.WALL / 2), nose = new THREE.Mesh(new RoundedBoxGeometry(0.95, 1.1, 2.2, 2, 0.3), noseM);
+        nose.position.set(R.X[e] + R.LX[e] * o - R.TX[e] * dir * 1.0, R.Y[e] + 0.55, R.Z[e] + R.LZ[e] * o - R.TZ[e] * dir * 1.0); nose.rotation.y = Math.atan2(R.TX[e], R.TZ[e]); nose.castShadow = true; group.add(nose);
+      }
     }
     const pf = new THREE.MeshStandardMaterial({ map: T.fence, alphaTest: 0.45, side: THREE.DoubleSide, metalness: 0.6, roughness: 0.5 });
     if (gIdx.length) pstrip(Math.max(0, gIdx[0] - 40), Math.min(M - 1, gIdx[gIdx.length - 1] + 40), (i) => [[ts * (R.hw[i] + 0.2), 1.1], [ts * (R.hw[i] + 0.2), 4.2]], pf, { vScale: 3, uScale: 0.8 });
@@ -403,7 +418,9 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
   const hills = (x, z) => Math.sin(x * 0.004) * 9 + Math.cos(z * 0.0033) * 11 + Math.sin((x + z) * 0.009) * 3;
   // the ground right by the track sits just under it (out to the barrier, or the garages by the pits);
   // further out it blends between nearby parts of the track, then into rolling hills
-  const groundAt = (x, z) => {
+  let terrainH = null; // the terrain mesh's heights once it's built (carved under the roads), see below
+  const groundAt = (x, z) => { const g = groundRaw(x, z); if (terrainH) { const t = terrainH(x, z); if (t != null && t < g.h) g.h = t; } return g; };
+  const groundRaw = (x, z) => {
     const n = tr.nearestGlobal(x, z, 3);
     if (n.i < 0) return { h: coarseAt(x, z) + hills(x, z), d: 999 };
     const i = n.i, d = Math.sqrt(n.d2), lat = (x - X[i]) * LX[i] + (z - Z[i]) * LZ[i], k = lat >= 0 ? 0 : 1;
@@ -415,7 +432,17 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
     const STEP = 8, nx = Math.ceil((maxX - minX) / STEP), nz = Math.ceil((maxZ - minZ) / STEP);
     const g = new THREE.PlaneGeometry(nx * STEP, nz * STEP, nx, nz); g.rotateX(-Math.PI / 2);
     const pos = g.attributes.position, uv = g.attributes.uv, colA = [];
-    for (let i = 0; i < pos.count; i++) { const x = pos.getX(i) + (minX + maxX) / 2, z = pos.getZ(i) + (minZ + maxZ) / 2, { h } = groundAt(x, z); pos.setY(i, h); uv.setXY(i, x / 5, z / 5); const v = (0.88 + Math.sin(x * 0.03) * Math.cos(z * 0.025) * 0.08 + (Math.random() - 0.5) * 0.05) * (lit ? lightAt(x, z) : 1); colA.push(v * 0.97, v, v * 0.92); }
+    const x0 = (minX + maxX) / 2 - (nx * STEP) / 2, z0 = (minZ + maxZ) / 2 - (nz * STEP) / 2, H = new Float32Array((nx + 1) * (nz + 1));
+    for (let iz = 0; iz <= nz; iz++) for (let ix = 0; ix <= nx; ix++) H[iz * (nx + 1) + ix] = groundRaw(x0 + ix * STEP, z0 + iz * STEP).h;
+    // carve: wherever there's a road surface (the track out to its barriers, the pit lane, the garages),
+    // the four corners of the terrain square it's in go below it, so the ground can never poke through
+    const carve = (x, z, hs) => { const fx = (x - x0) / STEP, fz = (z - z0) / STEP, ix = Math.floor(fx), iz = Math.floor(fz); if (ix < 0 || iz < 0 || ix >= nx || iz >= nz) return; for (const [a, b] of [[0, 0], [1, 0], [0, 1], [1, 1]]) { const k = (iz + b) * (nx + 1) + ix + a; if (H[k] > hs) H[k] = hs; } };
+    for (let i = 0; i < N; i += 2) for (const s of [1, -1]) { const k = sideK(s), lim = W[k][i] + 6; for (let o = 0; o <= lim; o += 2.5) { const oo = s * Math.min(o, lim); carve(X[i] + LX[i] * oo, Z[i] + LZ[i] * oo, hAt(i, oo) - 0.4); } }
+    if (tr.pitRoad) { const R = tr.pitRoad; for (let i = 0; i < R.N; i += 2) { const out = Math.max(R.wall[0][i] === 40 ? R.hw[i] : R.wall[0][i], R.wall[1][i] === 40 ? R.hw[i] : R.wall[1][i]) + 4; for (let o = -out; o <= out; o += 2.5) carve(R.X[i] + R.LX[i] * o, R.Z[i] + R.LZ[i] * o, R.Y[i] - 0.4); } }
+    for (const c of tr.carveExtra ?? []) carve(c[0], c[1], c[2]); // (water and the like, see trackprops)
+    terrainH = (x, z) => { const fx = (x - x0) / STEP, fz = (z - z0) / STEP, ix = Math.floor(fx), iz = Math.floor(fz); if (ix < 0 || iz < 0 || ix >= nx || iz >= nz) return null; const tx = fx - ix, tz = fz - iz, a = H[iz * (nx + 1) + ix], b = H[iz * (nx + 1) + ix + 1], c = H[(iz + 1) * (nx + 1) + ix], d = H[(iz + 1) * (nx + 1) + ix + 1]; return Math.max(a, b, c, d) === Math.min(a, b, c, d) ? a : a + (b - a) * tx + (c - a) * tz + (a - b - c + d) * tx * tz; };
+    tr.terrain = { H, x0, z0, nx, nz, STEP };
+    for (let i = 0; i < pos.count; i++) { const x = pos.getX(i) + (minX + maxX) / 2, z = pos.getZ(i) + (minZ + maxZ) / 2, ix = Math.round((x - x0) / STEP), iz = Math.round((z - z0) / STEP), h = H[iz * (nx + 1) + ix]; pos.setY(i, h); uv.setXY(i, x / 5, z / 5); const v = (0.88 + Math.sin(x * 0.03) * Math.cos(z * 0.025) * 0.08 + (Math.random() - 0.5) * 0.05) * (lit ? lightAt(x, z) : 1); colA.push(v * 0.97, v, v * 0.92); }
     g.setAttribute("color", new THREE.Float32BufferAttribute(colA, 3)); g.computeVertexNormals();
     // (in a city the ground between the buildings is paved, not grass)
     const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: SC === "city" ? T.apron : sandy ? T.sand : T.grass, normalMap: SC === "city" ? T.asphaltN : sandy ? T.sandN : T.grassN, vertexColors: true, roughness: 1, color: SC === "city" ? 0xD8D6D0 : 0xFFFFFF }));
@@ -472,11 +499,13 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
     for (const c of corners) { if (placed >= 4) break; const outside = tr.K[c.i] > 0 ? 1 : -1; /* K > 0 turns right: the outside is on the left */ if (tryStand(c.i, outside, 90, 14) || tryStand(at(c.i - 60), outside, 80, 12)) placed++; }
   }
 
+  // ---------- the real surroundings from OpenStreetMap: buildings, water, tunnels, bridges (trackworld.js) ----------
+  const mapRes = buildMap({ tr, group, tex, canvas, groundAt, strip, sided, inKeepOut, clearOfPit, clearOfTrack, isNight, dusk: tr.cfg.time === "dusk", sideK });
   // ---------- buildings, floodlights, marshals, billboards, bridges, the paddock… (trackprops.js) ----------
-  const props = addProps({ tr, group, tex, canvas, hAt, sideK, clearOfTrack, inKeepOut, keepOut, groundAt, fenceOff: 2, fo, lit, isNight, lamps, pitInfo });
+  const props = addProps({ mapRes, tr, group, tex, canvas, hAt, sideK, clearOfTrack, inKeepOut, keepOut, groundAt, fenceOff: 2, fo, lit, isNight, lamps, pitInfo });
 
   // ---------- scenery: trees, palms or bushes depending on the circuit, kept away from the track, the pits,
-  // the stands and the buildings. Grouped in 300 m cells so only what's in view is drawn. ----------
+  // the stands and the buildings (far enough that even the biggest crown stays behind the fence). Grouped in 300 m cells so only what's in view is drawn. ----------
   {
     // how much of what, per kind of place
     const MIX = {
@@ -484,11 +513,22 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
       plains: { leafy: 900 }, tropical: { palm: 1600, leafy: 2200 }, desert: { palm: 380 }, dunes: { bush: 2200, leafy: 300 },
       city: { palm: tr.cfg.cc === "MC" || tr.cfg.cc === "SG" || tr.cfg.cc === "US" || tr.cfg.cc === "ES" ? 300 : 0, leafy: tr.cfg.cc === "AZ" ? 250 : 120 },
     }[SC] ?? { fir: 4000 };
+    // where the map says trees really are (single trees, woods) go first, shared out between the kinds of tree;
+    // with plenty of those only a few more are scattered at random
+    const spots = mapRes.treeSpots.slice(); for (let i = spots.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [spots[i], spots[j]] = [spots[j], spots[i]]; }
+    const mixTotal = Object.values(MIX).reduce((a, b) => a + (b || 0), 0) || 1; let spotPtr = 0;
     const place = (count, near, far, gap) => {
       const out = []; let tries = 0;
+      const share = Math.round((spots.length * count) / mixTotal), end = Math.min(spots.length, spotPtr + share);
+      for (; spotPtr < end && out.length < count; spotPtr++) {
+        const { x, z } = spots[spotPtr], gd = groundAt(x, z);
+        if (gd.d < (gd.flat ?? 0) + gap || inKeepOut(x, z, gap + 3) || !clearOfTrack(x, z, gap + 1) || props.blocked(x, z, gap) || mapRes.blocked(x, z, gap * 0.5)) continue;
+        out.push({ x, z, h: gd.h, sc: 0.75 + rnd() * 0.8, yaw: rnd() * 6.283, r: rnd() });
+      }
+      if (spots.length > 400) count = out.length + Math.round(count * 0.2);
       while (out.length < count && tries++ < count * 12) {
         const i = Math.floor(rnd() * N), s = rnd() < 0.5 ? -1 : 1, off = s * (W[sideK(s)][i] + near + rnd() ** 1.7 * far);
-        const x = X[i] + LX[i] * off, z = Z[i] + LZ[i] * off, gd = groundAt(x, z); if (gd.d < (gd.flat ?? 0) + gap || inKeepOut(x, z, gap + 3) || !clearOfTrack(x, z, gap + 1) || props.blocked(x, z, gap)) continue;
+        const x = X[i] + LX[i] * off, z = Z[i] + LZ[i] * off, gd = groundAt(x, z); if (gd.d < (gd.flat ?? 0) + gap || inKeepOut(x, z, gap + 3) || !clearOfTrack(x, z, gap + 1) || props.blocked(x, z, gap) || mapRes.blocked(x, z, gap)) continue;
         out.push({ x, z, h: gd.h, sc: 0.75 + rnd() * 0.8, yaw: rnd() * 6.283, r: rnd() });
       }
       return out;
@@ -501,7 +541,7 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
     if (MIX.fir) {
       const mat = new THREE.MeshStandardMaterial({ map: T.needle, roughness: 0.95 }); T.needle.repeat.set(2, 2);
       const tierG = [0, 1, 2].map((t) => new THREE.ConeGeometry(3.4 - t * 0.9, 4.2, 7, 1, true)), trunkG = new THREE.CylinderGeometry(0.25, 0.4, 4, 5, 1, true);
-      for (const list of cellsOf(place(MIX.fir, 9, 330, 5))) {
+      for (const list of cellsOf(place(MIX.fir, 9, 330, 7))) {
         const tiers = tierG.map((g) => new THREE.InstancedMesh(g, mat, list.length)), trunks = new THREE.InstancedMesh(trunkG, trunkM, list.length);
         list.forEach((t, j) => { c.setHSL(0.28 + t.r * 0.06, 0.25 + t.r * 0.15, 0.36 + (1 - t.r) * 0.14); for (let k = 0; k < 3; k++) { q.setFromAxisAngle(up, t.yaw + k); m4.compose(V.set(t.x, t.h + (4 + k * 2.6) * t.sc, t.z), q, Sv.setScalar(t.sc)); tiers[k].setMatrixAt(j, m4); tiers[k].setColorAt(j, c); } m4.compose(V.set(t.x, t.h + 2 * t.sc, t.z), q, Sv.setScalar(t.sc)); trunks.setMatrixAt(j, m4); });
         for (const m of [...tiers, trunks]) add(m);
@@ -513,7 +553,7 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
       const bush = kind === "bush", leafM = new THREE.MeshStandardMaterial({ map: T.leaf, roughness: 0.95, flatShading: true });
       const crownG = new THREE.IcosahedronGeometry(1, 1); { const p = crownG.attributes.position; for (let v = 0; v < p.count; v++) { const f = 0.85 + Math.sin(p.getX(v) * 7.1 + p.getZ(v) * 5.3) * 0.12 + Math.cos(p.getY(v) * 6.7) * 0.08; p.setXYZ(v, p.getX(v) * f, p.getY(v) * f * 0.85, p.getZ(v) * f); } crownG.computeVertexNormals(); }
       const trunkG = new THREE.CylinderGeometry(0.22, 0.35, 1, 5, 1, true);
-      for (const list of cellsOf(place(count, bush ? 4 : 8, bush ? 160 : 300, bush ? 3 : 5))) {
+      for (const list of cellsOf(place(count, bush ? 4 : 8, bush ? 160 : 300, bush ? 4.5 : 8))) {
         const crowns = new THREE.InstancedMesh(crownG, leafM, list.length), trunks = bush ? null : new THREE.InstancedMesh(trunkG, trunkM, list.length);
         list.forEach((t, j) => {
           const r = bush ? 1.2 + t.r * 1.4 : 3 + t.r * 2.6, th = bush ? 0 : 2.5 + t.r * 2.5;
@@ -528,7 +568,7 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
     if (MIX.palm) {
       const frondG = (() => { const parts = []; for (let f = 0; f < 7; f++) { const g = new THREE.ConeGeometry(0.55, 4.2, 3, 1, true); g.translate(0, 2.1, 0); g.rotateX(1.25 + (f % 2) * 0.25); g.rotateY((f / 7) * Math.PI * 2); parts.push(g.toNonIndexed()); } const pos = []; for (const g of parts) pos.push(...g.attributes.position.array); const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals(); return g; })();
       const palmTrunk = new THREE.CylinderGeometry(0.16, 0.26, 1, 6, 1, true), frondM = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, roughness: 0.9, side: THREE.DoubleSide, flatShading: true }), barkM = new THREE.MeshStandardMaterial({ color: 0x8A7558, roughness: 1 });
-      for (const list of cellsOf(place(MIX.palm, SC === "desert" ? 6 : 7, SC === "desert" ? 90 : 220, 4))) {
+      for (const list of cellsOf(place(MIX.palm, SC === "desert" ? 6 : 7, SC === "desert" ? 90 : 220, 6))) {
         const crowns = new THREE.InstancedMesh(frondG, frondM, list.length), trunks = new THREE.InstancedMesh(palmTrunk, barkM, list.length);
         list.forEach((t, j) => { const ht = 7 + t.r * 7; c.setHSL(0.24 + t.r * 0.06, 0.45, 0.28 + t.r * 0.1); q.setFromAxisAngle(up, t.yaw); m4.compose(V.set(t.x, t.h + ht / 2, t.z), q, Sv.set(1, ht, 1)); trunks.setMatrixAt(j, m4); m4.compose(V.set(t.x, t.h + ht, t.z), q, Sv.setScalar(0.9 + t.r * 0.3)); crowns.setMatrixAt(j, m4); crowns.setColorAt(j, c); });
         add(crowns); add(trunks);

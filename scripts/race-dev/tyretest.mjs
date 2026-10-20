@@ -1,11 +1,12 @@
 // smooth driver laps on medium tyres from 70 °C: tyre temps, wear and lap times lap by lap
 const ROOT = new URL("../../", import.meta.url).pathname; // the repo
 import { readFileSync } from "node:fs";
+const mapFor = (cfg) => { try { return JSON.parse(readFileSync(new URL("../../public/data/race-world/" + cfg.slug + ".json", import.meta.url), "utf8")); } catch { return null; } }; // the map data, if there is any
 const R = ROOT + "public/race/";
 const { CIRCUITS, buildTrack, speedProfile, racingLine } = await import(R + "trackdata.js?" + Date.now());
 const { newCar, stepCar, ENVELOPE, fitTyres } = await import(R + "physics.js?" + Date.now());
 const cfg = CIRCUITS[process.env.TRACK || "spa"], raw = JSON.parse(readFileSync(ROOT + "public/data/tracks/" + cfg.slug + ".json", "utf8")), real = JSON.parse(readFileSync(ROOT + "public/data/race/" + cfg.slug + ".json", "utf8"));
-const tr = buildTrack(raw, cfg, real), line = racingLine(tr), vp = speedProfile({ ...tr, K: line.K }, ENVELOPE, +(process.env.M || 0.95));
+const tr = buildTrack(raw, cfg, real, mapFor(cfg)), line = racingLine(tr), vp = speedProfile({ ...tr, K: line.K }, ENVELOPE, +(process.env.M || 0.95));
 const c = newCar(tr, tr.wrap(-30), line.off[tr.wrap(-30)]); fitTyres(c, process.env.C || "medium", 70);
 const dt = 1 / 240; let t = 0, lastS = c.s, lapStart = null, laps = 0, out = [];
 while (laps < +(process.env.LAPS || 6) && t < 2000) {

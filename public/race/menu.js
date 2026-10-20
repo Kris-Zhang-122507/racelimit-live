@@ -1,7 +1,7 @@
 // The racing game's menus: the main menu (modes), a race weekend (pick a circuit and a session),
 // the garage (your team's colours) and settings. Plain DOM, shown before any 3D is built; resolves
 // with what to drive: { track, session }.
-import { load, save } from "../games/common.js?v=mvfw9v6x";
+import { load, save } from "../games/common.js?v=mvg3lsn9";
 
 // the 2026 calendar, in order (the Bahrain GP was held at Sepang), then circuits only raced in 2025
 export const CALENDAR = ["melbourne", "shanghai", "suzuka", "miami", "montreal", "monte-carlo", "catalunya", "spielberg", "silverstone", "spa", "hungaroring", "zandvoort", "monza", "madring", "baku", "kuala-lumpur", "singapore", "austin", "mexico-city", "interlagos", "las-vegas", "lusail", "yas-marina-circuit", "sakhir", "jeddah"];
@@ -47,7 +47,7 @@ export function openMenus({ CIRCUITS, settings, saveSettings, TEAMS }) {
       root.innerHTML = ""; root.append(header("Main menu"));
       const grid = el("div", "mm-grid");
       const hero = el("button", "mm-card hero"); hero.type = "button";
-      hero.innerHTML = `<img src="img/hero.jpg" alt="" loading="eager"><div class="mm-card-body"><span class="pill gold">Main mode</span><h2>Race weekend</h2><p>Practice and hot laps at any of the ${CALENDAR.length} circuits, with their real shapes, hills and pit lanes. Races against AI cars are coming.</p></div>`;
+      hero.innerHTML = `<img src="img/hero.jpg?v=mvg3lsn9" alt="" loading="eager"><div class="mm-card-body"><span class="pill gold">Main mode</span><h2>Race weekend</h2><p>Practice and hot laps at any of the ${CALENDAR.length} circuits, with their real shapes, hills and pit lanes. Races against AI cars are coming.</p></div>`;
       hero.onclick = weekend; grid.append(hero);
       const today = dailyTrack(), dbest = load(`race.daily.${new Date().toISOString().slice(0, 10)}`, null);
       const cards = [
@@ -65,6 +65,7 @@ export function openMenus({ CIRCUITS, settings, saveSettings, TEAMS }) {
         grid.append(c);
       }
       root.append(grid);
+      root.append(el("p", "muted small mm-credit", 'Circuit surroundings from map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>. All teams, sponsors and brands are made up.'));
     }
 
     // ---------- race weekend ----------
@@ -151,7 +152,7 @@ export function openMenus({ CIRCUITS, settings, saveSettings, TEAMS }) {
       const rows = [
         ["Gears", "auto", [["true", "Automatic"], ["false", "Manual"]]], ["Anti-lock brakes", "abs", [["true", "On"], ["false", "Off"]]], ["Traction control", "tc", [["true", "On"], ["false", "Off"]]],
         ["Stability help", "stability", [["true", "On"], ["false", "Off"]]], ["Racing line", "line", [["full", "Full"], ["braking", "Braking only"], ["off", "Off"]]],
-        ["Engine sound", "engine", [["raw", "Raw"], ["deep", "Deep"]]], ["Graphics", "quality", [["high", "High"], ["low", "Low (faster)"]]], ["Camera", "camera", [["chase", "Chase"], ["far", "Far"], ["tcam", "T-cam"], ["cockpit", "Cockpit"]]],
+        ["Engine sound", "engine", [["raw", "Raw"], ["deep", "Deep"]]], ["Graphics", "quality", [["high", "High"], ["low", "Low (faster)"]]], ["On-screen display size", "hud", [["normal", "Normal"], ["large", "Large"], ["xl", "Extra large"]]], ["Camera", "camera", [["chase", "Chase"], ["far", "Far"], ["tcam", "T-cam"], ["cockpit", "Cockpit"]]],
       ];
       for (const [label, k, opts] of rows) {
         const d = el("div", "set"); d.innerHTML = `<span>${label}</span>`; const s = el("div", "seg");

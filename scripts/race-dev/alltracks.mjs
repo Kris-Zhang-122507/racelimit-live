@@ -1,6 +1,7 @@
 // build every circuit from the real data and print a summary
 const ROOT = new URL("../../", import.meta.url).pathname; // the repo
 import { readFileSync, existsSync } from "node:fs";
+const mapFor = (cfg) => { try { return JSON.parse(readFileSync(new URL("../../public/data/race-world/" + cfg.slug + ".json", import.meta.url), "utf8")); } catch { return null; } }; // the map data, if there is any
 const R = ROOT + "public/race/", D = ROOT + "public/data/";
 const { CIRCUITS, buildTrack } = await import(R + "trackdata.js?" + Date.now());
 const only = process.argv[2];
@@ -8,7 +9,7 @@ for (const [id, cfg] of Object.entries(CIRCUITS)) {
   if (only && id !== only) continue;
   const raw = JSON.parse(readFileSync(D + "tracks/" + cfg.slug + ".json", "utf8")), real = existsSync(D + "race/" + cfg.slug + ".json") ? JSON.parse(readFileSync(D + "race/" + cfg.slug + ".json", "utf8")) : null;
   const t0 = Date.now(); let tr;
-  try { tr = buildTrack(raw, cfg, real); } catch (e) { console.log(id, "FAILED", e.message, e.stack.split("\n")[1]); continue; }
+  try { tr = buildTrack(raw, cfg, real, mapFor(cfg)); } catch (e) { console.log(id, "FAILED", e.message, e.stack.split("\n")[1]); continue; }
   const P = tr.pitRoad;
   let ymin = Infinity, ymax = -Infinity; for (let i = 0; i < tr.N; i++) { ymin = Math.min(ymin, tr.Y[i]); ymax = Math.max(ymax, tr.Y[i]); }
   let kmax = 0; if (P) for (let i = 5; i < P.N - 5; i++) kmax = Math.max(kmax, Math.abs(P.K[i]));

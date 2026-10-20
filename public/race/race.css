@@ -36,6 +36,9 @@ h1 { font: 700 34px BC; letter-spacing: .02em; margin: 6px 0 2px; }
 
 /* ---- HUD ---- */
 #hud { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+/* bigger or smaller with Settings → On-screen display size (main.js sets --hud); small screens stay compact */
+#hud .box, #hud .h-msg, #hud .h-lights { zoom: var(--hud, 1.25); }
+@media (max-width: 1100px) { #hud .box, #hud .h-msg, #hud .h-lights { zoom: min(var(--hud, 1.25), 1.1); } }
 .box { position: absolute; background: rgba(11,13,18,.74); border: 1px solid rgba(255,255,255,.07); border-radius: 12px; }
 .h-time { left: 14px; top: 14px; padding: 10px 14px; width: 214px; display: grid; gap: 4px; }
 .h-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
@@ -122,3 +125,13 @@ button.mm-card .mm-icon { color: #6B5420; }
 .h-choice button[aria-pressed="true"] { border-color: var(--accent); color: var(--text); background: #2A2310; }
 .h-choice i { width: 18px; height: 18px; border-radius: 50%; border: 3px solid currentColor; display: grid; place-items: center; font: 700 10px BC; font-style: normal; }
 @media (max-width: 900px) { .h-tyres { top: auto; bottom: 96px; } }
+
+/* slim dark scrollbars to match the menus (Firefox uses the first line, Chrome/Edge/Safari the rest) */
+* { scrollbar-width: thin; scrollbar-color: #3A4050 transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-thumb { background: #3A4050; border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: #FFA51F; background-clip: padding-box; }
+::-webkit-scrollbar-button { display: none; }
+
+.credit, .mm-credit { margin: 10px 0 0; } .mm-credit { padding: 0 28px 18px; } .credit a, .mm-credit a { color: var(--soft); }

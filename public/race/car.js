@@ -2,7 +2,7 @@
 // z forward, y up, metres; origin on the ground at the middle of the wheelbase.
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
-import { loft, wing, sweep, cascade, rollWing, plate, ring, DEF, tex, canvas, decal, liveryMap, tyreMap, helmetMap, carbon, carbonMatte, boxUV, span } from "./car-kit.js?v=mvfw9v6x";
+import { loft, wing, sweep, cascade, rollWing, plate, ring, DEF, tex, canvas, decal, liveryMap, tyreMap, helmetMap, carbon, carbonMatte, boxUV, span } from "./car-kit.js?v=mvg3lsn9";
 
 // ---------- eras ----------
 // wb wheelbase, fo front overhang to the front wing leading edge, ro rear overhang, tf/tr half track,

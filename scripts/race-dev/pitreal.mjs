@@ -1,13 +1,14 @@
 // for each circuit: drive the whole pit lane (from the entry, through the limiter, out the exit) with a path follower
 const ROOT = new URL("../../", import.meta.url).pathname; // the repo
 import { readFileSync } from "node:fs";
+const mapFor = (cfg) => { try { return JSON.parse(readFileSync(new URL("../../public/data/race-world/" + cfg.slug + ".json", import.meta.url), "utf8")); } catch { return null; } }; // the map data, if there is any
 const R = ROOT + "public/race/", D = ROOT + "public/data/";
 const { CIRCUITS, buildTrack } = await import(R + "trackdata.js?" + Date.now());
 const { newCar, stepCar } = await import(R + "physics.js?" + Date.now());
 const ids = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(CIRCUITS);
 for (const id of ids) {
   const cfg = CIRCUITS[id], raw = JSON.parse(readFileSync(D + "tracks/" + cfg.slug + ".json", "utf8")); let real = null; try { real = JSON.parse(readFileSync(D + "race/" + cfg.slug + ".json", "utf8")); } catch {}
-  const tr = buildTrack(raw, cfg, real), P = tr.pitRoad, N = tr.N;
+  const tr = buildTrack(raw, cfg, real, mapFor(cfg)), P = tr.pitRoad, N = tr.N;
   if (!P) { console.log(id, "no pit"); continue; }
   // path: 300 m of track before the pit road starts (on the pit side), the pit road, then 300 m of track
   const path = [], j0 = Math.round(P.mj[0]), j1 = Math.round(P.mj[P.N - 1]);

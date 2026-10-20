@@ -53,3 +53,17 @@ Settings for the browser scripts:
 | `&warp=` | Sets the time scale. |
 
 The page exposes `window.__race` (`{ c, tr, T, phase, frames, … }`) for tests.
+
+## Map data (OpenStreetMap)
+
+The scenery round each circuit (real buildings, water, the sea, swimming pools, tunnels, bridges, gravel traps,
+woods and trees) comes from OpenStreetMap, in two steps:
+
+1. `scripts/race-osm.mjs` downloads it (Overpass API) to `data/race-osm/<slug>.json`. It needs the network, so
+   it runs in GitHub Actions (`race-osm.yml`): start it by hand with `--force` to download everything again.
+2. `node scripts/race-align.mjs [ids…]` lines the map up with the game's track (rotation, scale and shift,
+   fitted to the raceway or, for street circuits, to all the roads) and writes `public/data/race-world/<slug>.json`,
+   which the game loads. It prints how well each circuit fits; a poor fit (under 60% of the track within
+   8 m of the map's road) isn't used. No network needed: run it locally after the data has been downloaded.
+
+Map data © OpenStreetMap contributors (ODbL); the game credits it in the main menu and the pause screen.

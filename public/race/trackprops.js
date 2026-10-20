@@ -3,6 +3,7 @@
 // track, TV camera towers, the paddock behind the garages, street lamps, barns and rocks. Everything is
 // generated and drawn with instancing; `ctx` comes from buildCircuit (trackmesh.js).
 import * as THREE from "three";
+import { facadeMaterials } from "./trackworld.js?v=mvg3lsn9";
 
 let seed = 911; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
 const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), V = new THREE.Vector3(), Sv = new THREE.Vector3(), col = new THREE.Color();
@@ -28,7 +29,7 @@ function boxes(list) {
 const roofKit = (w, d, h, n) => Array.from({ length: n }, () => ({ w: 2 + rnd() * 4, d: 2 + rnd() * 4, h: 1.2 + rnd() * 2.4, x: (rnd() - 0.5) * w * 0.6, z: (rnd() - 0.5) * d * 0.6, y: h, roof: 0.6, shade: 0.55 }));
 
 export function addProps(ctx) {
-  const { tr, group, tex, canvas, hAt, sideK, clearOfTrack, inKeepOut, keepOut, groundAt, fenceOff, lit, isNight, pitInfo } = ctx;
+  const { mapRes, tr, group, tex, canvas, hAt, sideK, clearOfTrack, inKeepOut, keepOut, groundAt, fenceOff, lit, isNight, pitInfo } = ctx;
   const { N, X, Z, LX, LZ, TX, TZ } = tr, W = tr.wall, WT = tr.wallType, at = tr.wrap, half = tr.half;
   const SC = tr.cfg.scenery ?? "forest", city = SC === "city";
   const add = (m, pad = 8) => { if (m.instanceColor) m.instanceColor.needsUpdate = true; m.computeBoundingSphere(); m.boundingSphere.radius += pad; group.add(m); return m; };
@@ -41,7 +42,7 @@ export function addProps(ctx) {
     const c = Math.cos(ang), s = Math.sin(ang), nl = Math.max(2, Math.ceil((hl * 2) / 7)), nw = Math.max(2, Math.ceil((hw * 2) / 7));
     for (let a = 0; a <= nl; a++) for (let b = 0; b <= nw; b++) {
       const u = -hl + (2 * hl * a) / nl, v = -hw + (2 * hw * b) / nw, px = x + s * u + c * v, pz = z + c * u - s * v;
-      if (!clearOfTrack(px, pz, margin) || (keep && inKeepOut(px, pz, 2))) return false;
+      if (!clearOfTrack(px, pz, margin) || (keep && inKeepOut(px, pz, 2)) || mapRes?.blocked(px, pz, 1)) return false;
     }
     const r = Math.hypot(hl, hw); for (const t of taken) if ((t.x - x) ** 2 + (t.z - z) ** 2 < (t.r + r) ** 2 * 0.72) return false;
     return true;
@@ -96,28 +97,10 @@ export function addProps(ctx) {
 
   // ---------- buildings: several kinds (glass towers, stepped towers, offices, flats, low brick blocks),
   // lined up with the streets round the track, and never over the track, the pits or each other ----------
-  const MIXB = { city: 760, park: tr.cfg.cc === "MC" ? 0 : 0, tropical: tr.cfg.street ? 220 : 40, desert: tr.cfg.street ? 260 : 60, countryside: 0, plains: 30, dunes: 25, alpine: 0, forest: 0 }[SC] ?? 0;
+  // (made-up buildings only where the map hasn't got the real ones)
+  const MIXB = (mapRes?.buildings ?? 0) > 40 ? 0 : { city: 760, park: tr.cfg.cc === "MC" ? 0 : 0, tropical: tr.cfg.street ? 220 : 40, desert: tr.cfg.street ? 260 : 60, countryside: 0, plains: 30, dunes: 25, alpine: 0, forest: 0 }[SC] ?? 0;
   if (MIXB) {
-    // facades: by day and (lit windows only) at night
-    const FAC = {
-      glass: { bg: "#5F7F98", win: (g, x, y) => { g.fillStyle = `rgb(${70 + rnd() * 30},${105 + rnd() * 30},${130 + rnd() * 30})`; g.fillRect(x, y, 19, 30); g.fillStyle = "rgba(255,255,255,.12)"; g.fillRect(x, y, 19, 4); }, dx: 21, dy: 32 },
-      office: { bg: "#B9BEC6", win: (g, x, y) => { g.fillStyle = rnd() < 0.15 ? "#3A4656" : "#5C6B7E"; g.fillRect(x, y, 14, 20); }, dx: 21, dy: 32 },
-      flats: { bg: "#D8CDB8", win: (g, x, y) => { g.fillStyle = "#4C5563"; g.fillRect(x + 2, y + 4, 12, 16); g.fillStyle = "#EFE8DA"; g.fillRect(x - 2, y + 22, 22, 4); }, dx: 24, dy: 32 },
-      brick: { bg: "#8E5A45", win: (g, x, y) => { g.fillStyle = "#2E3440"; g.fillRect(x + 3, y + 6, 10, 15); g.fillStyle = "#C9B79F"; g.fillRect(x + 2, y + 21, 12, 2); }, dx: 21, dy: 32 },
-    };
-    const facTex = (k, lit2) => tex(canvas(256, 512, (g, w, h) => {
-      const F = FAC[k]; g.fillStyle = lit2 ? "#000" : F.bg; g.fillRect(0, 0, w, h);
-      if (!lit2 && k === "brick") for (let y = 0; y < h; y += 6) for (let x = (y / 6) % 2 ? 0 : 6; x < w; x += 12) { g.fillStyle = `rgba(0,0,0,${0.05 + rnd() * 0.1})`; g.fillRect(x, y, 11, 5); }
-      for (let y = 8; y < h; y += F.dy) for (let x = 6; x < w - 8; x += F.dx) {
-        if (lit2) { if (rnd() < (k === "glass" ? 0.4 : 0.5)) { g.fillStyle = k === "glass" ? `rgba(200,225,255,${0.6 + rnd() * 0.4})` : `rgba(255,${200 + rnd() * 40},${120 + rnd() * 60},1)`; g.fillRect(x + 1, y + 1, F.dx - 8, 18); } }
-        else F.win(g, x, y);
-      }
-    }));
-    const mats = {};
-    for (const k of Object.keys(FAC)) {
-      const day = facTex(k, false), nightT = isNight || tr.cfg.time === "dusk" ? facTex(k, true) : null;
-      mats[k] = new THREE.MeshStandardMaterial({ map: day, vertexColors: true, color: isNight ? 0x3A3F48 : 0xFFFFFF, roughness: k === "glass" ? 0.25 : 0.75, metalness: k === "glass" ? 0.5 : 0.05, emissiveMap: nightT, emissive: nightT ? 0xFFFFFF : 0x000000, emissiveIntensity: isNight ? 1.5 : nightT ? 0.45 : 0 });
-    }
+    const mats = facadeMaterials({ tex, canvas, isNight, dusk: tr.cfg.time === "dusk" });
     // the kinds: [weight, style, size along the street, size back, build(h) → boxes]
     const KINDS = [
       { w: 3, st: "glass", L: 20, D: 20, hs: [60, 120], b: (h) => [{ w: 20, d: 20, h }, { w: 15, d: 15, h: 4, y: h, shade: 0.7 }, ...roofKit(15, 15, h + 4, 2)] },
@@ -167,7 +150,7 @@ export function addProps(ctx) {
       // on the outside of the nearest corner if there is one
       let sumK = 0; for (let d = -80; d <= 80; d += 8) sumK += tr.K[at(i + d)];
       const s = sumK > 0.02 ? 1 : sumK < -0.02 ? -1 : rnd() < 0.5 ? 1 : -1, k = sideK(s);
-      if (WT[k][i] === 2) continue;
+      if (WT[k][i] === 2 || tr.tunnel?.[i] > 0) continue;
       const o = ctx.fo(k, i) + 2.6, x = X[i] + LX[i] * s * o, z = Z[i] + LZ[i] * s * o, ang = yawAt(i, s);
       if (!rectClear(x, z, 2, 2, ang, 1.5)) continue;
       take(x, z, 2, 2); const y = groundAt(x, z).h;
@@ -192,7 +175,7 @@ export function addProps(ctx) {
     const towerG = boxes([{ w: 2.2, h: 9, d: 2.2, shade: 0.75 }, { w: 3.2, h: 0.3, d: 3.2, y: 9 }, { w: 3.4, h: 1.2, d: 0.08, y: 9.3, z: 1.6 }, { w: 0.8, h: 0.6, d: 1.2, y: 9.6, x: 0.4, z: 0.6, shade: 0.3 }]), towerM = new THREE.MeshStandardMaterial({ color: 0x9AA1AA, metalness: 0.4, roughness: 0.6, vertexColors: true });
     const boards = SPONSORS.map(() => []), legs = [], towers = [];
     for (let i = 60, n = 0; i < N - 60; i += 330 + Math.floor(rnd() * 180), n++) {
-      const s = rnd() < 0.5 ? 1 : -1, k = sideK(s); if (WT[k][i] === 2) continue;
+      const s = rnd() < 0.5 ? 1 : -1, k = sideK(s); if (WT[k][i] === 2 || tr.tunnel?.[i] > 0) continue;
       const tv = n % 3 === 2, o = ctx.fo(k, i) + (tv ? 5 : 4.5), x = X[i] + LX[i] * s * o, z = Z[i] + LZ[i] * s * o, ang = yawAt(i, s);
       if (!rectClear(x, z, tv ? 2 : 6.5, 2, ang, 1.5)) continue;
       take(x, z, tv ? 2 : 6.5, 2); const y = groundAt(x, z).h, p = { x, y, z, ang };
@@ -205,7 +188,7 @@ export function addProps(ctx) {
     let bridges = 0;
     for (let i = 500; i < N - 300 && bridges < 3; i += 37) {
       let straight = true; for (let d = -50; d <= 50; d += 5) if (Math.abs(tr.K[at(i + d)]) > 0.0025) straight = false;
-      if (!straight || W[0][i] > 26 || W[1][i] > 26 || WT[0][i] === 2 || WT[1][i] === 2 || tr.bank[i]) continue;
+      if (!straight || W[0][i] > 26 || W[1][i] > 26 || WT[0][i] === 2 || WT[1][i] === 2 || tr.bank[i] || tr.tunnel?.[i] > 0 || (tr.map?.crossings ?? []).some((c) => Math.abs(c.i - i) < 120)) continue;
       const oL = ctx.fo(0, i) + 1.2, oR = ctx.fo(1, i) + 1.2, span = oL + oR, cx = X[i] + LX[i] * (oL - oR) / 2, cz = Z[i] + LZ[i] * (oL - oR) / 2;
       const yL = groundAt(X[i] + LX[i] * oL, Z[i] + LZ[i] * oL).h, yR = groundAt(X[i] - LX[i] * oR, Z[i] - LZ[i] * oR).h, y0 = Math.max(hAt(i, 0), Math.min(yL, yR));
       const [name, bg, fg] = SPONSORS[(bridges * 3 + 1) % SPONSORS.length];
@@ -224,7 +207,7 @@ export function addProps(ctx) {
   if (tr.street && !isNight) {
     const lampG = boxes([{ w: 0.22, h: 9, d: 0.22, shade: 1 }, { w: 0.14, h: 0.14, d: 2.4, y: 8.8, z: 1.1 }, { w: 0.5, h: 0.22, d: 1.0, y: 8.6, z: 2.2, shade: 0.35 }]);
     const lampM = new THREE.MeshStandardMaterial({ color: 0x4B5058, metalness: 0.5, roughness: 0.5, vertexColors: true }), list = [];
-    for (let i = 0; i < N; i += 45) { const s = (i / 45) % 2 ? 1 : -1, k = sideK(s); if (WT[k][i] !== 3) continue; const o = W[k][i] + 1.4, x = X[i] + LX[i] * s * o, z = Z[i] + LZ[i] * s * o; if (!clearOfTrack(x, z, 0.8) || inKeepOut(x, z, 1)) continue; list.push({ x, z, y: groundAt(x, z).h, ang: yawAt(i, s) }); } // (the arm reaches out over the wall)
+    for (let i = 0; i < N; i += 45) { const s = (i / 45) % 2 ? 1 : -1, k = sideK(s); if (WT[k][i] !== 3 || tr.tunnel?.[i] > 0) continue; const o = W[k][i] + 1.4, x = X[i] + LX[i] * s * o, z = Z[i] + LZ[i] * s * o; if (!clearOfTrack(x, z, 0.8) || inKeepOut(x, z, 1)) continue; list.push({ x, z, y: groundAt(x, z).h, ang: yawAt(i, s) }); } // (the arm reaches out over the wall)
     if (list.length) { const im = new THREE.InstancedMesh(lampG, lampM, list.length); list.forEach((p, j) => { q.setFromAxisAngle(up, p.ang); m4.compose(V.set(p.x, p.y, p.z), q, Sv.set(1, 1, 1)); im.setMatrixAt(j, m4); }); add(im, 20); }
   }
 

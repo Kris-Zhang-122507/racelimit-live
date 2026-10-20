@@ -1,24 +1,27 @@
 // RaceLimit Race — step 1: one car at Spa. Drive with the keyboard or a controller.
 import * as THREE from "three";
 import { Sky } from "three/addons/objects/Sky.js";
-import { CIRCUITS, buildTrack, speedProfile, racingLine } from "./trackdata.js?v=mvfw9v6x";
-import { newCar, stepCar, resetCar, ENVELOPE, CAR, COMPOUNDS, fitTyres, TYRE_NAMES } from "./physics.js?v=mvfw9v6x";
-import { buildCircuit } from "./trackmesh.js?v=mvfw9v6x";
-import { createInput } from "./input.js?v=mvfw9v6x";
-import { createHud } from "./hud.js?v=mvfw9v6x";
-import { createEngineAudio } from "./audio.js?v=mvfw9v6x";
-import { mergeCar } from "./optimize.js?v=mvfw9v6x";
-import { sfx } from "../games/sfx.js?v=mvfw9v6x";
-import { load, save } from "../games/common.js?v=mvfw9v6x";
+import { CIRCUITS, buildTrack, speedProfile, racingLine } from "./trackdata.js?v=mvg3lsn9";
+import { newCar, stepCar, resetCar, ENVELOPE, CAR, COMPOUNDS, fitTyres, TYRE_NAMES } from "./physics.js?v=mvg3lsn9";
+import { buildCircuit } from "./trackmesh.js?v=mvg3lsn9";
+import { createInput } from "./input.js?v=mvg3lsn9";
+import { createHud } from "./hud.js?v=mvg3lsn9";
+import { createEngineAudio } from "./audio.js?v=mvg3lsn9";
+import { mergeCar } from "./optimize.js?v=mvg3lsn9";
+import { sfx } from "../games/sfx.js?v=mvg3lsn9";
+import { load, save } from "../games/common.js?v=mvg3lsn9";
 
 const q = new URLSearchParams(location.search);
-const settings = Object.assign({ auto: true, abs: true, tc: true, stability: true, line: "full", camera: "chase", quality: "high", engine: "raw" }, load("race.settings", {}));
+const settings = Object.assign({ auto: true, abs: true, tc: true, stability: true, line: "full", camera: "chase", quality: "high", engine: "raw", hud: "large" }, load("race.settings", {}));
+// the on-screen display's size (Settings): every panel is scaled together
+const applyHud = () => document.documentElement.style.setProperty("--hud", { normal: 1, large: 1.25, xl: 1.5 }[settings.hud] ?? 1.25);
+applyHud();
 const saveSettings = () => save("race.settings", settings);
 // ---------- what to drive: the menus (skipped when the address says what, for testing) ----------
-const { f1car, drawWheelScreen, TEAMS, setTyreLook } = await import("./car.js?v=mvfw9v6x");
+const { f1car, drawWheelScreen, TEAMS, setTyreLook } = await import("./car.js?v=mvg3lsn9");
 let choice;
 if (q.get("track") || q.get("place") || q.get("auto")) choice = { track: q.get("track") && CIRCUITS[q.get("track")] ? q.get("track") : "spa", session: q.get("session") || (q.get("auto") ? "grid" : "practice") };
-else { document.getElementById("loading").hidden = true; const { openMenus } = await import("./menu.js?v=mvfw9v6x"); choice = await openMenus({ CIRCUITS, settings, saveSettings, TEAMS }); document.getElementById("loading").hidden = false; }
+else { document.getElementById("loading").hidden = true; const { openMenus } = await import("./menu.js?v=mvg3lsn9"); choice = await openMenus({ CIRCUITS, settings, saveSettings, TEAMS }); document.getElementById("loading").hidden = false; }
 const circuitId = choice.track, CFG = CIRCUITS[circuitId], SESSION = choice.session;
 document.title = `${CFG.short} · Race — RaceLimit Live`;
 const $ = (id) => document.getElementById(id);
@@ -81,9 +84,14 @@ await status("Loading the circuit…");
 const raw = await (await fetch(`../data/tracks/${CFG.slug}.json`)).json();
 // the real shape, heights and pit lane (from F1's position data), if we have them for this circuit
 const real = await fetch(`../data/race/${CFG.slug}.json`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-const tr = buildTrack(raw, CFG, real);
+// and its real surroundings from OpenStreetMap, lined up with the track (buildings, water, tunnels, gravel traps…)
+const map = await fetch(`../data/race-world/${CFG.slug}.json?v=mvg3lsn9`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+const tr = buildTrack(raw, CFG, real, map);
 const line = racingLine(tr);
 const vp = speedProfile({ ...tr, K: line.K }, ENVELOPE, 0.95);
+// for the racing line's colours: the same, but braking a fair bit less hard than the car can, so the red
+// starts early enough to react to and brake in time
+const vpCue = speedProfile({ ...tr, K: line.K }, { ...ENVELOPE, brake: (v) => ENVELOPE.brake(v) * 0.72 }, 0.93);
 await status("Building the track…");
 const myTeam = TEAMS.find((t) => t.team === load("race.team", "RACELIMIT")) ?? TEAMS[0];
 const circuit = buildCircuit(tr, scene, { profile: vp, team: myTeam });
@@ -103,10 +111,10 @@ const lineMesh = (() => {
 })();
 function colourLine(c) {
   const attr = lineMesh.geometry.attributes.color, a = attr.array, u = Math.max(0, c.u), N = tr.N;
-  for (let k = -40; k < 420; k++) {
-    const i = tr.wrap(c.idx + k), v = vp[i], braking = settings.line === "braking";
+  for (let k = -40; k < 650; k++) {
+    const i = tr.wrap(c.idx + k), v = vpCue[i], braking = settings.line === "braking";
     let r = 0.2, g = 0.85, b = 0.45;
-    if (u > v + 1.5) { r = 0.95; g = 0.2; b = 0.18; } else if (u > v - 6) { r = 0.98; g = 0.78; b = 0.15; } else if (braking) { r = g = b = -1; }
+    if (u > v + 0.5) { r = 0.95; g = 0.2; b = 0.18; } else if (u > v - 9) { r = 0.98; g = 0.78; b = 0.15; } else if (braking) { r = g = b = -1; }
     for (const kk of i === 0 ? [i, N] : [i]) for (const m of [0, 1]) { const p = (kk * 2 + m) * 3; if (r < 0) { a[p] = a[p + 1] = a[p + 2] = 0; } else { a[p] = r; a[p + 1] = g; a[p + 2] = b; } }
   }
   attr.needsUpdate = true;
@@ -150,6 +158,12 @@ const armRig = arms.map((m) => {
 });
 const merged = mergeCar(car, [...wheels.map((w) => w.pivot), car.userData.steering, ...armRig.map((a) => a.pivot)]);
 for (const w of wheels) mergeCar(w.group); if (car.userData.steering) mergeCar(car.userData.steering);
+// suspension: everything except the wheels sits on a "body" that moves on springs (dives under braking,
+// squats when accelerating, rolls in corners, rides the bumps and sinks with downforce); the wheels stay on the road
+const body = new THREE.Group();
+for (const ch of [...car.children]) if (!wheels.some((w) => w.pivot === ch)) body.add(ch);
+car.add(body);
+const susp = { y: null, v: 0 };
 scene.add(car);
 let aeroShown = "corner";
 const showAero = (mode) => { if (mode === aeroShown) return; aeroShown = mode; car.traverse((m) => { if (m.userData.aero) m.visible = m.userData.aero === mode; }); };
@@ -280,7 +294,7 @@ function syncSettingsUI() {
 document.addEventListener("click", (e) => {
   const b = e.target.closest("[data-set]"); if (!b) return;
   const [k, v] = b.dataset.set.split("="); settings[k] = v === "true" ? true : v === "false" ? false : v; saveSettings();
-  if (k === "line") applyLineMode(); if (k === "camera") viewMode = v; if (k === "quality") applyQuality(); if (k === "engine") audio?.setEngine(v); syncSettingsUI();
+  if (k === "line") applyLineMode(); if (k === "camera") viewMode = v; if (k === "quality") applyQuality(); if (k === "hud") applyHud(); if (k === "engine") audio?.setEngine(v); syncSettingsUI();
 });
 $("muteBtn").addEventListener("click", () => { const m = !(audio?.muted() ?? load("muted", false)); if (audio) audio.setMuted(m); else save("muted", m); syncSettingsUI(); });
 $("resumeBtn").addEventListener("click", () => setPause(false));
@@ -303,7 +317,7 @@ function autopilot() {
   const vt = vp[tr.wrap(c.idx + 3 + Math.round(c.u * 0.15))] * 0.97;
   return { steer: Math.max(-1, Math.min(1, delta / dMax)), throttle: Math.max(0, Math.min(1, (vt - c.u) * 0.6 + 0.2)), brake: Math.max(0, Math.min(1, (c.u - vt) * 0.8)), analog: true };
 }
-window.__cam = cam; window.__sw = car.userData.steering; window.__race = { c, tr, T, get phase() { return phase; }, autopilot: q.get("autopilot") === "1", view: (v) => (viewMode = v), frames: 0, ms: 0, merged, get audio() { return audio?.kind?.(); } };
+window.__scene = scene; window.__cam = cam; window.__sw = car.userData.steering; window.__race = { c, tr, T, get phase() { return phase; }, autopilot: q.get("autopilot") === "1", view: (v) => (viewMode = v), frames: 0, ms: 0, merged, get audio() { return audio?.kind?.(); } };
 
 // ---------- loop ----------
 const tmpV = new THREE.Vector3(), tmpL = new THREE.Vector3(), camPos = new THREE.Vector3(), camLook = new THREE.Vector3();
@@ -387,13 +401,23 @@ function frame(now) {
   }
   // ----- car pose -----
   const flat = c.tyres ? Math.max(...c.tyres.map((ty) => ty.flat)) : 0;
-  const kerbJ = (c.kerb ? (Math.random() - 0.5) * 0.012 * Math.min(1, c.u / 20) : c.surface === "gravel" ? (Math.random() - 0.5) * 0.03 * Math.min(1, c.u / 10) : c.surface === "grass" ? (Math.random() - 0.5) * 0.008 * Math.min(1, c.u / 20) : 0) + (flat > 0.2 ? Math.sin(simT * c.u * 2.9) * 0.004 * flat * Math.min(1, c.u / 30) : 0);
+  const kerbJ = (c.kerb ? (Math.random() - 0.5) * 0.012 * Math.min(1, c.u / 20) : c.surface === "gravel" ? (Math.random() - 0.5) * 0.012 * Math.min(1, c.u / 10) : 0) + (flat > 0.2 ? Math.sin(simT * c.u * 2.9) * 0.004 * flat * Math.min(1, c.u / 30) : 0);
   const along = Math.sin(c.yaw) * tr.TX[c.idx] + Math.cos(c.yaw) * tr.TZ[c.idx];
   const slopePitch = -Math.atan(tr.slope[c.idx] * along);
   const surfY = c.onPit ? 0.012 : Math.abs(c.lat) < tr.half + 0.6 ? crown(c.lat) : c.kerb ? 0.06 : c.surface === "gravel" ? -0.06 : -0.01;
-  car.position.set(c.x, c.y + surfY + kerbJ, c.z);
-  const bankRoll = !c.onPit && Math.abs(c.lat) < tr.half + 2 ? (tr.bank?.[c.idx] ?? 0) * along : 0; // tilted with a banked corner
-  car.rotation.set(slopePitch + c.pitch, c.yaw, c.roll + bankRoll, "YXZ");
+  const groundY = c.y + surfY + kerbJ;
+  car.position.set(c.x, groundY, c.z);
+  // the road's own tilt (a banked corner, and the run-off beside it), smoothly — no snapping at the track's edge
+  const bankRoll = !c.onPit && tr.bankSlope ? tr.bankSlope(c.idx, c.lat) * along : 0;
+  car.rotation.set(slopePitch, c.yaw, bankRoll, "YXZ");
+  {
+    // the body on its springs (about 3 Hz, well damped): follows the road height, sinks a little with downforce
+    const h = Math.min(dt, 1 / 30), target = groundY - 0.014 * Math.min(1, (Math.max(0, c.u) / 85) ** 2);
+    if (susp.y == null || Math.abs(susp.y - target) > 0.5 || WARP) { susp.y = target; susp.v = 0; }
+    for (let k = 0; k < 4; k++) { const a = 360 * (target - susp.y) - 17 * susp.v; susp.v += a * (h / 4); susp.y += susp.v * (h / 4); }
+    body.position.y = Math.max(-0.045, Math.min(0.035, susp.y - groundY));
+    body.rotation.set(c.pitch, 0, c.roll);
+  }
   for (const w of wheels) { w.group.rotation.x = c.wheelRot; if (w.front) w.pivot.rotation.y = c.steer; }
   const sw = car.userData.steering;
   if (sw) {
@@ -402,7 +426,7 @@ function frame(now) {
       sw.updateMatrix(); car.updateMatrixWorld(true);
       for (const a of armRig) {
         // the glove on this side: the wheel is turned round to face the driver, so its x is mirrored
-        const wrist = sw.localToWorld(new THREE.Vector3(-a.side * 0.125, -0.13, -0.04)); car.worldToLocal(wrist);
+        const wrist = sw.localToWorld(new THREE.Vector3(-a.side * 0.125, -0.13, -0.04)); a.pivot.parent.worldToLocal(wrist);
         const d = wrist.sub(a.pivot.position), L = d.length();
         a.pivot.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), d.normalize()); a.mesh.scale.z = L / a.len; a.mesh.position.z = L / 2;
       }
@@ -425,8 +449,8 @@ function frame(now) {
   if (v === "cockpit" || v === "tcam") {
     car.updateMatrixWorld();
     const eye = v === "cockpit" ? new THREE.Vector3(0, 0.83, CK - 0.14) : new THREE.Vector3(0, 1.2, CK - 0.62);
-    cam.position.copy(car.localToWorld(eye));
-    cam.lookAt(car.localToWorld(v === "cockpit" ? new THREE.Vector3(0, 0.3, CK + 14) : new THREE.Vector3(0, 0.75, CK + 20)));
+    cam.position.copy(body.localToWorld(eye)); // (the driver's head moves with the body)
+    cam.lookAt(body.localToWorld(v === "cockpit" ? new THREE.Vector3(0, 0.3, CK + 14) : new THREE.Vector3(0, 0.75, CK + 20)));
     cam.fov = v === "cockpit" ? 66 : 62; cam.near = 0.02; camInit = false;
   } else {
     const back = v === "far" ? 10.5 : v === "back" ? -6 : 7.0, up = v === "far" ? 3.3 : v === "back" ? 1.8 : 2.1;

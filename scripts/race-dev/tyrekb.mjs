@@ -2,11 +2,12 @@
 // when each tyre first goes over its window and first blisters. TRACK=spa C=medium node tyrekb.mjs [opts] [aggr]
 const ROOT = new URL("../../", import.meta.url).pathname;
 import { readFileSync } from "node:fs";
+const mapFor = (cfg) => { try { return JSON.parse(readFileSync(new URL("../../public/data/race-world/" + cfg.slug + ".json", import.meta.url), "utf8")); } catch { return null; } }; // the map data, if there is any
 const R = ROOT + "public/race/";
 const { CIRCUITS, buildTrack, speedProfile, racingLine } = await import(R + "trackdata.js?" + Date.now());
 const { newCar, stepCar, ENVELOPE, fitTyres, COMPOUNDS } = await import(R + "physics.js?" + Date.now());
 const cfg = CIRCUITS[process.env.TRACK || "spa"], raw = JSON.parse(readFileSync(ROOT + "public/data/tracks/" + cfg.slug + ".json", "utf8")); let realD = null; try { realD = JSON.parse(readFileSync(ROOT + "public/data/race/" + cfg.slug + ".json", "utf8")); } catch {}
-const tr = buildTrack(raw, cfg, realD), line = racingLine(tr), vp = speedProfile({ ...tr, K: line.K }, ENVELOPE, 0.92);
+const tr = buildTrack(raw, cfg, realD, mapFor(cfg)), line = racingLine(tr), vp = speedProfile({ ...tr, K: line.K }, ENVELOPE, 0.92);
 const opts = JSON.parse(process.argv[2] || "{}"), aggr = +(process.argv[3] || 1.0);
 let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
 const comp = process.env.C || "medium", hi = COMPOUNDS[comp].window[1];

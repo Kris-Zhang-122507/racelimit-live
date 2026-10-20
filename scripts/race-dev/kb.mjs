@@ -1,11 +1,12 @@
 // keyboard-style test driver: steering, throttle and brake are on/off only (like arrow keys)
 const ROOT = new URL("../../", import.meta.url).pathname; // the repo
 import { readFileSync } from "node:fs";
+const mapFor = (cfg) => { try { return JSON.parse(readFileSync(new URL("../../public/data/race-world/" + cfg.slug + ".json", import.meta.url), "utf8")); } catch { return null; } }; // the map data, if there is any
 const R = ROOT + "public/race/";
 const { CIRCUITS, buildTrack, speedProfile, racingLine } = await import(R + "trackdata.js?" + Date.now());
 const { newCar, stepCar, ENVELOPE, CAR } = await import(R + "physics.js?" + Date.now()); Object.assign(CAR, JSON.parse(process.env.CAR || "{}"));
 const cfg = CIRCUITS[process.env.TRACK || "spa"], raw = JSON.parse(readFileSync(ROOT + "public/data/tracks/" + cfg.slug + ".json", "utf8")); let realD = null; try { realD = JSON.parse(readFileSync(ROOT + "public/data/race/" + cfg.slug + ".json", "utf8")); } catch {}
-const tr = buildTrack(raw, cfg, realD), line = racingLine(tr), vp = speedProfile({ ...tr, K: line.K }, ENVELOPE, 0.92);
+const tr = buildTrack(raw, cfg, realD, mapFor(cfg)), line = racingLine(tr), vp = speedProfile({ ...tr, K: line.K }, ENVELOPE, 0.92);
 const opts = JSON.parse(process.argv[2] || "{}"), aggr = +(process.argv[3] || 1.0), seedArg = +(process.argv[4] || 1);
 let seed = seedArg; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
 const c = newCar(tr, tr.N - 30, 0);

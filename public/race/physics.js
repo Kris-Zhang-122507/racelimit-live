@@ -358,8 +358,9 @@ export function stepCar(c, input, track, dt, opts = {}) {
   }
 
   // ---- visuals ----
-  c.pitch += (clamp(-c.ax * 0.0022, -0.03, 0.03) - c.pitch) * clamp(dt * 6, 0, 1);
-  c.roll += (clamp(c.ay * 0.0012, -0.025, 0.025) - c.roll) * clamp(dt * 6, 0, 1);
+  // (the body's dive/squat and roll on its springs — small on an F1 car, it's stiffly sprung)
+  c.pitch += (clamp(-c.ax * 0.0011, -0.016, 0.012) - c.pitch) * clamp(dt * 7, 0, 1);
+  c.roll += (clamp(c.ay * 0.0006, -0.014, 0.014) - c.roll) * clamp(dt * 7, 0, 1);
   c.wheelRot += (c.u / CAR_R) * dt;
   return c;
 }
