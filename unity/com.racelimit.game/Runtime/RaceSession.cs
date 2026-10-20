@@ -19,7 +19,7 @@ namespace RaceLimit
         public int idx;
         public string message; public float messageUntil;
 
-        float lapStart, secStart, offT, lastAlong;
+        float lapStart, secStart, offT, lastAlong, airT;
         int sector;
         string BestKey { get { return "RaceLimit.best." + (track && track.data != null ? track.data.slug : "track"); } }
 
@@ -50,6 +50,10 @@ namespace RaceLimit
 
             Vector3 p = car.transform.position;
             idx = track.Nearest(p, idx);
+            // fallen through or off the world, or stuck with no wheels on anything: back on track
+            float below = track.centre[idx].y - p.y;
+            if (below > 4f || (car.wheelsDown == 0 && car.kmh < 5 && (airT += Time.deltaTime) > 2f)) { airT = 0; int i = idx; car.Teleport(track.PoseAt(i, 0, 0.45f)); Say("Back on track", 1.2f); lapInvalid = running; return; }
+            if (car.wheelsDown > 0) airT = 0;
             float along = track.Along(p, idx), L = track.length;
             // crossing the line forwards: a lap done (or the first one starting)
             if (lastAlong > L * 0.9f && along < L * 0.1f)

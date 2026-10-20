@@ -105,7 +105,7 @@ namespace UnityEngine
     public struct RaycastHit { public Vector3 point, normal; public float distance; public Collider collider; }
     public static class Physics
     {
-        public const int DefaultRaycastLayers = -5;
+        public const int DefaultRaycastLayers = -5; public static bool queriesHitBackfaces;
         public static Func<float, float, float> ground = (x, z) => 0f; public static Collider groundCollider;
         public static bool Raycast(Vector3 o, Vector3 d, out RaycastHit h, float max, int mask, QueryTriggerInteraction q)
         {
@@ -116,6 +116,7 @@ namespace UnityEngine
     public enum PhysicsMaterialCombine { Average, Minimum }
     public class PhysicsMaterial : Object { public PhysicsMaterial(string n) { } public float dynamicFriction, staticFriction, bounciness; public PhysicsMaterialCombine frictionCombine, bounceCombine; }
     public class Collider : Component { public PhysicsMaterial sharedMaterial; }
+    public class BoxCollider : Collider { public Vector3 center, size; }
     public static class Time { public static float fixedDeltaTime = 0.02f, deltaTime = 1 / 60f, time; }
     public static class Debug { public static void Log(object o) { Console.WriteLine(o); } public static void LogWarning(object o) { Console.WriteLine("WARN " + o); } public static void LogError(object o) { Console.WriteLine("ERR " + o); } }
     public class HeaderAttribute : Attribute { public HeaderAttribute(string s) { } } public class RangeAttribute : Attribute { public RangeAttribute(float a, float b) { } }

@@ -131,7 +131,7 @@ namespace RaceLimit.EditorTools
                 foreach (var t in model.GetComponentsInChildren<Transform>(true)) { if (t.name.StartsWith("RL_Wheel_F")) zf += t.position.z; else if (t.name.StartsWith("RL_Wheel_R")) zr += t.position.z; }
                 if (zf < zr) model.transform.localRotation = Quaternion.Euler(0, 180, 0);
                 carRoot.AddComponent<Rigidbody>();
-                var box = carRoot.AddComponent<BoxCollider>(); box.center = new Vector3(0, 0.5f, 0.1f); box.size = new Vector3(1.9f, 0.55f, 5.3f);
+                var box = carRoot.AddComponent<BoxCollider>(); box.center = new Vector3(0, 0.62f, 0.1f); box.size = new Vector3(1.8f, 0.5f, 5.2f);
                 var car = carRoot.AddComponent<RaceCar>();
                 SetLayer(carRoot, 2); // (Ignore Raycast: the wheels' rays don't hit the car itself)
                 var grid = info.PoseAt(-40, info.data.half * 0.4f, 0.45f);

@@ -45,6 +45,7 @@ namespace RaceLimit
         public float deployW, harvestW_now;
         public SurfaceKind[] wheelSurface = new SurfaceKind[4];
         public bool offTrack;
+        public int wheelsDown;
         public float lateralG, longitudinalG;
 
         public CarInput input;
@@ -64,7 +65,7 @@ namespace RaceLimit
         Wheel[] wheels;
         float wheelbase = 3.4f, aDist = 1.87f, bDist = 1.53f;
         float shiftT, revT;
-        const float G = 9.81f, RHO = 1.225f, RAY_UP = 0.45f;
+        const float G = 9.81f, RHO = 1.225f, RAY_UP = 1.2f; // (the wheels look for the ground from well above the axle, so a dip or a lump can't put the ray's start below the road)
 
         void Awake()
         {
@@ -84,6 +85,9 @@ namespace RaceLimit
             body.centerOfMass = new Vector3(0f, cgHeight, zF - aDist);
             body.inertiaTensor = inertia; body.inertiaTensorRotation = Quaternion.identity;
             ers = batteryJ;
+            Physics.queriesHitBackfaces = true; // (a ground piece facing the wrong way still holds the car up)
+            // the body's box only has to meet barriers: kept clear of the road so kerbs and bumps can't snag it and push it under
+            foreach (var bc in GetComponents<BoxCollider>()) { bc.center = new Vector3(0, 0.62f, 0.1f); bc.size = new Vector3(1.8f, 0.5f, 5.2f); }
             // (the body slides along barriers rather than sticking to them)
             foreach (var c in GetComponents<Collider>()) c.sharedMaterial = new PhysicsMaterial("RL_Car") { dynamicFriction = 0.15f, staticFriction = 0.15f, bounciness = 0.1f, frictionCombine = PhysicsMaterialCombine.Minimum, bounceCombine = PhysicsMaterialCombine.Average };
         }
@@ -237,7 +241,7 @@ namespace RaceLimit
                 if (w.front) dFront += w.grip; else { dRear += w.grip; rearLoad += fz; }
             }
             // ---- then the tyre forces ----
-            float usedDrive = 0;
+            float usedDrive = 0; wheelsDown = 0; foreach (var w in wheels) if (w.grounded) wheelsDown++;
             for (int k = 0; k < wheels.Length; k++)
             {
                 var w = wheels[k];
