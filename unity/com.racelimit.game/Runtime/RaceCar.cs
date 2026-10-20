@@ -26,9 +26,14 @@ namespace RaceLimit
         public float shiftRpm = 11800f, limiterRpm = 12500f, idleRpm = 4000f;
 
         [Header("Tyres and suspension")]
-        public float muFront = 1.85f, muRear = 1.95f; // peak grip at a light load
-        public float loadSensitivity = 0.035f;        // grip lost per kN of load
-        public float bFront = 11f, cFront = 1.45f, bRear = 14f, cRear = 1.2f; // slip curve shape
+        // Set up like the web game's car: at the limit it runs wide (understeers) rather than spinning. The wide rear
+        // tyres have a lot more sideways grip than the fronts and don't lose it past their limit (cRear 1), and
+        // traction control and ABS always leave the tyres enough grip to keep turning.
+        public float muFront = 1.95f;                 // front tyres, any direction
+        public float muRearSide = 2.75f;              // rear tyres, sideways
+        public float muRearDrive = 1.95f;             // rear tyres, driving and braking (traction-limited off the line)
+        public float loadSensitivity = 0.04f;         // grip lost for each extra "static load" pressed on (0.04 = 4 %)
+        public float bFront = 12f, cFront = 1.45f, bRear = 17f, cRear = 1.0f; // slip curve shape
         public float springRate = 110000f, damping = 7000f, bumpStop = 0.065f;
         public float wheelRadius = 0.352f;
         public float steerLock = 0.34f;            // radians at the front wheels, at low speed
@@ -57,7 +62,7 @@ namespace RaceLimit
             public bool front, left;
             public Vector3 restLocal;   // wheel centre at rest, in the car's frame
             public Quaternion pivotRest;
-            public float compression, lastCompression, load, grip, spinAngle;
+            public float compression, lastCompression, load, grip, gripX, spinAngle, fy, staticLoad;
             public bool grounded;
             public RaycastHit hit;
             public SurfaceKind surface;
@@ -84,6 +89,7 @@ namespace RaceLimit
             if (nf > 0 && nr > 0) { zF /= nf; zR /= nr; wheelbase = Mathf.Abs(zF - zR); aDist = wheelbase * (1 - frontWeight); bDist = wheelbase * frontWeight; }
             body.centerOfMass = new Vector3(0f, cgHeight, zF - aDist);
             body.inertiaTensor = inertia; body.inertiaTensorRotation = Quaternion.identity;
+            foreach (var w in wheels) w.staticLoad = mass * G * (w.front ? frontWeight : 1 - frontWeight) / 2f;
             ers = batteryJ;
             Physics.queriesHitBackfaces = true; // (a ground piece facing the wrong way still holds the car up)
             // the body's box only has to meet barriers: kept clear of the road so kerbs and bumps can't snag it and push it under
@@ -226,7 +232,7 @@ namespace RaceLimit
                 Vector3 mount = transform.TransformPoint(w.restLocal + Vector3.up * RAY_UP);
                 float maxLen = RAY_UP + wheelRadius + 0.09f;
                 w.grounded = Physics.Raycast(mount, -up, out w.hit, maxLen, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore); // (the car itself is on Ignore Raycast)
-                if (!w.grounded) { w.compression = 0; w.lastCompression = 0; w.load = 0; w.grip = 0; continue; }
+                if (!w.grounded) { w.compression = 0; w.lastCompression = 0; w.load = 0; w.grip = w.gripX = 0; w.fy = 0; continue; }
                 w.compression = RAY_UP + wheelRadius - w.hit.distance;
                 float cvel = (w.compression - w.lastCompression) / dt; w.lastCompression = w.compression;
                 float fz = Mathf.Max(0, springRate * w.compression + damping * cvel);
@@ -236,9 +242,10 @@ namespace RaceLimit
                 var surf = w.hit.collider ? w.hit.collider.GetComponent<RLSurface>() : null;
                 w.surface = surf ? surf.kind : SurfaceKind.Track; wheelSurface[k] = w.surface;
                 if (!RLSurface.OffTrack(w.surface)) offTrack = false;
-                float mu = Mathf.Max(1.1f, (w.front ? muFront : muRear) - loadSensitivity * fz / 1000f) * RLSurface.Grip(w.surface);
-                w.grip = mu * fz; // the most force this tyre can make
-                if (w.front) dFront += w.grip; else { dRear += w.grip; rearLoad += fz; }
+                float sens = Mathf.Clamp(1 - loadSensitivity * (fz / Mathf.Max(1, w.staticLoad) - 1), 0.8f, 1.05f), sg = sens * RLSurface.Grip(w.surface) * fz;
+                w.grip = (w.front ? muFront : muRearSide) * sg;   // the most sideways force this tyre can make
+                w.gripX = (w.front ? muFront : muRearDrive) * sg; // ...and along the car
+                if (w.front) dFront += w.gripX; else { dRear += w.gripX; rearLoad += fz; }
             }
             // ---- then the tyre forces ----
             float usedDrive = 0; wheelsDown = 0; foreach (var w in wheels) if (w.grounded) wheelsDown++;
@@ -246,7 +253,7 @@ namespace RaceLimit
             {
                 var w = wheels[k];
                 if (!w.grounded) continue;
-                float D = w.grip, fz = w.load;
+                float D = w.grip, fz = w.load; // (D: sideways grip)
                 Vector3 n = w.hit.normal;
                 Vector3 heading = w.front ? Quaternion.AngleAxis(steerAngle * Mathf.Rad2Deg, up) * fwd : fwd;
                 Vector3 wf = Vector3.ProjectOnPlane(heading, n).normalized, wr = Vector3.Cross(n, wf);
@@ -254,34 +261,48 @@ namespace RaceLimit
                 float vx = Vector3.Dot(pv, wf), vy = Vector3.Dot(pv, wr);
 
                 // longitudinal: drive (rear wheels, by load), brakes (as strong as all four tyres' grip, split by the bias), rolling, ploughing
-                float fx = 0;
+                float DX = w.gripX, fx = 0, wLow = Smooth(3f, 9f, Mathf.Abs(vx));
                 if (!w.front && rearLoad > 0) fx += drive * (fz / rearLoad);
                 float axleD = w.front ? dFront : dRear;
-                float fb = brakeTotal * (dFront + dRear) * (w.front ? brakeBias : 1 - brakeBias) * (axleD > 0 ? D / axleD : 0);
+                float fb = brakeTotal * (dFront + dRear) * (w.front ? brakeBias : 1 - brakeBias) * (axleD > 0 ? DX / axleD : 0);
                 float dir = vx >= 0 ? 1 : -1;
                 fx -= fb * dir;
                 fx -= (0.012f + RLSurface.Drag(w.surface, Mathf.Abs(vx))) * fz * Mathf.Clamp(vx, -1, 1);
+                // (slip angle, from where this tyre is really going)
+                float alpha = Mathf.Atan2(vy, Mathf.Max(Mathf.Abs(vx), 3f));
+                // traction control and ABS keep back enough grip for cornering: what the tyre is making now plus a
+                // margin, so getting on the power out of a corner can't snap the rear round, nor braking into one
+                // push the front straight on
+                float keep = Mathf.Min(D * 0.97f, Mathf.Max((w.front ? 1.2f : 1.3f) * Mathf.Abs(w.fy) * wLow, (w.front ? 0.4f : 0.5f) * D));
+                float room = DX * Mathf.Sqrt(Mathf.Max(0, 1 - (keep / D) * (keep / D)));
                 bool locked = false, spun = false;
                 if (fb > 0 && fx * dir < 0)
                 {
-                    if (abs && Mathf.Abs(fx) > D * 0.92f) { fx = -dir * D * 0.92f; absActive = true; }
-                    else if (!abs && Mathf.Abs(fx) > D) { fx = -dir * D * 0.85f; locked = true; if (w.front) lockFront = true; else lockRear = true; }
+                    float hard = w.front ? 0.92f : 0.86f, soft = w.front ? 0.6f : 0.45f;
+                    if (abs && -fx * dir > Mathf.Max(room, soft * DX)) { fx = -dir * Mathf.Min(DX * hard, Mathf.Max(room, soft * DX)); absActive = Mathf.Abs(u) > 3; }
+                    else if (!abs && -fx * dir > DX) { fx = -dir * DX * 0.85f; locked = true; if (w.front) lockFront = true; else lockRear = true; }
                 }
                 else if (fx > 0)
                 {
-                    if (tractionControl && fx > D * 0.97f) { fx = D * 0.97f; tcActive = true; }
-                    else if (!tractionControl && fx > D) { fx = D * 0.75f; spun = true; wheelspin = true; }
+                    float lim = tractionControl ? Mathf.Max(room, 0.25f * DX) : DX;
+                    if (stabilityHelp) lim *= Mathf.Clamp(1 - (Mathf.Abs(alpha) * wLow - 0.07f) * 7f, 0.25f, 1f); // (and eases the power while the rear slides)
+                    if (fx > lim)
+                    {
+                        if (!tractionControl && fx > DX) { spun = true; wheelspin = true; fx = DX * 0.7f; }
+                        else { if (tractionControl && u > 2 && fx > lim * 1.03f) tcActive = true; fx = lim; }
+                    }
                 }
                 if (fx > 0) usedDrive += fx;
-                if (Mathf.Abs(u) < 0.4f && thrIn < 0.05f && !reverse) fx = Mathf.Clamp(-vx * (fz / G) / dt * 0.5f, -D, D); // (parked: hold it)
+                if (Mathf.Abs(u) < 0.4f && thrIn < 0.05f && !reverse) fx = Mathf.Clamp(-vx * (fz / G) / dt * 0.5f, -DX, DX); // (parked: hold it)
 
                 // lateral: the slip-angle curve, limited by what's left after braking or driving (friction ellipse)
-                float dy = Mathf.Sqrt(Mathf.Max((locked ? 0.15f : spun ? 0.35f : 1f) * D * D - fx * fx, 0.0144f * D * D));
-                float alpha = Mathf.Atan2(vy, Mathf.Max(Mathf.Abs(vx), 2f));
+                float dy = w.front ? Mathf.Sqrt(Mathf.Max((locked ? 0.15f : 1f) * D * D - fx * fx, 0.0144f * D * D))
+                                   : D * Mathf.Sqrt(Mathf.Max((locked ? 0.35f : spun ? 0.5f : 1f) - (fx / DX) * (fx / DX), 0.0144f));
                 float fy = -dy * Mathf.Sin((w.front ? cFront : cRear) * Mathf.Atan((w.front ? bFront : bRear) * alpha));
-                // (crawling: hold the tyre still sideways instead, so the car doesn't creep or jitter)
+                // (below ~30 km/h the car moves as if on rails, like the web game: each tyre simply doesn't slide sideways)
                 float fyStill = Mathf.Clamp(-vy * (fz / G) / dt * 0.25f, -dy, dy);
-                fy = Mathf.Lerp(fyStill, fy, Smooth(1f, 5f, Mathf.Abs(vx)));
+                fy = Mathf.Lerp(fyStill, fy, wLow);
+                w.fy = fy;
 
                 body.AddForceAtPosition(wf * fx + wr * fy, w.hit.point + up * 0.05f);
             }

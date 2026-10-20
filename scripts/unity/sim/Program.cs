@@ -69,5 +69,13 @@ public static class Program
         Make(); rb.linearVelocity = new Vector3(0, 0, 200 / 3.6f); car.gear = 6; Step(0.3f); inp.analog = true; inp.steer = 0.5f; inp.throttle = 0.7f; Step(2f); inp.throttle = 0; inp.brake = 0.6f; bool sp = false;
         Step(2f, (t) => { var lv = car.transform.InverseTransformDirection(rb.linearVelocity); if (Math.Abs(Math.Atan2(lv.x, Math.Max(1, lv.z))) > 0.5) sp = true; return false; });
         Console.WriteLine("TRAILBRK " + State() + (sp ? "  SPUN" : ""));
+        // 8. power out of a slow corner on the keyboard (full lock, then full throttle): how far the car slides sideways
+        foreach (var tc in new[] { true, false })
+        {
+            Make(); car.tractionControl = tc; rb.linearVelocity = new Vector3(0, 0, 90 / 3.6f); car.gear = 2; Step(0.3f); inp.analog = false; inp.steer = 1; inp.throttle = 0.15f; Step(1.5f);
+            inp.throttle = 1; float maxSlip = 0; bool spun2 = false;
+            Step(2.5f, (t) => { var lv = car.transform.InverseTransformDirection(rb.linearVelocity); float b = (float)Math.Abs(Math.Atan2(lv.x, Math.Max(1, lv.z))); if (b > maxSlip) maxSlip = b; if (b > 0.5) spun2 = true; return false; });
+            Console.WriteLine(string.Format("POWEROUT tc {0}: max body slide {1:0.0}°  {2}{3}", tc, maxSlip * 57.3, State(), spun2 ? "  SPUN" : ""));
+        }
     }
 }

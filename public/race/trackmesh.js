@@ -4,8 +4,8 @@
 // start gantry and brake boards. Everything is generated, nothing is downloaded.
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
-import { addProps } from "./trackprops.js?v=mvh5nvwo";
-import { prepareMap, buildMap } from "./trackworld.js?v=mvh5nvwo";
+import { addProps } from "./trackprops.js?v=mvh86vc8";
+import { prepareMap, buildMap } from "./trackworld.js?v=mvh86vc8";
 
 const smoothstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
@@ -216,7 +216,7 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
       return g;
     })();
     const spacerG = new RoundedBoxGeometry(0.34, 1.0, GAP + 0.02, 1, 0.04); spacerG.translate(0, 0.5 + 0.04, 0);
-    const modM = named("rl_tecpro", new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, metalness: 0 })), spacerM = new THREE.MeshStandardMaterial({ color: 0xB0242A, roughness: 0.6 });
+    const modM = named("rl_tecpro", new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, metalness: 0 })), spacerM = named("rl_tecpro_spacer", new THREE.MeshStandardMaterial({ color: 0xB0242A, roughness: 0.6 }));
     const MAX = 16000;
     for (const s of [1, -1]) {
       const k = sideK(s);
@@ -279,7 +279,7 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
           if (kk < b) { const v = (kk - a) * 2; ind.push(v, v + 2, v + 1, v + 1, v + 2, v + 3); }
         }
         const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(ind); g.computeVertexNormals();
-        const m = new THREE.Mesh(g, bannerM); m.receiveShadow = true; group.add(m);
+        const m = new THREE.Mesh(g, bannerM); m.receiveShadow = true; m.name = "RL_TecproBanner"; m.userData.tec = { k, idx }; group.add(m); // (the Unity export keeps only the bits in front of plain walls: Unity makes its own on Tecpro)
         tec.banners.push({ k, s, idx, mesh: m });
       }
     }

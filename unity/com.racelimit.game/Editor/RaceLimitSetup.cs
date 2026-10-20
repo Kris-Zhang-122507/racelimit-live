@@ -124,6 +124,14 @@ namespace RaceLimit.EditorTools
                 var game = new GameObject("RaceLimit");
                 var input = game.AddComponent<CarInput>(); var session = game.AddComponent<RaceSession>(); var hud = game.AddComponent<RaceHud>();
                 session.track = info; session.car = car; session.input = input; car.input = input; hud.session = session; hud.car = car;
+                hud.barlow500 = AssetDatabase.LoadAssetAtPath<Font>(PKG + "/Fonts/Barlow_500Medium.ttf"); hud.barlow600 = AssetDatabase.LoadAssetAtPath<Font>(PKG + "/Fonts/Barlow_600SemiBold.ttf");
+                hud.barlow700 = AssetDatabase.LoadAssetAtPath<Font>(PKG + "/Fonts/Barlow_700Bold.ttf"); hud.barlowCondensed700 = AssetDatabase.LoadAssetAtPath<Font>(PKG + "/Fonts/BarlowCondensed_700Bold.ttf");
+                hud.jetBrainsMono600 = AssetDatabase.LoadAssetAtPath<Font>(PKG + "/Fonts/JetBrainsMono_600SemiBold.ttf");
+                var tec = game.AddComponent<TecproBarrier>(); tec.track = info; tec.car = car;
+                tec.bannerTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(PKG + "/Textures/tecpro_banner.png");
+                // (saved as assets, so a build keeps their shader and they can be changed in the editor)
+                tec.bodyMaterial = SaveMat(TecproBarrier.Mat(tec.moduleColour, 0.35f), "RL_Tecpro"); tec.darkMaterial = SaveMat(TecproBarrier.Mat(tec.darkColour, 0.2f), "RL_TecproStrap");
+                tec.spacerMaterial = SaveMat(TecproBarrier.Mat(tec.spacerColour, 0.4f), "RL_TecproSpacer"); tec.bannerMaterial = SaveMat(TecproBarrier.BannerMat(tec.bannerTexture), "RL_TecproBanner");
                 var camGo = new GameObject("Main Camera") { tag = "MainCamera" };
                 var cam = camGo.AddComponent<Camera>(); cam.nearClipPlane = 0.1f; cam.farClipPlane = 6000f; cam.fieldOfView = 58f;
                 camGo.AddComponent<AudioListener>();
@@ -148,6 +156,8 @@ namespace RaceLimit.EditorTools
             if (go == null) { AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate); go = AssetDatabase.LoadAssetAtPath<GameObject>(path); }
             return go;
         }
+
+        static Material SaveMat(Material m, string name) { return SaveAsset(m, OUT + "/Generated/" + name + ".mat"); }
 
         static T SaveAsset<T>(T obj, string path) where T : UnityEngine.Object
         {

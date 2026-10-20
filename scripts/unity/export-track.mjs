@@ -28,6 +28,20 @@ const res = await p.evaluate(async () => {
   const drop = [];
   G.traverse((o) => { if (o.isPoints || o.isSprite || o.isLine || o.material?.isShaderMaterial || o.material?.isPointsMaterial) drop.push(o); else o.visible = true; });
   for (const o of drop) o.parent?.remove(o);
+  // Tecpro: Unity builds its own rows (they squash where they're hit, TecproBarrier.cs), so the modules and spacers
+  // stay out of the model, and of the sponsor banner only the bits in front of plain walls are kept. The banner's
+  // picture goes to Unity as a .png.
+  let bannerPng = null; const tecDrop = [];
+  G.traverse((o) => {
+    if (o.isMesh && (o.material?.name === "rl_tecpro" || o.material?.name === "rl_tecpro_spacer")) tecDrop.push(o);
+    if (o.isMesh && o.name === "RL_TecproBanner" && o.userData.tec) {
+      if (!bannerPng && o.material.map?.image?.toDataURL) bannerPng = o.material.map.image.toDataURL("image/png").split(",")[1];
+      const { k, idx } = o.userData.tec, g = o.geometry, ia = g.index.array, keep = [];
+      for (let t = 0; t < ia.length; t += 6) { const n = Math.floor(ia[t] / 2); if (tr.wallType[k][idx[n]] !== 1 && tr.wallType[k][idx[Math.min(idx.length - 1, n + 1)]] !== 1) for (let q = 0; q < 6; q++) keep.push(ia[t + q]); }
+      if (keep.length) g.setIndex(keep); else tecDrop.push(o);
+    }
+  });
+  for (const o of tecDrop) o.parent?.remove(o);
   G.traverse((o) => { o.userData = {}; });
   // instanced scenery (Tecpro modules, spacers, trees…) baked into ordinary meshes, one per 150 m square, so Unity
   // gets a few hundred objects instead of tens of thousands; the busiest shapes simplified to the same size first
@@ -92,8 +106,21 @@ const res = await p.evaluate(async () => {
     for (let i = 0; i <= n; i++) { if (!closed && i === n) break; const q = pt(i % n); if (!q) { flush(); continue; } run.push(q); if (run.length >= 400) { const last = run[run.length - 1]; flush(); run.push(last); } }
     flush();
   };
-  for (const [k, s] of [[0, 1], [1, -1]]) wallStrip(tr.N, (i) => { const o = s * tr.wall[k][i]; return [tr.X[i] + tr.LX[i] * o, tr.yAt(i, o), tr.Z[i] + tr.LZ[i] * o]; }, true, k ? "RL_Wall_R" : "RL_Wall_L");
+  // (in front of Tecpro the hard wall is the concrete behind the rows, as far back as they can be squashed: Unity's
+  // TecproBarrier slows the car in the foam before that)
+  const tecRows = (k, i) => (tr.wallType[k][i] === 1 && tr.crush ? (tr.crush[k][i] > 1 ? 3 : 2) : 0);
+  const wallPt = (k, s, i) => { const o = s * (tr.wall[k][i] + (tecRows(k, i) ? tr.crush[k][i] : 0)); return [tr.X[i] + tr.LX[i] * o, tr.yAt(i, o), tr.Z[i] + tr.LZ[i] * o]; };
+  // Beside the pit lane the track's barrier on that side is, bit by bit, the pit wall (where there is one) or the pit
+  // road's far wall (where the lane is still joining the track). Both have strips of their own, drawn along the pit
+  // road below, so the track's strip leaves them out: joined up with the track's own barrier it ran straight across the
+  // pit lane at the entry and the exit, and drawn from the track's centre line round the inside of a hairpin (La Source)
+  // it folded back across the lane.
   const P = tr.pitRoad;
+  const besidePit = (k, i) => !!P && k === P.k && P.fromMain[i] >= 0;
+  for (const [k, s] of [[0, 1], [1, -1]]) wallStrip(tr.N, (i) => {
+    if (besidePit(k, i)) return null;
+    return wallPt(k, s, i);
+  }, true, k ? "RL_Wall_R" : "RL_Wall_L");
   if (P) for (const [k, s] of [[0, 1], [1, -1]]) wallStrip(P.N, (i) => { const w = P.wall[k][i]; if (w >= 40) return null; const o = s * w; return [P.X[i] + P.LX[i] * o, P.Y[i], P.Z[i] + P.LZ[i] * o]; }, false, k ? "RL_PitWall_R" : "RL_PitWall_L");
   G.add(col);
   const marks = [["RL_O", 0, 0, 0], ["RL_X", 100, 0, 0], ["RL_Y", 0, 100, 0], ["RL_Z", 0, 0, 100]].map(([n, x, y, z]) => { const o = new THREE.Object3D(); o.name = n; o.position.set(x, y, z); G.add(o); return o; });
@@ -119,12 +146,17 @@ const res = await p.evaluate(async () => {
   const data = {
     slug: tr.cfg.slug, name: tr.cfg.name, half: tr.half, len: r1(tr.len), street: !!tr.street, n: tr.N,
     x: A(tr.N, (i) => r2(tr.X[i])), y: A(tr.N, (i) => r2(tr.Y[i])), z: A(tr.N, (i) => r2(tr.Z[i])), wallL: A(tr.N, (i) => r1(tr.wall[0][i])), wallR: A(tr.N, (i) => r1(tr.wall[1][i])),
+    // the ground's height at the track's edges and just behind the barriers (for Unity's safety ground, so it follows
+    // the real camber and the slope of the run-off instead of lying flat at the centre line's height)
+    tecL: A(tr.N, (i) => tecRows(0, i)), tecR: A(tr.N, (i) => tecRows(1, i)), wallYL: A(tr.N, (i) => r2(tr.yAt(i, tr.wall[0][i]))), wallYR: A(tr.N, (i) => r2(tr.yAt(i, -tr.wall[1][i]))),
+    edgeL: A(tr.N, (i) => r2(tr.yAt(i, tr.half + 0.5))), edgeR: A(tr.N, (i) => r2(tr.yAt(i, -tr.half - 0.5))),
+    outL: A(tr.N, (i) => r2(tr.yAt(i, Math.max(tr.half + 1, tr.wall[0][i] + 2)))), outR: A(tr.N, (i) => r2(tr.yAt(i, -Math.max(tr.half + 1, tr.wall[1][i] + 2)))),
     corners: tr.corners.map((c) => ({ n: c.n, name: c.name, i: c.i })),
     hasPit: !!P, pitLimitFrom: P ? r1(P.limitFrom) : 0, pitLimitTo: P ? r1(P.limitTo) : 0, pitX: pk.map((i) => r2(P.X[i])), pitY: pk.map((i) => r2(P.Y[i])), pitZ: pk.map((i) => r2(P.Z[i])), pitDist: pk.map((i) => r1(P.dist[i])),
     carEyeZ: Math.round(ck * 1000) / 1000, wheelRadius: 0.352,
     note: "x,y,z in three.js metres: Unity maps them with the RL_O/X/Y/Z markers in the .glb. wallL/wallR: barrier distance from the centre line.",
   };
-  return { glb: toB64(glb), car: toB64(carGlb), data: JSON.stringify(data), info: { tris: (() => { let t = 0; G.traverse((o) => { if (o.isMesh) t += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3 * (o.isInstancedMesh ? o.count : 1); }); return Math.round(t); })(), dropped: drop.length } };
+  return { glb: toB64(glb), car: toB64(carGlb), data: JSON.stringify(data), banner: bannerPng, info: { tris: (() => { let t = 0; G.traverse((o) => { if (o.isMesh) t += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3 * (o.isInstancedMesh ? o.count : 1); }); return Math.round(t); })(), dropped: drop.length } };
 });
 const slug = JSON.parse(res.data).slug, dir = OUT + "Tracks/" + slug + "/";
 mkdirSync(dir, { recursive: true }); mkdirSync(OUT + "Cars", { recursive: true });
@@ -135,5 +167,6 @@ writeFileSync(dir + slug + ".glb", Buffer.from(res.glb, "base64"));
 if (process.env.GLTFPACK) { const { execFileSync } = await import("node:child_process"); execFileSync("node", [process.env.GLTFPACK, "-i", dir + slug + ".glb", "-o", dir + slug + ".glb", "-kn", "-km", "-ke", "-noq"], { stdio: "inherit" }); }
 writeFileSync(dir + slug + ".track.json", res.data);
 writeFileSync(OUT + "Cars/car.glb", Buffer.from(res.car, "base64"));
+if (res.banner) { mkdirSync(OUT + "Textures", { recursive: true }); writeFileSync(OUT + "Textures/tecpro_banner.png", Buffer.from(res.banner, "base64")); }
 console.log(slug, "glb", (Buffer.from(res.glb, "base64").length / 1e6).toFixed(1), "MB", "car", (Buffer.from(res.car, "base64").length / 1e6).toFixed(1), "MB", JSON.stringify(res.info));
 await b.close();

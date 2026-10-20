@@ -1,15 +1,15 @@
 // RaceLimit Race — step 1: one car at Spa. Drive with the keyboard or a controller.
 import * as THREE from "three";
 import { Sky } from "three/addons/objects/Sky.js";
-import { CIRCUITS, buildTrack, speedProfile, racingLine } from "./trackdata.js?v=mvh5nvwo";
-import { newCar, stepCar, resetCar, ENVELOPE, CAR, COMPOUNDS, fitTyres, TYRE_NAMES } from "./physics.js?v=mvh5nvwo";
-import { buildCircuit } from "./trackmesh.js?v=mvh5nvwo";
-import { createInput } from "./input.js?v=mvh5nvwo";
-import { createHud } from "./hud.js?v=mvh5nvwo";
-import { createEngineAudio } from "./audio.js?v=mvh5nvwo";
-import { mergeCar } from "./optimize.js?v=mvh5nvwo";
-import { sfx } from "../games/sfx.js?v=mvh5nvwo";
-import { load, save } from "../games/common.js?v=mvh5nvwo";
+import { CIRCUITS, buildTrack, speedProfile, racingLine } from "./trackdata.js?v=mvh86vc8";
+import { newCar, stepCar, resetCar, ENVELOPE, CAR, COMPOUNDS, fitTyres, TYRE_NAMES } from "./physics.js?v=mvh86vc8";
+import { buildCircuit } from "./trackmesh.js?v=mvh86vc8";
+import { createInput } from "./input.js?v=mvh86vc8";
+import { createHud } from "./hud.js?v=mvh86vc8";
+import { createEngineAudio } from "./audio.js?v=mvh86vc8";
+import { mergeCar } from "./optimize.js?v=mvh86vc8";
+import { sfx } from "../games/sfx.js?v=mvh86vc8";
+import { load, save } from "../games/common.js?v=mvh86vc8";
 
 const q = new URLSearchParams(location.search);
 const settings = Object.assign({ auto: true, abs: true, tc: true, stability: true, line: "full", camera: "chase", quality: "high", engine: "raw", hud: "normal", hudInfo: "full" }, load("race.settings", {}));
@@ -20,10 +20,10 @@ const applyHud = () => document.documentElement.style.setProperty("--hud", { nor
 applyHud();
 const saveSettings = () => save("race.settings", settings);
 // ---------- what to drive: the menus (skipped when the address says what, for testing) ----------
-const { f1car, drawWheelScreen, TEAMS, setTyreLook } = await import("./car.js?v=mvh5nvwo");
+const { f1car, drawWheelScreen, TEAMS, setTyreLook } = await import("./car.js?v=mvh86vc8");
 let choice;
 if (q.get("track") || q.get("place") || q.get("auto")) choice = { track: q.get("track") && CIRCUITS[q.get("track")] ? q.get("track") : "spa", session: q.get("session") || (q.get("auto") ? "grid" : "practice") };
-else { document.getElementById("loading").hidden = true; const { openMenus } = await import("./menu.js?v=mvh5nvwo"); choice = await openMenus({ CIRCUITS, settings, saveSettings, TEAMS }); document.getElementById("loading").hidden = false; }
+else { document.getElementById("loading").hidden = true; const { openMenus } = await import("./menu.js?v=mvh86vc8"); choice = await openMenus({ CIRCUITS, settings, saveSettings, TEAMS }); document.getElementById("loading").hidden = false; }
 const circuitId = choice.track, CFG = CIRCUITS[circuitId], SESSION = choice.session;
 document.title = `${CFG.short} · Race — RaceLimit Live`;
 const $ = (id) => document.getElementById(id);
@@ -87,7 +87,7 @@ const raw = await (await fetch(`../data/tracks/${CFG.slug}.json`)).json();
 // the real shape, heights and pit lane (from F1's position data), if we have them for this circuit
 const real = await fetch(`../data/race/${CFG.slug}.json`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
 // and its real surroundings from OpenStreetMap, lined up with the track (buildings, water, tunnels, gravel traps…)
-const map = await fetch(`../data/race-world/${CFG.slug}.json?v=mvh5nvwo`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+const map = await fetch(`../data/race-world/${CFG.slug}.json?v=mvh86vc8`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
 const tr = buildTrack(raw, CFG, real, map);
 const line = racingLine(tr);
 const vp = speedProfile({ ...tr, K: line.K }, ENVELOPE, 0.95);

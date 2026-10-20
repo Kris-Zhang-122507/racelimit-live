@@ -1,7 +1,7 @@
 // The racing game's menus: the main menu (modes), a race weekend (pick a circuit and a session),
 // the garage (your team's colours) and settings. Plain DOM, shown before any 3D is built; resolves
 // with what to drive: { track, session }.
-import { load, save } from "../games/common.js?v=mvh5nvwo";
+import { load, save } from "../games/common.js?v=mvh86vc8";
 
 // the 2026 calendar, in order (the Bahrain GP was held at Sepang), then circuits only raced in 2025
 export const CALENDAR = ["melbourne", "shanghai", "suzuka", "miami", "montreal", "monte-carlo", "catalunya", "spielberg", "silverstone", "spa", "hungaroring", "zandvoort", "monza", "madring", "baku", "kuala-lumpur", "singapore", "austin", "mexico-city", "interlagos", "las-vegas", "lusail", "yas-marina-circuit", "sakhir", "jeddah"];
@@ -47,7 +47,7 @@ export function openMenus({ CIRCUITS, settings, saveSettings, TEAMS }) {
       root.innerHTML = ""; root.append(header("Main menu"));
       const grid = el("div", "mm-grid");
       const hero = el("button", "mm-card hero"); hero.type = "button";
-      hero.innerHTML = `<img src="img/hero.jpg?v=mvh5nvwo" alt="" loading="eager"><div class="mm-card-body"><span class="pill gold">Main mode</span><h2>Race weekend</h2><p>Practice and hot laps at any of the ${CALENDAR.length} circuits, with their real shapes, hills and pit lanes. Races against AI cars are coming.</p></div>`;
+      hero.innerHTML = `<img src="img/hero.jpg?v=mvh86vc8" alt="" loading="eager"><div class="mm-card-body"><span class="pill gold">Main mode</span><h2>Race weekend</h2><p>Practice and hot laps at any of the ${CALENDAR.length} circuits, with their real shapes, hills and pit lanes. Races against AI cars are coming.</p></div>`;
       hero.onclick = weekend; grid.append(hero);
       const today = dailyTrack(), dbest = load(`race.daily.${new Date().toISOString().slice(0, 10)}`, null);
       const cards = [

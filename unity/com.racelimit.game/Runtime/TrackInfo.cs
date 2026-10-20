@@ -19,6 +19,9 @@ namespace RaceLimit
             public bool street;
             public int n;
             public float[] x, y, z, wallL, wallR;
+            public float[] edgeL, edgeR, outL, outR; // ground height at ±(half + 0.5) and just behind each barrier
+            public int[] tecL, tecR;                 // rows of Tecpro in front of each barrier (0 = none)
+            public float[] wallYL, wallYR;           // ground height at each barrier
             public Corner[] corners;
             public bool hasPit;
             public float pitLimitFrom, pitLimitTo;
@@ -84,9 +87,15 @@ namespace RaceLimit
             var root = new GameObject("RL_SafetyGround").transform; root.SetParent(transform, false);
             root.position = Vector3.zero; root.rotation = Quaternion.identity; root.localScale = Vector3.one;
             int n = N;
-            Band(root, "track", SurfaceKind.Track, n, (i) => -data.half - 0.5f, (i) => data.half + 0.5f, 0.07f);
-            Band(root, "left", SurfaceKind.Runoff, n, (i) => data.half + 0.5f, (i) => Mathf.Max(data.half + 1f, data.wallL[i] + 2f), 0.09f);
-            Band(root, "right", SurfaceKind.Runoff, n, (i) => -Mathf.Max(data.half + 1f, data.wallR[i] + 2f), (i) => -data.half - 0.5f, 0.09f);
+            // (heights from the export where it has them — the camber, the run-off's slope — else the centre line's)
+            bool hs = data.edgeL != null && data.edgeL.Length == n && data.outL != null && data.outL.Length == n;
+            Off cy = (i) => data.y[i];
+            Off eL = hs ? (Off)((i) => data.edgeL[i]) : cy, eR = hs ? (Off)((i) => data.edgeR[i]) : cy, oL = hs ? (Off)((i) => data.outL[i]) : cy, oR = hs ? (Off)((i) => data.outR[i]) : cy;
+            Off c0 = (i) => 0f, tL = (i) => data.half + 0.5f, tR = (i) => -data.half - 0.5f;
+            Band(root, "trackL", SurfaceKind.Track, n, c0, cy, tL, eL, 0.07f);
+            Band(root, "trackR", SurfaceKind.Track, n, tR, eR, c0, cy, 0.07f);
+            Band(root, "left", SurfaceKind.Runoff, n, tL, eL, (i) => Mathf.Max(data.half + 1f, data.wallL[i] + 2f), oL, 0.12f);
+            Band(root, "right", SurfaceKind.Runoff, n, (i) => -Mathf.Max(data.half + 1f, data.wallR[i] + 2f), oR, tR, eR, 0.12f);
             if (pit != null && pit.Length > 2)
             {
                 var v = new System.Collections.Generic.List<Vector3>(); var t = new System.Collections.Generic.List<int>();
@@ -102,7 +111,8 @@ namespace RaceLimit
         }
 
         delegate float Off(int i);
-        void Band(Transform root, string name, SurfaceKind kind, int n, Off from, Off to, float below)
+        // a strip between two lines beside the centre line (sideways offset + ground height, in the export's terms)
+        void Band(Transform root, string name, SurfaceKind kind, int n, Off from, Off fromY, Off to, Off toY, float below)
         {
             // in pieces of 600 m, each its own collider
             for (int a = 0; a < n; a += 600)
@@ -112,7 +122,8 @@ namespace RaceLimit
                 for (int i = a; i <= b; i++)
                 {
                     int j = Wrap(i);
-                    v.Add(centre[j] + left[j] * from(j) - Vector3.up * below); v.Add(centre[j] + left[j] * to(j) - Vector3.up * below);
+                    v.Add(centre[j] + left[j] * from(j) + ey * (fromY(j) - data.y[j]) - Vector3.up * below);
+                    v.Add(centre[j] + left[j] * to(j) + ey * (toY(j) - data.y[j]) - Vector3.up * below);
                     if (i > a) { int q = 2 * (i - a); t.Add(q - 2); t.Add(q - 1); t.Add(q); t.Add(q - 1); t.Add(q + 1); t.Add(q); }
                 }
                 Piece(root, name + "_" + a, kind, v, t);
@@ -165,6 +176,11 @@ namespace RaceLimit
         }
 
         public Vector3 Map(float x, float y, float z) { return o + ex * x + ey * y + ez * z; }
+        // ...and back: a point in this scene in the export's (three.js) terms
+        public Vector3 Unmap(Vector3 p) { Vector3 d = p - o; return new Vector3(Vector3.Dot(d, ex) / ex.sqrMagnitude, Vector3.Dot(d, ey) / ey.sqrMagnitude, Vector3.Dot(d, ez) / ez.sqrMagnitude); }
+
+        // a point beside centre-line sample i (lateral: + = the driver's left), at ground height groundY (the export's terms)
+        public Vector3 Beside(int i, float lateral, float groundY) { return centre[i] + left[i] * lateral + ey * (groundY - data.y[i]); }
 
         static Transform Find(Transform t, string name)
         {

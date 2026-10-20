@@ -22,11 +22,14 @@ A controller works too (triggers, left stick, bumpers for gears, A overtake, Y c
 |---|---|
 | `Tracks/<circuit>/` | The circuit as the web game builds it (`.glb`: track, kerbs, run-off, barriers, terrain, real buildings, trees) and its centre line (`.track.json`). Exported by `scripts/unity/export-track.mjs`. |
 | `Cars/car.glb` | The car, wheels named `RL_Wheel_FL/FR/RL/RR`. |
-| `Runtime/` | `RaceCar` (physics), `CarInput`, `ChaseCamera`, `RaceSession` (timing, limiter, resets), `RaceHud`, `TrackInfo`, `RLSurface`, `RLWall`. |
+| `Runtime/` | `RaceCar` (physics), `CarInput`, `ChaseCamera`, `RaceSession` (timing, delta, limiter, resets), `RaceHud` + `HudLayout` (the web game's on-screen display), `TecproBarrier` + `TecproModel` (Tecpro that squashes), `TrackInfo`, `RLSurface`, `RLWall`. |
+| `Fonts/` | Barlow, Barlow Condensed and JetBrains Mono, as on the web (SIL Open Font License, see the `OFL-*.txt` files). |
+| `Textures/` | The Tecpro sponsor banner (made-up sponsors). |
 | `Editor/` | `RaceLimitSetup`: the RaceLimit menu (installs glTFast, builds scenes). |
 
 Ground pieces are found by material name (`rl_ground_track`, `_kerb`, `_grass`, `_gravel`…): they get a Mesh Collider and a surface
-type for the tyres. Barriers collide through invisible strips (`rl_col_wall`). Car settings (grip, aero, power, springs, aids) are on
+type for the tyres. Barriers collide through invisible strips (`rl_col_wall`); in front of Tecpro the strip is the concrete behind
+the rows, and `TecproBarrier` slows the car in the foam before that and squashes the rows where it went in. Car settings (grip, aero, power, springs, aids) are on
 the **RaceCar** component of `PlayerCar` and can be changed in the Inspector while playing.
 
 Map data © OpenStreetMap contributors (ODbL).

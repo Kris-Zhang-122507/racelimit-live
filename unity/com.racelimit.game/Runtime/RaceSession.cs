@@ -15,12 +15,17 @@ namespace RaceLimit
         public int lap = 0;
         public float lapTime, lastLap = -1, bestLap = -1;
         public float[] sectors = { -1, -1, -1 }, bestSectors = { -1, -1, -1 };
+        public int[] sectorCls = new int[3];      // how each sector this lap went: 1 best yet (purple), 3 slower (yellow), 4 lap deleted
+        public bool onPit;                        // in the pit lane
+        public bool hasDelta; public float delta; // against the best lap this session, where it was at this point
         public bool lapInvalid, running, paused;
         public int idx;
         public string message; public float messageUntil;
 
         float lapStart, secStart, offT, lastAlong, airT;
+        float[] curTrace, bestTrace; // lap time at each metre of the lap: this lap, the best one
         int sector;
+        [System.NonSerialized] public float bestTraceLap; // the lap the delta is against
         string BestKey { get { return "RaceLimit.best." + (track && track.data != null ? track.data.slug : "track"); } }
 
         void Start()
@@ -30,6 +35,7 @@ namespace RaceLimit
             if (input == null) input = FindAnyObjectByType<CarInput>();
             if (!track.Load()) { enabled = false; return; }
             bestLap = PlayerPrefs.GetFloat(BestKey, -1);
+            curTrace = new float[track.N]; for (int i = 0; i < curTrace.Length; i++) curTrace[i] = -1;
             // on the grid: 40 m behind the line, left of the middle
             car.Teleport(track.PoseAt(-40, track.data.half * 0.4f, 0.45f));
             idx = track.Nearest(car.transform.position);
@@ -63,24 +69,32 @@ namespace RaceLimit
                 {
                     float t = now - lapStart; sectors[2] = now - secStart;
                     lastLap = t;
+                    // (the delta is against the best lap driven in this session)
+                    bool sessionBest = !lapInvalid && (bestTrace == null || t < bestTraceLap);
+                    if (sessionBest) { bestTraceLap = t; bestTrace = (float[])curTrace.Clone(); float lastT = 0; for (int i = 0; i < bestTrace.Length; i++) { if (bestTrace[i] < 0) bestTrace[i] = lastT; else lastT = bestTrace[i]; } }
                     if (!lapInvalid && (bestLap < 0 || t < bestLap)) { bestLap = t; PlayerPrefs.SetFloat(BestKey, t); PlayerPrefs.Save(); Say("Best lap " + Fmt(t), 3); }
                     else Say(lapInvalid ? "Lap deleted: track limits" : "Lap " + Fmt(t), 2.5f);
                     for (int s = 0; s < 3; s++) if (!lapInvalid && sectors[s] > 0 && (bestSectors[s] < 0 || sectors[s] < bestSectors[s])) bestSectors[s] = sectors[s];
                 }
                 else Say("Timed lap", 1.4f);
-                running = true; lap++; lapStart = secStart = now; sector = 0; lapInvalid = false; sectors = new float[] { -1, -1, -1 };
+                running = true; lap++; lapStart = secStart = now; sector = 0; lapInvalid = false; sectors = new float[] { -1, -1, -1 }; sectorCls = new int[3];
+                for (int i = 0; i < curTrace.Length; i++) curTrace[i] = -1;
             }
             if (running)
             {
                 lapTime = Time.time - lapStart;
                 int sNow = Mathf.Clamp((int)(along / (L / 3f)), 0, 2);
-                if (sNow == sector + 1) { sectors[sector] = Time.time - secStart; secStart = Time.time; sector = sNow; }
+                if (sNow == sector + 1) { float st = Time.time - secStart; sectors[sector] = st; sectorCls[sector] = lapInvalid ? 4 : bestSectors[sector] < 0 || st < bestSectors[sector] ? 1 : 3; secStart = Time.time; sector = sNow; }
+                if (curTrace[idx] < 0) curTrace[idx] = lapTime;
+                hasDelta = bestTrace != null; if (hasDelta) delta = lapTime - bestTrace[idx];
             }
+            if (!running) hasDelta = false;
             lastAlong = along;
             // track limits: all four wheels on grass or gravel for a moment
             if (car.offTrack && car.kmh > 30) { offT += Time.deltaTime; if (offT > 0.25f && running && !lapInvalid) { lapInvalid = true; Say("Track limits: lap deleted", 2.2f); } } else offT = 0;
             // the pit limiter, between the lines
             float pd = track.PitDistance(p);
+            onPit = track.PitDistance(p, 6.5f) >= 0;
             bool lim = pd >= 0 && pd >= track.data.pitLimitFrom && pd <= track.data.pitLimitTo;
             if (lim != car.pitLimiter) { car.pitLimiter = lim; Say(lim ? "Pit limiter on · 80 km/h" : "Limiter off", 1.4f); }
         }
