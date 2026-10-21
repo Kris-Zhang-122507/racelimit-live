@@ -16,7 +16,7 @@ namespace RaceLimit
         public bool full = true;
 
         readonly HudState st = new HudState();
-        HudMap map; Painter painter;
+        HudMap map; ImguiPainter painter;
         TrackInfo track;
         TrackInfo.Corner[] corners;
         float startT, cornerAt, lastErs = -1, lapDep, lapHarv, lapTop; int lapN = -1;
@@ -28,7 +28,8 @@ namespace RaceLimit
             if (session == null) session = FindAnyObjectByType<RaceSession>();
             if (car == null) car = FindAnyObjectByType<RaceCar>();
             startT = Time.unscaledTime;
-            painter = new Painter(this);
+            hudSize = RaceSettings.HudScale; full = RaceSettings.FullHud;
+            painter = new ImguiPainter((f) => FontFor(f));
             st.hint = "Arrows or W A S D drive · E / Q gears · Space overtake · [ ] brake bias · F aero · Tab more / less info · C camera · B look back · R reset · Esc pause";
         }
 
@@ -39,26 +40,27 @@ namespace RaceLimit
             track = session.track; var d = track.data; int n = d.n;
             // the map, in the web map's 200 × 200 box
             float minX = float.MaxValue, maxX = float.MinValue, minZ = float.MaxValue, maxZ = float.MinValue;
-            for (int i = 0; i < n; i += 10) { minX = Mathf.Min(minX, d.x[i]); maxX = Mathf.Max(maxX, d.x[i]); minZ = Mathf.Min(minZ, d.z[i]); maxZ = Mathf.Max(maxZ, d.z[i]); }
+            mx = track.worldSpace ? -1 : 1; // (built circuits: x mirrored, so the map is drawn as the web game draws them)
+            for (int i = 0; i < n; i += 10) { minX = Mathf.Min(minX, mx * d.x[i]); maxX = Mathf.Max(maxX, mx * d.x[i]); minZ = Mathf.Min(minZ, d.z[i]); maxZ = Mathf.Max(maxZ, d.z[i]); }
             sc = 180f / Mathf.Max(maxX - minX, maxZ - minZ); ox = 100 - (minX + maxX) / 2 * sc; oz = 100 - (minZ + maxZ) / 2 * sc;
             map = new HudMap();
             var lap = new System.Collections.Generic.List<Vector2>(); for (int i = 0; i < n; i += 12) lap.Add(M(d.x[i], d.z[i])); lap.Add(M(d.x[0], d.z[0])); map.lap = lap.ToArray();
             if (d.hasPit && d.pitX != null && d.pitX.Length > 1) { var pl = new System.Collections.Generic.List<Vector2>(); for (int i = 0; i < d.pitX.Length; i += 3) pl.Add(M(d.pitX[i], d.pitZ[i])); map.pit = pl.ToArray(); }
             int nSeg = (n + SEG - 1) / SEG; map.segs = new Vector2[nSeg][]; map.segState = new sbyte[nSeg];
             for (int s = 0; s < nSeg; s++) { var sp = new System.Collections.Generic.List<Vector2>(); for (int i = s * SEG; i <= Mathf.Min(n, (s + 1) * SEG); i += 6) { int j = i % n; sp.Add(M(d.x[j], d.z[j])); } map.segs[s] = sp.ToArray(); }
-            map.start = M(d.x[0], d.z[0]); map.startAngle = Mathf.Atan2(d.x[1] - d.x[0], -(d.z[1] - d.z[0])) * Mathf.Rad2Deg + 90;
+            map.start = M(d.x[0], d.z[0]); map.startAngle = Mathf.Atan2(mx * (d.x[1] - d.x[0]), -(d.z[1] - d.z[0])) * Mathf.Rad2Deg + 90;
             // corners in lap order
             var cl = new System.Collections.Generic.List<TrackInfo.Corner>(); if (d.corners != null) foreach (var c in d.corners) if (c.i >= 0 && c.i < n) cl.Add(c);
             cl.Sort((a, b) => a.i.CompareTo(b.i)); corners = cl.ToArray();
             st.session = "Practice · " + d.name; st.circuit = d.name;
             return true;
         }
-        float sc = 1, ox, oz;
-        Vector2 M(float x, float z) { return new Vector2(ox + x * sc, oz + z * sc); }
+        float sc = 1, ox, oz, mx = 1;
+        Vector2 M(float x, float z) { return new Vector2(ox + mx * x * sc, oz + z * sc); }
 
         void Update()
         {
-            if (car != null && car.input != null && car.input.info) full = !full;
+            if (car != null && car.input != null && car.input.info) { full = !full; RaceSettings.FullHud = full; }
             if (!Ready()) return;
             // ---- per-lap tallies ----
             if (lapN != session.lap) { lapN = session.lap; lapDep = lapHarv = 0; lapTop = 0; }
@@ -81,6 +83,11 @@ namespace RaceLimit
                 st.nextName = "T" + k.n + (k.name != null && !k.name.StartsWith("Turn ") && k.name.Length > 0 ? " " + k.name : "");
                 st.nextDist = bd < 15 ? "now" : Mathf.RoundToInt(bd / 10f) * 10 + " m";
             }
+        }
+
+        Font FontFor(HudFont f)
+        {
+            switch (f) { case HudFont.B500: return barlow500; case HudFont.B600: return barlow600; case HudFont.B700: return barlow700; case HudFont.BC700: return barlowCondensed700; default: return jetBrainsMono600; }
         }
 
         static string Signed(float d, int dp) { return (d >= 0 ? "+" : "−") + Mathf.Abs(d).ToString(dp == 3 ? "0.000" : dp == 2 ? "0.00" : "0.0"); }
@@ -139,106 +146,31 @@ namespace RaceLimit
 
         void OnGUI()
         {
-            if (Event.current.type != EventType.Repaint || !Ready()) return;
-            Fill();
-            // the web page's pixels are the screen's at 96 dpi, more on a high-resolution screen (Windows' display scaling)
-            float dpi = Screen.dpi > 30 ? Screen.dpi : 96f * Screen.height / 1080f, scale = hudSize * Mathf.Clamp(dpi / 96f, 0.75f, 3f);
-            painter.scale = scale; painter.Opacity = 1;
-            HudLayout.Draw(painter, st, Screen.width / scale, Screen.height / scale);
+            if (!Ready()) return;
+            float scale = hudSize * MenuUi.ScreenScale(); painter.scale = scale;
+            float W = Screen.width / scale, H = Screen.height / scale;
+            if (Event.current.type == EventType.Repaint)
+            {
+                Fill(); st.paused = false; painter.Opacity = 1;
+                HudLayout.Draw(painter, st, W, H);
+            }
+            if (session.paused) PauseMenu(W, H);
         }
 
-        // ---- drawing with Unity's immediate GUI ----
-        class Painter : IHudPainter
+        // Esc: carry on, start again, or back to the main menu
+        void PauseMenu(float W, float H)
         {
-            public float scale = 1;
-            public float Opacity { get; set; }
-            readonly RaceHud hud;
-            readonly System.Collections.Generic.Dictionary<int, GUIStyle> styles = new System.Collections.Generic.Dictionary<int, GUIStyle>();
-            readonly GUIContent content = new GUIContent();
-            Texture2D mapTex; int mapVersion = -1; HudMap mapFor;
-            public Painter(RaceHud h) { hud = h; Opacity = 1; }
-
-            Rect S(Rect r) { return new Rect(r.x * scale, r.y * scale, r.width * scale, r.height * scale); }
-            Color A(Color c) { c.a *= Opacity; return c; }
-
-            public void Fill(Rect r, Color c, float radius) { GUI.DrawTexture(S(r), Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, A(c), 0, radius * scale); }
-            public void Border(Rect r, Color c, float radius, float width) { GUI.DrawTexture(S(r), Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, A(c), Mathf.Max(1, width * scale), radius * scale); }
-
-            Font FontFor(HudFont f)
-            {
-                switch (f) { case HudFont.B500: return hud.barlow500; case HudFont.B600: return hud.barlow600; case HudFont.B700: return hud.barlow700; case HudFont.BC700: return hud.barlowCondensed700; default: return hud.jetBrainsMono600; }
-            }
-            GUIStyle Style(HudFont f, float size, TextAnchor a)
-            {
-                int px = Mathf.Max(6, Mathf.RoundToInt(size * scale)), key = ((int)f * 1000 + px) * 16 + (int)a;
-                GUIStyle st;
-                if (!styles.TryGetValue(key, out st))
-                {
-                    st = new GUIStyle(GUI.skin.label) { fontSize = px, alignment = a, wordWrap = a == TextAnchor.UpperLeft, clipping = TextClipping.Overflow, richText = false, padding = new RectOffset(0, 0, 0, 0), margin = new RectOffset(0, 0, 0, 0) };
-                    var font = FontFor(f); if (font != null) st.font = font; else st.fontStyle = f == HudFont.B500 ? FontStyle.Normal : FontStyle.Bold;
-                    styles[key] = st;
-                }
-                return st;
-            }
-            public void Text(Rect r, string s, HudFont f, float size, Color c, TextAnchor a)
-            {
-                if (string.IsNullOrEmpty(s)) return;
-                var st = Style(f, size, a); st.normal.textColor = A(c); content.text = s;
-                GUI.Label(S(r), content, st);
-            }
-            public float Width(string s, HudFont f, float size)
-            {
-                if (string.IsNullOrEmpty(s)) return 0;
-                content.text = s; return Style(f, size, TextAnchor.MiddleLeft).CalcSize(content).x / scale;
-            }
-
-            public void Map(Rect r, HudMap m)
-            {
-                const int T = 332;
-                if (mapTex == null) { mapTex = new Texture2D(T, T, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear }; }
-                if (mapFor != m || (mapVersion != m.version && Time.unscaledTime - lastDraw > 0.25f)) { Raster(m, T); mapFor = m; mapVersion = m.version; lastDraw = Time.unscaledTime; }
-                GUI.DrawTexture(S(r), mapTex, ScaleMode.StretchToFill, true, 0, A(Color.white), 0, 0);
-                // the car: an orange dot with a dark rim
-                float k = r.width / 200f; var c = new Vector2(r.x + m.car.x * k, r.y + m.car.y * k);
-                Fill(new Rect(c.x - 6 * k, c.y - 6 * k, 12 * k, 12 * k), HudLayout.Hex(0x0B0D12), 6 * k);
-                Fill(new Rect(c.x - 4.5f * k, c.y - 4.5f * k, 9 * k, 9 * k), HudLayout.Accent, 4.5f * k);
-            }
-            float lastDraw;
-            Color32[] px;
-            void Raster(HudMap m, int T)
-            {
-                if (px == null || px.Length != T * T) px = new Color32[T * T];
-                for (int i = 0; i < px.Length; i++) px[i] = new Color32(0, 0, 0, 0);
-                float k = T / 200f;
-                if (m.pit != null) Poly(m.pit, HudLayout.Hex(0x5B6372), 2f * k, k, T, false);
-                Poly(m.lap, HudLayout.Hex(0x3A4150), 7f * k, k, T, false);
-                for (int s = 0; s < m.segs.Length; s++) Poly(m.segs[s], m.segState[s] == 1 ? HudLayout.Deploy : m.segState[s] == 2 ? HudLayout.Harvest : HudLayout.Soft, 2.6f * k, k, T, true);
-                // the start line: a short orange bar across the track
-                float a = m.startAngle * Mathf.Deg2Rad; Vector2 dir = new Vector2(Mathf.Sin(a), -Mathf.Cos(a)) * 5f; // (the web's rect, rotated: 3 wide, 10 long)
-                Line(m.start - dir, m.start + dir, HudLayout.Accent, 3f * k, k, T, true);
-                // (y down in the box, but row 0 of a texture is at the bottom)
-                var flip = new Color32[T * T]; for (int y = 0; y < T; y++) System.Array.Copy(px, y * T, flip, (T - 1 - y) * T, T);
-                mapTex.SetPixels32(flip); mapTex.Apply(false);
-            }
-            void Poly(Vector2[] p, Color c, float w, float k, int T, bool round) { for (int i = 1; i < p.Length; i++) Line(p[i - 1], p[i], c, w, k, T, true); }
-            // an antialiased thick line (round ends, so the pieces join smoothly), painted over what's there
-            void Line(Vector2 a0, Vector2 b0, Color c, float w, float k, int T, bool round)
-            {
-                Vector2 a = a0 * k, b = b0 * k; float h = w / 2;
-                int x0 = Mathf.Max(0, Mathf.FloorToInt(Mathf.Min(a.x, b.x) - h - 1)), x1 = Mathf.Min(T - 1, Mathf.CeilToInt(Mathf.Max(a.x, b.x) + h + 1));
-                int y0 = Mathf.Max(0, Mathf.FloorToInt(Mathf.Min(a.y, b.y) - h - 1)), y1 = Mathf.Min(T - 1, Mathf.CeilToInt(Mathf.Max(a.y, b.y) + h + 1));
-                Vector2 ab = b - a; float L2 = Mathf.Max(1e-6f, ab.sqrMagnitude);
-                for (int y = y0; y <= y1; y++) for (int x = x0; x <= x1; x++)
-                {
-                    Vector2 q = new Vector2(x + 0.5f, y + 0.5f); float t = Mathf.Clamp01(Vector2.Dot(q - a, ab) / L2);
-                    float d = (q - (a + ab * t)).magnitude, cov = Mathf.Clamp01(h + 0.5f - d);
-                    if (cov <= 0) continue;
-                    int i = y * T + x; Color o = px[i]; float al = cov * c.a, oa = o.a;
-                    float na = al + oa * (1 - al);
-                    Color n = na > 0 ? new Color((c.r * al + o.r * oa * (1 - al)) / na, (c.g * al + o.g * oa * (1 - al)) / na, (c.b * al + o.b * oa * (1 - al)) / na, na) : o;
-                    px[i] = n;
-                }
-            }
+            painter.Opacity = 1;
+            if (Event.current.type == EventType.Repaint) painter.Fill(new Rect(0, 0, W, H), new Color(0.02f, 0.03f, 0.05f, 0.6f), 0);
+            bool menu = RaceSettings.MenuAvailable; float pw = 340, ph = 96 + (menu ? 3 : 2) * 52, x = W / 2 - pw / 2, y = H / 2 - ph / 2;
+            MenuUi.Panel(painter, new Rect(x, y, pw, ph));
+            painter.Text(new Rect(x + 24, y + 20, pw - 48, 34), "Paused", HudFont.BC700, 28, HudLayout.Text, TextAnchor.MiddleLeft);
+            painter.Text(new Rect(x + 24, y + 54, pw - 48, 20), session.track != null && session.track.data != null ? session.track.data.name : "", HudFont.B600, 13, HudLayout.Muted, TextAnchor.MiddleLeft);
+            float by = y + 88;
+            if (MenuUi.Button(painter, new Rect(x + 24, by, pw - 48, 42), "Carry on", true)) session.TogglePause(); by += 52;
+            if (MenuUi.Button(painter, new Rect(x + 24, by, pw - 48, 42), "Start again", false)) session.Restart(); by += 52;
+            if (menu && MenuUi.Button(painter, new Rect(x + 24, by, pw - 48, 42), "Main menu", false)) session.ToMenu();
         }
+
     }
 }

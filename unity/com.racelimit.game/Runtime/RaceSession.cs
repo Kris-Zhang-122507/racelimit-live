@@ -36,20 +36,37 @@ namespace RaceLimit
             if (!track.Load()) { enabled = false; return; }
             bestLap = PlayerPrefs.GetFloat(BestKey, -1);
             curTrace = new float[track.N]; for (int i = 0; i < curTrace.Length; i++) curTrace[i] = -1;
-            // on the grid: 40 m behind the line, left of the middle
-            car.Teleport(track.PoseAt(-40, track.data.half * 0.4f, 0.45f));
+            RaceSettings.Apply(car);
+            hotLap = RaceSettings.Session == 1;
+            if (hotLap)
+            {
+                // hot laps: rolling, 350 m before the line at 200 km/h
+                car.Teleport(track.PoseAt(-350, 0, 0.45f));
+                car.body.linearVelocity = car.transform.forward * (200f / 3.6f); car.gear = 5;
+                Say("Hot lap — the clock starts at the line", 3);
+            }
+            else
+            {
+                // on the grid: 40 m behind the line, left of the middle
+                car.Teleport(track.PoseAt(-40, track.data.half * 0.4f, 0.45f));
+                Say("Practice — the clock starts at the line", 3);
+            }
             idx = track.Nearest(car.transform.position);
             lastAlong = track.Along(car.transform.position, idx);
-            Say("Practice — the clock starts at the line", 3);
             var cam = FindAnyObjectByType<ChaseCamera>(); if (cam != null) cam.eyeZ = track.data.carEyeZ;
         }
 
         public void Say(string text, float secs) { message = text; messageUntil = Time.unscaledTime + secs; }
+        bool hotLap;
+
+        public void TogglePause() { paused = !paused; Time.timeScale = paused ? 0 : 1; AudioListener.pause = paused; }
+        public void Restart() { Time.timeScale = 1; AudioListener.pause = false; UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex >= 0 ? UnityEngine.SceneManagement.SceneManager.GetActiveScene().name : gameObject.scene.name); }
+        public void ToMenu() { Time.timeScale = 1; AudioListener.pause = false; if (RaceSettings.MenuAvailable) UnityEngine.SceneManagement.SceneManager.LoadScene(RaceSettings.MenuScene); }
 
         void Update()
         {
             if (input == null || car == null) return;
-            if (input.pause) { paused = !paused; Time.timeScale = paused ? 0 : 1; AudioListener.pause = paused; }
+            if (input.pause) TogglePause();
             if (paused) return;
             if (input.reset) { int i = track.Nearest(car.transform.position, idx); car.Teleport(track.PoseAt(i, 0, 0.45f)); Say("Back on track", 1.2f); lapInvalid = running; }
             if (input.biasUp || input.biasDown) { car.brakeBias = Mathf.Round(Mathf.Clamp(car.brakeBias + (input.biasUp ? 0.005f : -0.005f), 0.5f, 0.7f) * 1000f) / 1000f; Say("Brake bias " + (car.brakeBias * 100).ToString("0.0") + "% front", 1.1f); }

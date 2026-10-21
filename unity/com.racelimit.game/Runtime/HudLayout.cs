@@ -23,6 +23,13 @@ namespace RaceLimit
         float Opacity { get; set; }
     }
 
+    // ...and for the menus: where the mouse is, and clicks
+    public interface IMenuPainter : IHudPainter
+    {
+        bool Hover(Rect r);
+        bool Hit(Rect r);
+    }
+
     // the track map in the web map's 200 × 200 box (x right, y down)
     public class HudMap
     {
@@ -32,6 +39,7 @@ namespace RaceLimit
         public int version;             // goes up when segState changes
         public Vector2 start; public float startAngle; // the start line marker (degrees)
         public Vector2 car;
+        public bool showCar = true;
     }
 
     public class HudState

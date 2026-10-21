@@ -45,6 +45,7 @@ namespace RaceLimit
         [NonSerialized] public float[] dist;       // metres from the start line
         [NonSerialized] public Vector3[] pit;      // the pit lane's middle, one per 2 m
         [NonSerialized] public float length;
+        [NonSerialized] public bool worldSpace; // the data is in this scene's terms (the Track Builder's), not the web game's
         public int N { get { return centre == null ? 0 : centre.Length; } }
 
         Vector3 o, ex, ey, ez;
@@ -203,6 +204,19 @@ namespace RaceLimit
             {
                 o = mo.position; ex = (mx.position - o) / 100f; ey = (my.position - o) / 100f; ez = (mz.position - o) / 100f;
             }
+            Arrays();
+            return true;
+        }
+
+        // Track data made in this scene (the Track Builder's), already in this scene's coordinates
+        public void UseData(Data d)
+        {
+            data = d; o = Vector3.zero; ex = Vector3.right; ey = Vector3.up; ez = Vector3.forward; worldSpace = true;
+            pit = null; Arrays();
+        }
+
+        void Arrays()
+        {
             int n = data.n;
             centre = new Vector3[n]; forward = new Vector3[n]; left = new Vector3[n]; dist = new float[n];
             for (int i = 0; i < n; i++) centre[i] = Map(data.x[i], data.y[i], data.z[i]);
@@ -220,7 +234,6 @@ namespace RaceLimit
                 for (int i = 0; i < pit.Length; i++) pit[i] = Map(data.pitX[i], data.pitY[i], data.pitZ[i]);
             }
             ready = true;
-            return true;
         }
 
         public Vector3 Map(float x, float y, float z) { return o + ex * x + ey * y + ez * z; }
