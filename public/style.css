@@ -711,3 +711,33 @@ button.who-tag:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .flag-tag.double text { fill: #FFB020; }
 #trackNote .tn-y { color: #F5D623; font-weight: 600; } #trackNote .tn-dbl { color: #FFB020; font-weight: 600; }
 #trackNote .tn-sc { color: #F2A93B; font-weight: 600; } #trackNote .tn-red { color: #FF6B6B; font-weight: 600; }
+
+/* the next race weekend: countdown to each session */
+body.nextwk-on #tab-overview, body.nextwk-on #stripCard, body.nextwk-on #dashTools { display: none !important; }
+.nextwk { display: flex; flex-direction: column; gap: 18px; }
+.nw-head { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px 20px; }
+.nw-kicker { font: 600 11px "Barlow", sans-serif; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin-bottom: 4px; }
+.nw-title { font: 700 30px/1.1 "Barlow Condensed", sans-serif; letter-spacing: .01em; }
+.nw-main { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 28px; padding: 18px 20px; border-radius: 12px; background: var(--card2); border: 1px solid var(--line); }
+.nw-label { font: 600 13px "Barlow", sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--soft); width: 100%; }
+.nw-count { display: flex; gap: 10px; }
+.nw-count span { display: flex; flex-direction: column; align-items: center; min-width: 76px; padding: 8px 10px 6px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); }
+.nw-count b { font: 600 44px/1 "JetBrains Mono", monospace; color: var(--text); }
+.nw-count i { font: 600 10px "Barlow", sans-serif; font-style: normal; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); margin-top: 4px; }
+.nw-when { color: var(--soft); padding-bottom: 6px; }
+.nw-when b { color: var(--text); }
+.nw-live { font: 700 34px "Barlow Condensed", sans-serif; color: #FF6B6B; }
+.nw-sessions { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.nw-s { display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); }
+.nw-s .nw-sn { font: 600 17px "Barlow Condensed", sans-serif; }
+.nw-s .nw-sc { font-size: 13px; color: var(--soft); }
+.nw-s.past { opacity: .5; }
+.nw-s.next { border-color: var(--accent); background: #1E1A12; }
+.nw-s.next .nw-sn, .nw-s.next .nw-sc { color: var(--accent-soft); }
+.nw-s.live { border-color: rgba(255, 77, 77, .5); }
+.nw-s.live .nw-sc { color: #FF6B6B; font-weight: 600; }
+.nw-s .badge { margin-top: 4px; }
+.nextwk.compact { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding-top: 12px; padding-bottom: 12px; }
+.nextwk.compact .nw-line { flex: 1 1 auto; color: var(--soft); }
+.nextwk.compact .nw-line b { color: var(--text); }
+@media (max-width: 640px) { .nw-count span { min-width: 58px; } .nw-count b { font-size: 32px; } .nw-title { font-size: 26px; } }

@@ -4,8 +4,8 @@
 // start gantry and brake boards. Everything is generated, nothing is downloaded.
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
-import { addProps } from "./trackprops.js?v=mvh86vc8";
-import { prepareMap, buildMap } from "./trackworld.js?v=mvh86vc8";
+import { addProps } from "./trackprops.js?v=mvkt6n96";
+import { prepareMap, buildMap } from "./trackworld.js?v=mvkt6n96";
 
 const smoothstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };

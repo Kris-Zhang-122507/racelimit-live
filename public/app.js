@@ -1,24 +1,24 @@
 // RaceLimit Live page: draws the race view, from the RaceLimit server or worked out right here.
-import { LiveState } from "./lib/state.js?v=mvh86vc8";
-import { Race, lapSeconds } from "./lib/race.js?v=mvh86vc8";
-import { CircleView } from "./circle.js?v=mvh86vc8";
-import { renderTyres } from "./tyres.js?v=mvh86vc8";
-import { renderStrategy, renderPitTable } from "./strategy.js?v=mvh86vc8";
-import { renderCompare } from "./compare.js?v=mvh86vc8";
-import { renderRewind } from "./rewind.js?v=mvh86vc8";
-import { renderDriver } from "./driver.js?v=mvh86vc8";
-import { Player, parseRecording } from "./player.js?v=mvh86vc8";
-import { loadSchedule, currentWeekend, renderSchedule, calendarFile } from "./schedule.js?v=mvh86vc8";
-import { TrackView, loadTrack, loadTrackInfo, loadGps, circuitSlug } from "./track.js?v=mvh86vc8";
-import { Dashboard } from "./dash.js?v=mvh86vc8";
-import { CarTelemetry } from "./telemetry.js?v=mvh86vc8";
-import { renderStewards, renderPitWindow } from "./racecalls.js?v=mvh86vc8";
-import * as tx from "./transcribe.js?v=mvh86vc8";
-import { renderKnockout } from "./quali.js?v=mvh86vc8";
-import { loadSeason, renderH2H } from "./h2h.js?v=mvh86vc8";
-import { loadStandings, renderStandings } from "./standings.js?v=mvh86vc8";
-import { loadNews, loadIncidentIndex, loadIncidents, renderNews, renderTechnical } from "./news.js?v=mvh86vc8";
-import { loadTechnical, loadCrashCost, renderUpgrades, renderPowerUnits, renderCrashCost } from "./technical.js?v=mvh86vc8";
+import { LiveState } from "./lib/state.js?v=mvkt6n96";
+import { Race, lapSeconds } from "./lib/race.js?v=mvkt6n96";
+import { CircleView } from "./circle.js?v=mvkt6n96";
+import { renderTyres } from "./tyres.js?v=mvkt6n96";
+import { renderStrategy, renderPitTable } from "./strategy.js?v=mvkt6n96";
+import { renderCompare } from "./compare.js?v=mvkt6n96";
+import { renderRewind } from "./rewind.js?v=mvkt6n96";
+import { renderDriver } from "./driver.js?v=mvkt6n96";
+import { Player, parseRecording } from "./player.js?v=mvkt6n96";
+import { loadSchedule, currentWeekend, renderSchedule, calendarFile } from "./schedule.js?v=mvkt6n96";
+import { TrackView, loadTrack, loadTrackInfo, loadGps, circuitSlug } from "./track.js?v=mvkt6n96";
+import { Dashboard } from "./dash.js?v=mvkt6n96";
+import { CarTelemetry } from "./telemetry.js?v=mvkt6n96";
+import { renderStewards, renderPitWindow } from "./racecalls.js?v=mvkt6n96";
+import * as tx from "./transcribe.js?v=mvkt6n96";
+import { renderKnockout } from "./quali.js?v=mvkt6n96";
+import { loadSeason, renderH2H } from "./h2h.js?v=mvkt6n96";
+import { loadStandings, renderStandings } from "./standings.js?v=mvkt6n96";
+import { loadNews, loadIncidentIndex, loadIncidents, renderNews, renderTechnical } from "./news.js?v=mvkt6n96";
+import { loadTechnical, loadCrashCost, renderUpgrades, renderPowerUnits, renderCrashCost } from "./technical.js?v=mvkt6n96";
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -503,6 +503,7 @@ function render() {
   document.title = v.totalLaps ? `L${v.lap}/${v.totalLaps} · RaceLimit Live` : "RaceLimit Live";
 
   renderStrip(v);
+  nextHeader();
   // only draw the tab you're looking at — hidden tabs cost nothing
   if (tab === "overview") {
     renderRows(v);
@@ -993,6 +994,112 @@ $("explain").addEventListener("click", (e) => {
 
 // ---------- schedule + pit-call game ----------
 let races = null;
+
+// ---------- the next race weekend ----------
+// Between weekends the F1 feed keeps the last session it had (last Sunday's race). From three hours after a race
+// until the next weekend's first session goes live, the Live page counts down to that weekend instead: every session
+// (practice, sprint, qualifying, race) in your own time, with a big countdown to the next one. "Show the last session"
+// brings the old one back. During a weekend, between sessions, a slim bar says what's next and when.
+const SESSION_MIN = { "Race": 120, "Sprint": 60, "Qualifying": 60, "Sprint Qualifying": 45 };
+const sameMeeting = (a, b) => { const n = (x) => String(x ?? "").toLowerCase().replace(/grand prix/g, "").replace(/[^a-z]/g, ""); return !!n(a) && n(a) === n(b); };
+const onAirNow = (v) => !!v && v.mode !== "replay" && String(v.status ?? "").startsWith("Live") && !["Finalised", "Ends", "Inactive", ""].includes(v.session?.status ?? "");
+let nextState = { full: false, w: null, key: "", choice: {} };
+loadSchedule().then((r) => { races ??= r; drawNext(); }).catch(() => {});
+
+function nextInfo(v, now = Date.now()) {
+  if (!races?.length || v?.mode === "replay" || onAirNow(v)) return null;
+  const w = currentWeekend(races, now), first = w?.sessions?.[0], last = w?.sessions?.[w.sessions.length - 1];
+  if (!first || now > last.start.getTime() + (SESSION_MIN[last.name] ?? 60) * 60e3) return null;
+  const next = w.sessions.find((x) => x.start.getTime() > now) ?? null;
+  const live = w.sessions.find((x) => x.start.getTime() <= now && now < x.start.getTime() + (SESSION_MIN[x.name] ?? 60) * 60e3) ?? null;
+  // a new weekend: before its first session, or the feed still has an older Grand Prix
+  const newWeekend = now < first.start.getTime() || !sameMeeting(v?.session?.meeting, w.name);
+  return { w, next, live, newWeekend };
+}
+
+const two = (n) => String(n).padStart(2, "0");
+const fmtWhen = (d) => `${d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })} · ${d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
+function inShort(ms) {
+  if (ms <= 0) return "now";
+  const d = Math.floor(ms / 86400e3), h = Math.floor(ms / 3600e3) % 24, m = Math.floor(ms / 60e3) % 60;
+  return d ? `in ${d}d ${h}h` : h ? `in ${h}h ${m}m` : `in ${Math.max(1, m)}m`;
+}
+function digits(ms) {
+  const t = Math.max(0, Math.floor(ms / 1000)), d = Math.floor(t / 86400), h = Math.floor(t / 3600) % 24, m = Math.floor(t / 60) % 60, sec = t % 60;
+  return `${d ? `<span><b>${d}</b><i>${d === 1 ? "day" : "days"}</i></span>` : ""}<span><b>${two(h)}</b><i>hours</i></span><span><b>${two(m)}</b><i>min</i></span><span><b>${two(sec)}</b><i>sec</i></span>`;
+}
+
+function drawNext() {
+  const now = Date.now(), info = nextInfo(view, now), card = $("nextCard");
+  if (!info || (!info.next && !info.live)) {
+    if (nextState.full && view) setTimeout(render, 0);
+    nextState.full = false; nextState.w = null; card.hidden = true; document.body.classList.remove("nextwk-on"); return;
+  }
+  const { w, next, live, newWeekend } = info;
+  // full countdown by default for a new weekend, the slim bar between sessions; your choice is kept until the next session
+  const key = `${w.round}|${(next ?? live).name}`;
+  const full = nextState.choice[key] ?? newWeekend;
+  const was = nextState.full;
+  nextState.full = full && newWeekend; nextState.w = w;
+  if (was !== nextState.full && view && !nextState.full) setTimeout(render, 0); // (the session's own header back)
+  document.body.classList.toggle("nextwk-on", nextState.full);
+  card.hidden = tab !== "overview";
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const where = [w.circuit, [w.locality, w.country].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
+  const lastShown = view?.session?.meeting ? [view.session.meeting, view.session.name].filter(Boolean).join(" · ") : "";
+  if (!full) {
+    card.className = "card nextwk compact";
+    const what = live ? `<b>${esc(live.name)}</b> is on now — timing appears here as soon as F1 sends it` : `Next: <b>${esc(next.name)}</b> ${inShort(next.start - now)} · ${fmtWhen(next.start)}`;
+    const html = `<div class="nw-line"><span class="nw-kicker">${esc(w.name)}</span><br>${what}</div><button class="btn" data-next="full">${newWeekend ? "Back to the countdown" : "The weekend's times"}</button>`;
+    if (card.innerHTML !== html) card.innerHTML = html;
+    nextHeader();
+    return;
+  }
+  card.className = "card nextwk";
+  const target = next ?? live;
+  const html = `<div class="nw-head"><div style="flex:1 1 auto"><div class="nw-kicker">Round ${w.round} · ${now < w.sessions[0].start.getTime() ? "Next race weekend" : "This weekend"}</div><h2 class="nw-title">${esc(w.name)}</h2><div class="muted">${esc(where)}</div></div>
+      ${lastShown && newWeekend ? `<button class="btn" data-next="past" title="See the last session's timing">Show the last session (${esc(lastShown)})</button>` : !newWeekend ? `<button class="btn" data-next="past">Hide</button>` : ""}</div>
+    <div class="nw-main">${live && (!next || live.start <= now)
+      ? `<div class="nw-label">${esc(live.name)}</div><div class="nw-live">Live now</div><div class="nw-when">Timing appears here on its own as soon as F1 sends it.</div>`
+      : `<div class="nw-label">${esc(target.name)} starts in</div><div class="nw-count mono" id="nwCount">${digits(target.start - now)}</div><div class="nw-when"><b>${fmtWhen(target.start)}</b> your time<br><span class="muted small">Live timing starts here on its own when it begins.</span></div>`}</div>
+    <div class="nw-sessions">${w.sessions.map((x) => {
+      const t = x.start.getTime(), end = t + (SESSION_MIN[x.name] ?? 60) * 60e3, h = x.start.getHours();
+      const cls = now >= end ? "past" : now >= t ? "live" : x === next ? "next" : "";
+      const state = now >= end ? "Done · in Replays" : now >= t ? "Live now" : inShort(t - now);
+      return `<div class="nw-s ${cls}"><div class="nw-sn">${esc(x.name)}</div><div class="mono small">${fmtWhen(x.start)}</div><div class="nw-sc">${state}</div>${now < t && (h >= 23 || h < 7) ? `<span class="badge">while you sleep · replay with spoiler shield</span>` : ""}</div>`;
+    }).join("")}</div>
+    <div class="muted small">Times in your zone (${esc(tz)}). The Schedule tab has the whole season and a calendar file.</div>`;
+  // (rebuilt when anything but the seconds changes, so the button stays put under your mouse)
+  const k = `${key}|${Math.floor(now / 60e3)}|${lastShown}|${!!live}|${newWeekend}`;
+  if (nextState.key !== k || !card.querySelector(".nw-head")) { nextState.key = k; card.innerHTML = html; }
+  else if ($("nwCount")) $("nwCount").innerHTML = digits(target.start - now);
+  nextHeader();
+}
+
+// while the countdown is showing it has the header too
+function nextHeader() {
+  if (!nextState.full || !nextState.w) return;
+  const w = nextState.w, now = Date.now(), next = w.sessions.find((x) => x.start.getTime() > now), live = !next || w.sessions.some((x) => x.start.getTime() <= now && now < x.start.getTime() + (SESSION_MIN[x.name] ?? 60) * 60e3);
+  $("sessionName").textContent = w.name;
+  $("sessionSub").textContent = [w.circuit, w.locality].filter(Boolean).join(" · ");
+  $("lap").innerHTML = next ? `${inShort(next.start - now).replace(/^in /, "")} <span>to ${esc(next.name)}</span>` : "";
+  $("track").className = "chip amber"; $("track").textContent = live && !next ? "Session on" : "Up next";
+  document.body.dataset.flag = "";
+  $("weather").textContent = ""; $("clock").textContent = next ? fmtWhen(next.start) : "";
+  $("stripCard").hidden = true;
+  document.title = next ? `${next.name} ${inShort(next.start - now)} · RaceLimit Live` : "RaceLimit Live";
+}
+
+setInterval(drawNext, 1000);
+$("nextCard").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-next]");
+  if (!b) return;
+  const info = nextInfo(view); if (!info) return;
+  nextState.choice[`${info.w.round}|${(info.next ?? info.live).name}`] = b.dataset.next === "full";
+  nextState.key = "";
+  drawNext();
+  if (view) render();
+});
 async function drawSchedule(v) {
   lastSched = Date.now();
   renderGame(v);
@@ -1210,6 +1317,7 @@ $("tabs").addEventListener("click", (e) => {
   if (tab === "standings") { lastStand = 0; drawStandings(view); }
   if (tab === "schedule") { lastSched = 0; drawSchedule(view); }
   if (tab === "replays") renderReplays();
+  drawNext();
   lastStrategy = 0;
   lastSlow = 0;
   syncAnimation();
@@ -1315,6 +1423,7 @@ $("pitReset").addEventListener("click", () => {
 
 // Session clock counts down between updates
 setInterval(() => {
+  if (nextState.full) return; // (the countdown to the next weekend has the header)
   if (!view?.clock?.remaining) { $("clock").textContent = ""; return; }
   const [h, m, s] = view.clock.remaining.split(":").map(Number);
   let secs = h * 3600 + m * 60 + s;

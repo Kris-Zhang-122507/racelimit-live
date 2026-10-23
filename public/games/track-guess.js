@@ -1,8 +1,8 @@
 // Guess the Track: a real circuit outline (the same shapes as the live track map) is revealed a
 // little more after every wrong guess. Six guesses. One puzzle a day, the same for everyone, plus
 // practice rounds. Wrong guesses tell you how far away the right circuit is, and which way.
-import { load, save, esc, share } from "./common.js?v=mvh86vc8";
-import { sfx } from "./sfx.js?v=mvh86vc8";
+import { load, save, esc, share } from "./common.js?v=mvkt6n96";
+import { sfx } from "./sfx.js?v=mvkt6n96";
 
 // slug (file in data/tracks) → name, country, flag, where it is, and other names people might type
 const CIRCUITS = [
