@@ -3,7 +3,7 @@
 // track, TV camera towers, the paddock behind the garages, street lamps, barns and rocks. Everything is
 // generated and drawn with instancing; `ctx` comes from buildCircuit (trackmesh.js).
 import * as THREE from "three";
-import { facadeMaterials } from "./trackworld.js?v=mvkt6n96";
+import { facadeMaterials } from "./trackworld.js?v=mvlhim90";
 
 let seed = 911; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
 const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), V = new THREE.Vector3(), Sv = new THREE.Vector3(), col = new THREE.Color();

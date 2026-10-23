@@ -1,26 +1,45 @@
 // RaceLimit Live page: draws the race view, from the RaceLimit server or worked out right here.
-import { LiveState } from "./lib/state.js?v=mvkt6n96";
-import { Race, lapSeconds } from "./lib/race.js?v=mvkt6n96";
-import { CircleView } from "./circle.js?v=mvkt6n96";
-import { renderTyres } from "./tyres.js?v=mvkt6n96";
-import { renderStrategy, renderPitTable } from "./strategy.js?v=mvkt6n96";
-import { renderCompare } from "./compare.js?v=mvkt6n96";
-import { renderRewind } from "./rewind.js?v=mvkt6n96";
-import { renderDriver } from "./driver.js?v=mvkt6n96";
-import { Player, parseRecording } from "./player.js?v=mvkt6n96";
-import { loadSchedule, currentWeekend, renderSchedule, calendarFile } from "./schedule.js?v=mvkt6n96";
-import { TrackView, loadTrack, loadTrackInfo, loadGps, circuitSlug } from "./track.js?v=mvkt6n96";
-import { Dashboard } from "./dash.js?v=mvkt6n96";
-import { CarTelemetry } from "./telemetry.js?v=mvkt6n96";
-import { renderStewards, renderPitWindow } from "./racecalls.js?v=mvkt6n96";
-import * as tx from "./transcribe.js?v=mvkt6n96";
-import { renderKnockout } from "./quali.js?v=mvkt6n96";
-import { loadSeason, renderH2H } from "./h2h.js?v=mvkt6n96";
-import { loadStandings, renderStandings } from "./standings.js?v=mvkt6n96";
-import { loadNews, loadIncidentIndex, loadIncidents, renderNews, renderTechnical } from "./news.js?v=mvkt6n96";
-import { loadTechnical, loadCrashCost, renderUpgrades, renderPowerUnits, renderCrashCost } from "./technical.js?v=mvkt6n96";
+import { LiveState } from "./lib/state.js?v=mvlhim90";
+import { Race, lapSeconds } from "./lib/race.js?v=mvlhim90";
+import { CircleView } from "./circle.js?v=mvlhim90";
+import { renderTyres } from "./tyres.js?v=mvlhim90";
+import { renderStrategy, renderPitTable } from "./strategy.js?v=mvlhim90";
+import { renderCompare } from "./compare.js?v=mvlhim90";
+import { renderRewind } from "./rewind.js?v=mvlhim90";
+import { renderDriver } from "./driver.js?v=mvlhim90";
+import { Player, parseRecording } from "./player.js?v=mvlhim90";
+import { loadSchedule, currentWeekend, renderSchedule, calendarFile } from "./schedule.js?v=mvlhim90";
+import { TrackView, loadTrack, loadTrackInfo, loadGps, circuitSlug } from "./track.js?v=mvlhim90";
+import { Dashboard } from "./dash.js?v=mvlhim90";
+import { CarTelemetry } from "./telemetry.js?v=mvlhim90";
+import { renderStewards, renderPitWindow } from "./racecalls.js?v=mvlhim90";
+import * as tx from "./transcribe.js?v=mvlhim90";
+import { renderKnockout } from "./quali.js?v=mvlhim90";
+import { loadSeason, renderH2H } from "./h2h.js?v=mvlhim90";
+import { loadStandings, renderStandings } from "./standings.js?v=mvlhim90";
+import { loadNews, loadIncidentIndex, loadIncidents, renderNews, renderTechnical } from "./news.js?v=mvlhim90";
+import { loadTechnical, loadCrashCost, renderUpgrades, renderPowerUnits, renderCrashCost } from "./technical.js?v=mvlhim90";
 
 const $ = (id) => document.getElementById(id);
+// Only touch the page when something actually changed: replacing identical HTML still makes
+// the browser throw the old elements away and lay the page out again.
+function setHtml(el, html) {
+  if (!el || el._html === html) return;
+  el._html = html;
+  el.innerHTML = html;
+}
+function setText(el, t) { if (el && el.textContent !== t) el.textContent = t; }
+// The timing table: replace only the rows that changed (a minisector, a gap…), not all of them
+function patchRows(tbody, rows) {
+  const old = tbody._rows;
+  if (!old || old.length !== rows.length || tbody.rows.length !== rows.length) {
+    tbody._rows = rows;
+    tbody.innerHTML = rows.join("");
+    return;
+  }
+  for (let i = 0; i < rows.length; i++) if (rows[i] !== old[i]) tbody.rows[i].outerHTML = rows[i];
+  tbody._rows = rows;
+}
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 let view = null;
@@ -484,23 +503,24 @@ $("tab-replays").addEventListener("change", async (e) => {
 function render() {
   const v = view;
   const s = v.session;
-  $("sessionName").textContent = [s.meeting, s.name].filter(Boolean).join(" · ") || "Waiting for session…";
-  $("sessionSub").textContent = [s.circuit, s.status].filter(Boolean).join(" · ");
-  $("lap").innerHTML = v.totalLaps ? `Lap ${v.lap} <span>/ ${v.totalLaps}</span>` : "";
+  setText($("sessionName"), [s.meeting, s.name].filter(Boolean).join(" · ") || "Waiting for session…");
+  setText($("sessionSub"), [s.circuit, s.status].filter(Boolean).join(" · "));
+  setHtml($("lap"), v.totalLaps ? `Lap ${v.lap} <span>/ ${v.totalLaps}</span>` : "");
   $("track").className = `chip ${v.track.tone}`;
   document.body.dataset.flag = v.track.tone;
   edgeFx(v);
-  $("track").textContent = v.track.label;
+  setText($("track"), v.track.label);
   const w = v.weather;
-  $("weather").textContent = w.air ? `Air ${w.air}° · Track ${w.track}° · ${w.rain ? "RAIN" : "Dry"}` : "";
+  setText($("weather"), w.air ? `Air ${w.air}° · Track ${w.track}° · ${w.rain ? "RAIN" : "Dry"}` : "");
   $("conn").className = `conn ${v.mode === "replay" ? "replay" : v.status.startsWith("Live") ? "live" : ""}`;
   // the LIVE badge next to the logo: red and glowing only while a session is live
   const onAir = v.mode !== "replay" && v.status.startsWith("Live") && !["Finalised", "Ends", "Inactive"].includes(v.session?.status);
   $("liveBadge").classList.toggle("on", onAir);
   $("liveBadge").title = onAir ? `Live: ${v.session.meeting} ${v.session.name}`.trim() : v.mode === "replay" ? "Watching a replay" : "Not live right now";
-  $("connText").textContent = v.mode === "replay" && v.replayTime ? `Replay · ${v.replayTime.slice(11, 19)} UTC` : v.status;
+  setText($("connText"), v.mode === "replay" && v.replayTime ? `Replay · ${v.replayTime.slice(11, 19)} UTC` : v.status);
   $("delayMenu").hidden = v.mode === "replay";
-  document.title = v.totalLaps ? `L${v.lap}/${v.totalLaps} · RaceLimit Live` : "RaceLimit Live";
+  const title = v.totalLaps ? `L${v.lap}/${v.totalLaps} · RaceLimit Live` : "RaceLimit Live";
+  if (document.title !== title) document.title = title;
 
   renderStrip(v);
   nextHeader();
@@ -518,15 +538,15 @@ function render() {
   if ((tab === "news" || tab === "technical") && Date.now() - lastNews > 30000) drawNews();
   pitLoss = pitProfile(v);
   if (shows("circle")) updateCircle(v);
-  if (shows("tyres")) $("tyres").innerHTML = renderTyres(v);
+  if (shows("tyres")) setHtml($("tyres"), renderTyres(v));
   if (tab === "overview" && Date.now() - lastCalls > 1500) {
     lastCalls = Date.now();
-    if (dashSet.has("stewards") && !$("stewards").querySelector("details[open]")) $("stewards").innerHTML = renderStewards(v, pitLoss);
-    if (dashSet.has("pitwin")) $("pitwin").innerHTML = renderPitWindow(v, pitLoss);
+    if (dashSet.has("stewards") && !$("stewards").querySelector("details[open]")) setHtml($("stewards"), renderStewards(v, pitLoss));
+    if (dashSet.has("pitwin")) setHtml($("pitwin"), renderPitWindow(v, pitLoss));
   }
   if (tab === "overview" && dashSet.has("quali") && Date.now() - lastKnock > 700) {
     lastKnock = Date.now();
-    $("knockout").innerHTML = renderKnockout(v);
+    setHtml($("knockout"), renderKnockout(v));
   }
   if (shows("strategy") && Date.now() - lastStrategy > 2000) { lastStrategy = Date.now(); $("tab-strategy").innerHTML = renderStrategy(v, pitLoss) + renderPitTable(pitData, pitLoss.slug); }
   if (["compare", "rewind", "driver"].some(shows) && Date.now() - lastSlow > 2000) drawSlow(v);
@@ -588,7 +608,7 @@ function updateCircle(v) {
   if (v.now && v.now !== clockBase.now) clockBase = { now: v.now, at: Date.now() };
   circleView.setData(v, circleSel, pitLoss, circleNow);
   if (document.activeElement !== $("pitLoss")) $("pitLoss").value = Math.round(pitLoss.green);
-  $("pitSrc").textContent = `(${pitLoss.source})`;
+  setText($("pitSrc"), `(${pitLoss.source})`);
   $("pitReset").hidden = pitLoss.source !== "your number";
   if (dashSet.has("track")) {
     // archived races have every car's real position; otherwise cars are placed by timing
@@ -600,10 +620,10 @@ function updateCircle(v) {
     // the header says what's out, in words
     const fs = Object.entries(v.flags?.sectors ?? {}), dbl = fs.filter(([, k]) => k === "double").map(([n]) => n), yel = fs.filter(([, k]) => k !== "double").map(([n]) => n);
     const whole = { 4: "Safety car", 6: "Virtual safety car", 7: "VSC ending", 5: "Red flag" }[v.flags?.track];
-    $("trackNote").innerHTML = [whole && `<span class="tn-${v.flags.track === "5" ? "red" : "sc"}">${whole}</span>`, dbl.length && `<span class="tn-dbl">Double yellow: sector ${dbl.join(", ")}</span>`, yel.length && `<span class="tn-y">Yellow: sector ${yel.join(", ")}</span>`].filter(Boolean).join(" · ");
+    setHtml($("trackNote"), [whole && `<span class="tn-${v.flags.track === "5" ? "red" : "sc"}">${whole}</span>`, dbl.length && `<span class="tn-dbl">Double yellow: sector ${dbl.join(", ")}</span>`, yel.length && `<span class="tn-y">Yellow: sector ${yel.join(", ")}</span>`].filter(Boolean).join(" · "));
   }
   const sel = v.rows.find((r) => r.n === circleSel);
-  $("circleSel").textContent = sel ? `Reference: ${sel.tla} — gaps are relative to them` : "Tap a car to make it the reference";
+  setText($("circleSel"), sel ? `Reference: ${sel.tla} — gaps are relative to them` : "Tap a car to make it the reference");
   $("circleClear").hidden = !sel;
 }
 
@@ -700,7 +720,8 @@ function renderRows(v) {
   const q = v.quali;
   const cutRow = q?.advance ? v.rows.find((r) => r.pos === q.advance) : null;
   const cutTime = cutRow ? lapSeconds(cutRow.best) : null;
-  $("rows").innerHTML = v.rows.map((r) => {
+  const trs = [];
+  v.rows.forEach((r) => {
     const close = parseFloat(String(r.int).replace("+", "")) < 1;
     const cls = [r.out || r.knockedOut ? "is-out" : "", r.inPit ? "in-pit" : "", close && !q ? "close" : "", q?.advance && r.pos > q.advance && !r.knockedOut ? "dropzone" : ""].join(" ");
     // places gained or lost since the start (F1 sends the grid; replays get it from OpenF1)
@@ -725,7 +746,8 @@ function renderRows(v) {
     }).join("");
     const line = q?.advance && r.pos === q.advance + 1
       ? `<tr class="cutline"><td colspan="13"><span>KNOCKOUT ZONE · top ${q.advance} go through to Q${q.part + 1}${cutRow?.best ? " · cutoff " + esc(cutRow.best) : ""}</span></td></tr>` : "";
-    return `${line}<tr class="${cls}">
+    if (line) trs.push(line);
+    trs.push(`<tr class="${cls}">
       <td class="num pos">${r.pos === 99 ? "–" : r.pos}</td>
       <td class="bar"><i style="background:${esc(r.colour)}"></i></td>
       <td><span class="drv" title="${esc(r.name)} · ${esc(r.team)}">${esc(r.tla)}</span>${grid}${tag}${stw}</td>
@@ -737,8 +759,9 @@ function renderRows(v) {
       <td class="num ${r.speedC ? "c-" + r.speedC : ""}">${esc(r.speed)}</td>
       <td><span class="tyre ${esc(r.tyre)} ${r.tyreNew ? "" : "used"}" title="${r.tyreNew ? "New" : "Used"} set">${esc(r.tyre)}</span><span class="age">${esc(r.tyreAge)}</span></td>
       <td class="num">${r.stops}</td>
-    </tr>`;
-  }).join("");
+    </tr>`.replace(/\n\s*/g, ""));
+  });
+  patchRows($("rows"), trs);
   $("qualiBadge").hidden = !q;
   if (q) $("qualiBadge").textContent = q.part ? `Q${q.part}` : "Qualifying";
   renderInsights(v);
@@ -764,25 +787,25 @@ function renderInsights(v) {
     if (sp >= 0.05 && (!spread || sp > spread.sp)) spread = { i, sp };
   });
   const fmt = (s) => { const m = Math.floor(s / 60); return `${m}:${(s - m * 60).toFixed(3).padStart(6, "0")}`; };
-  $("insights").innerHTML = `
+  setHtml($("insights"), `
     <div class="ins"><div class="muted small caps">Theoretical best lap</div><div class="ins-val">${theo ? fmt(theo) : "—"}</div>
       <div class="small muted">${theo ? `Best S1 (${esc(bestSec[0].tla)}) + S2 (${esc(bestSec[1].tla)}) + S3 (${esc(bestSec[2].tla)}) — nobody has put it all together` : "Needs a best time in every sector"}</div></div>
     <div class="ins"><div class="muted small caps">Speed trap leader</div><div class="ins-val">${speed ? `${speed.v} km/h · ${esc(speed.tla)}` : "—"}</div>
       <div class="small muted">Fastest at the main speed trap this session</div></div>
     <div class="ins"><div class="muted small caps">Where the time is</div><div class="ins-val">${spread ? `Sector ${spread.i + 1}` : "—"}</div>
-      <div class="small muted">${spread ? `Biggest spread between cars on their latest laps — ${spread.sp.toFixed(1)}s` : "Needs sector times from most of the field"}</div></div>`;
+      <div class="small muted">${spread ? `Biggest spread between cars on their latest laps — ${spread.sp.toFixed(1)}s` : "Needs sector times from most of the field"}</div></div>`);
 }
 
 function renderBattles(v) {
   if (v.quali) {
-    $("battles").innerHTML = `<div class="muted small">Battles are for races — in qualifying everyone runs on their own. Watch the knockout zone in the timing table instead.</div>`;
+    setHtml($("battles"), `<div class="muted small">Battles are for races — in qualifying everyone runs on their own. Watch the knockout zone in the timing table instead.</div>`);
     return;
   }
   if (!v.battles.length) {
-    $("battles").innerHTML = `<div class="muted small">Nobody within a second of the car ahead right now.</div>`;
+    setHtml($("battles"), `<div class="muted small">Nobody within a second of the car ahead right now.</div>`);
     return;
   }
-  $("battles").innerHTML = v.battles.slice(0, 6).map((b) => {
+  setHtml($("battles"), v.battles.slice(0, 6).map((b) => {
     let trend = "";
     let cls = "";
     if (b.trend != null) {
@@ -796,7 +819,7 @@ function renderBattles(v) {
       <div class="trend ${cls}">${b.pos === 1 ? "for the lead" : `for P${b.pos}`}${trend ? " · " + trend : ""}</div>
       ${gapSpark(b.hist, cls)}
     </div>`;
-  }).join("");
+  }).join(""));
 }
 
 // tiny line of the gap over their last few laps (line going down = closing)
@@ -811,25 +834,25 @@ function gapSpark(h, cls) {
 const BADGE = { pit: "Pit", overtake: "Overtake", fastest: "Fastest lap", sc: "Safety car", red: "Red flag", green: "Green flag", out: "Retired" };
 function renderStory(v) {
   if (!v.story.length) {
-    $("story").innerHTML = `<div class="muted small">${v.watchingSince ? `Watching since lap ${v.watchingSince}. ` : ""}Pit stops, overtakes, fastest laps and safety cars will show up here as they happen.</div>`;
+    setHtml($("story"), `<div class="muted small">${v.watchingSince ? `Watching since lap ${v.watchingSince}. ` : ""}Pit stops, overtakes, fastest laps and safety cars will show up here as they happen.</div>`);
     return;
   }
-  $("story").innerHTML = v.story.map((e) => `<div class="item">
+  setHtml($("story"), v.story.map((e) => `<div class="item">
     <div class="when">${e.lap ? "L" + e.lap : ""}</div>
     <div class="what"><span class="badge ${e.type}">${BADGE[e.type] ?? e.type}</span><div class="head">${esc(e.head)}</div>${e.body ? `<div class="note">${esc(e.body)}</div>` : ""}</div>
-  </div>`).join("");
+  </div>`).join(""));
 }
 
 function renderRcm(v) {
   const items = v.rcm.filter((m) => rcFilter === "all" || m.cat === rcFilter);
-  $("rcm").innerHTML = items.length ? items.map((m) => `<div class="item">
+  setHtml($("rcm"), items.length ? items.map((m) => `<div class="item">
     <div class="flag ${m.flag}"></div>
     <div class="what">
       <div class="mono small muted">${m.lap ? "L" + esc(m.lap) + " · " : ""}${esc(m.t)}</div>
       <div class="head">${esc(m.text)}</div>
       ${m.note ? `<div class="note">${esc(m.note)}</div>` : ""}
     </div>
-  </div>`).join("") : `<div class="muted small">No messages${rcFilter === "all" ? " yet" : " of this kind"}.</div>`;
+  </div>`).join("") : `<div class="muted small">No messages${rcFilter === "all" ? " yet" : " of this kind"}.</div>`);
 }
 
 $("rcFilters").addEventListener("click", (e) => {
@@ -1080,12 +1103,12 @@ function drawNext() {
 function nextHeader() {
   if (!nextState.full || !nextState.w) return;
   const w = nextState.w, now = Date.now(), next = w.sessions.find((x) => x.start.getTime() > now), live = !next || w.sessions.some((x) => x.start.getTime() <= now && now < x.start.getTime() + (SESSION_MIN[x.name] ?? 60) * 60e3);
-  $("sessionName").textContent = w.name;
-  $("sessionSub").textContent = [w.circuit, w.locality].filter(Boolean).join(" · ");
-  $("lap").innerHTML = next ? `${inShort(next.start - now).replace(/^in /, "")} <span>to ${esc(next.name)}</span>` : "";
-  $("track").className = "chip amber"; $("track").textContent = live && !next ? "Session on" : "Up next";
+  setText($("sessionName"), w.name);
+  setText($("sessionSub"), [w.circuit, w.locality].filter(Boolean).join(" · "));
+  setHtml($("lap"), next ? `${inShort(next.start - now).replace(/^in /, "")} <span>to ${esc(next.name)}</span>` : "");
+  $("track").className = "chip amber"; setText($("track"), live && !next ? "Session on" : "Up next");
   document.body.dataset.flag = "";
-  $("weather").textContent = ""; $("clock").textContent = next ? fmtWhen(next.start) : "";
+  setText($("weather"), ""); setText($("clock"), next ? fmtWhen(next.start) : "");
   $("stripCard").hidden = true;
   document.title = next ? `${next.name} ${inShort(next.start - now)} · RaceLimit Live` : "RaceLimit Live";
 }
@@ -1430,7 +1453,7 @@ setInterval(() => {
   if (view.clock.running && view.mode === "live" && view.clock.utc) secs -= Math.max(0, (Date.now() - Date.parse(view.clock.utc)) / 1000);
   secs = Math.max(0, Math.round(secs));
   const t = `${Math.floor(secs / 3600)}:${String(Math.floor(secs / 60) % 60).padStart(2, "0")}:${String(secs % 60).padStart(2, "0")}`;
-  $("clock").textContent = `${t} left`;
+  setText($("clock"), `${t} left`);
 }, 1000);
 
 if (standalone) connectDirect(); else connect();

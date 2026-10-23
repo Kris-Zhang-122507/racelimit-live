@@ -22,9 +22,8 @@ h2 { margin: 0; font: 600 20px/1.2 "Barlow Condensed", sans-serif; letter-spacin
 .live-badge { display: inline-flex; align-items: center; gap: 5px; font: 700 11px "Barlow", sans-serif; letter-spacing: .14em; padding: 3px 7px 3px 6px; border-radius: 4px; border: 1px solid var(--line); color: var(--faint); }
 .live-badge i { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
 .live-badge.on { color: #FF6B6B; border-color: rgba(255, 77, 77, .45); background: rgba(255, 77, 77, .08); }
-.live-badge.on i { background: #FF4D4D; box-shadow: 0 0 0 0 rgba(255, 77, 77, .6); animation: livePulse 1.6s ease-out infinite; }
-@keyframes livePulse { 70% { box-shadow: 0 0 0 7px rgba(255, 77, 77, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 77, 77, 0); } }
-@media (prefers-reduced-motion: reduce) { .live-badge.on i { animation: none; } }
+/* a steady red dot (a pulsing one repainted the whole page every frame while live) */
+.live-badge.on i { background: #FF4D4D; box-shadow: 0 0 0 3px rgba(255, 77, 77, .25); }
 .session-name { font: 600 20px "Barlow Condensed", sans-serif; }
 .lap { font: 700 28px "Barlow Condensed", sans-serif; }
 .lap span { color: var(--faint); font-weight: 500; }
@@ -421,7 +420,9 @@ body[data-flag="red"]::before { background: #FF4D4D; }
 
 /* the grid and its panels */
 .grid-stack { min-height: 300px; }
-.grid-stack-item-content { overflow: hidden !important; }
+.grid-stack-item-content { overflow: hidden !important; contain: strict; will-change: transform; }
+/* (each panel is its own box: a change inside one doesn't make the browser re-lay out the whole page) */
+.circle-svg, .track-svg { contain: layout paint; }
 .w { height: 100%; display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--line2); border-radius: 6px; overflow: hidden; }
 .w-head { flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-height: 32px; padding: 3px 4px 3px 10px; border-bottom: 1px solid var(--line2); background: #161A22; cursor: grab; user-select: none; }
 .dash-locked .w-head { cursor: default; }
@@ -502,7 +503,7 @@ html { color-scheme: dark; }
 .menu-list .menu-x:hover { color: #FEB2B2; background: #2A1414; }
 
 /* edge glow: steady thin border during safety car / red flag; a single soft pulse for events */
-.edge, .edge-pulse { position: fixed; inset: 0; pointer-events: none; z-index: 60; }
+.edge, .edge-pulse { position: fixed; inset: 0; pointer-events: none; z-index: 60; will-change: opacity; }
 .edge { transition: box-shadow .6s ease; }
 .edge.amber { box-shadow: inset 0 0 0 3px #FFB547D0, inset 0 0 70px #FFB5472E; }
 .edge.red { box-shadow: inset 0 0 0 3px #FF4D4DE0, inset 0 0 70px #FF4D4D33; }

@@ -11,6 +11,7 @@ const num = (v) => { const n = parseFloat(String(v ?? "").replace("+", "")); ret
 const pt = (r, f) => { const a = f * 2 * Math.PI; return [C + r * Math.sin(a), C - r * Math.cos(a)]; };
 const P = (r, f) => pt(r, f).map((v) => v.toFixed(1)).join(" ");
 const wrap = (f) => ((f % 1) + 1) % 1;
+const lapSecs = (v) => { const m = String(v ?? "").match(/^(?:(\d+):)?(\d+(?:\.\d+)?)$/); return m ? Number(m[1] ?? 0) * 60 + Number(m[2]) : null; };
 const fmtLap = (s) => { if (!s) return "—"; const m = Math.floor(s / 60); return `${m}:${(s - m * 60).toFixed(1).padStart(4, "0")}`; };
 
 function span(f0, f1) {
@@ -22,6 +23,7 @@ function span(f0, f1) {
 const arc = (r, f0, f1) => { const [a, b] = span(f0, f1); return `M${P(r, a)} A${r} ${r} 0 ${b - a > 0.5 ? 1 : 0} 1 ${P(r, b)}`; };
 const band = (f0, f1, ri, ro) => { const [a, b] = span(f0, f1); return `M${P(ro, a)} A${ro} ${ro} 0 0 1 ${P(ro, b)} L${P(ri, b)} A${ri} ${ri} 0 0 0 ${P(ri, a)} Z`; };
 
+const txt = (node, t) => { if (node.textContent !== t) node.textContent = t; };
 function el(tag, attrs = {}, parent) {
   const e = document.createElementNS(SVGNS, tag);
   for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
@@ -43,6 +45,9 @@ export function lossFor(pit, code) {
 export function computeModel(v, sel, pitLoss) {
   const rows = v.rows.filter((r) => r.pos < 99 && !r.out);
   if (!rows.length) return null;
+  // Practice and qualifying: the "gap" is to the fastest lap, not to the car ahead on the road,
+  // so each car is placed by how far round its own lap it is (its minisectors) instead.
+  const solo = !!v.quali || /practice|qualifying|shootout/i.test(`${v.session?.type ?? ""} ${v.session?.name ?? ""}`);
   // Each car's own gap to the leader, so one car's update doesn't shift everyone behind.
   // Lapped cars show "1 L" instead of a gap, so for them we add their interval to the car ahead.
   let total = 0;
@@ -51,12 +56,13 @@ export function computeModel(v, sel, pitLoss) {
       const g = num(r.gap), iv = num(r.int);
       total = g != null && !/L/.test(String(r.gap)) ? g : iv != null ? total + iv : total + 1;
     }
-    return { n: r.n, tla: r.tla, name: r.name, colour: r.colour, inPit: r.inPit, int: num(r.int), g: total, lapStart: r.lapStart };
+    return { n: r.n, tla: r.tla, name: r.name, colour: r.colour, inPit: r.inPit, int: num(r.int), g: total, lapStart: r.lapStart,
+      best: lapSecs(r.best), segs: solo ? (r.sectors ?? []).flatMap((x) => x.seg) : null };
   });
   const selCar = cars.find((c) => c.n === sel) ?? null;
   const caution = ["4", "6", "7"].includes(v.track.code);
   let pit = null;
-  if (selCar) {
+  if (selCar && !solo) {
     const loss = lossFor(pitLoss, v.track.code);
     const rejoin = selCar.g + loss;
     const others = cars.filter((c) => c !== selCar);
@@ -78,7 +84,7 @@ export function computeModel(v, sel, pitLoss) {
     }
   }
   const segFrac = segTotal ? segDone / segTotal : null;
-  return { cars, selCar, pit, caution, ref: v.refLap || 100, segFrac };
+  return { cars, selCar, pit, caution, ref: v.refLap || 100, segFrac, solo };
 }
 
 export class CircleView {
@@ -184,16 +190,19 @@ export class CircleView {
       it.dot.setAttribute("stroke-width", isSel ? 4 : 2);
       it.stripe.setAttribute("fill", c.colour);
       it.box.setAttribute("stroke", isSel ? "#FFB547" : "#262B36");
-      it.tla.textContent = c.tla + (c.inPit ? "·PIT" : "");
-      it.gap.textContent = selCar
+      txt(it.tla, c.tla + (c.inPit ? "·PIT" : ""));
+      txt(it.gap, selCar
         ? (isSel ? "REF" : `${c.g - selCar.g > 0 ? "+" : "−"}${Math.abs(c.g - selCar.g).toFixed(1)}`)
-        : (i === 0 ? "LEADER" : `+${c.g.toFixed(1)}`);
+        : (i === 0 ? (m.solo ? "FASTEST" : "LEADER") : `+${c.g.toFixed(m.solo ? 3 : 1)}`));
       if (this.shown[c.n] == null) this.shown[c.n] = c.g;
     });
 
+    if (m.solo) this.trackSolo(m, nowFn());
+
     // Until we've seen the leader cross the line, estimate their lap start from minisectors.
     const leader = m.cars[0];
-    if (leader.lapStart) this.est = null;
+    if (m.solo) this.est = null;
+    else if (leader.lapStart) this.est = null;
     else if (m.segFrac != null && (!this.est || this.est.n !== leader.n || this.est.seg !== m.segFrac)) {
       const guess = nowFn() - m.segFrac * m.ref * 1000;
       // keep the running estimate unless the minisectors say we're more than a few seconds off
@@ -201,20 +210,57 @@ export class CircleView {
       else this.est.seg = m.segFrac;
     }
 
-    this.lapText.textContent = v.totalLaps ? `${v.lap}/${v.totalLaps}` : "";
-    this.subText.textContent = `${v.track.label} · reference lap ${fmtLap(m.ref)}`;
-    this.calText.textContent = m.cars[0].lapStart || this.est ? "" : "Placing cars once the leader next crosses the line…";
+    txt(this.lapText, v.totalLaps ? `${v.lap}/${v.totalLaps}` : "");
+    txt(this.subText, `${v.track.label} · reference lap ${fmtLap(m.ref)}`);
+    txt(this.calText, m.solo ? "each car placed by its own minisectors" : m.cars[0].lapStart || this.est ? "" : "Placing cars once the leader next crosses the line…");
     if (m.pit) {
       const p = m.pit;
-      this.callText.textContent = `If ${selCar.tla} pits now → P${p.pos}`;
-      this.nearText.textContent = [p.ahead ? `${p.ahead.by.toFixed(1)}s behind ${p.ahead.tla}` : "", p.behind ? `${p.behind.by.toFixed(1)}s ahead of ${p.behind.tla}` : ""].filter(Boolean).join(" · ");
-      this.lossText.textContent = `pit stop costs ~${p.loss.toFixed(0)}s${p.caution ? ` under ${v.track.code === "4" ? "the safety car" : "the VSC"}` : ""}`;
+      txt(this.callText, `If ${selCar.tla} pits now → P${p.pos}`);
+      txt(this.nearText, [p.ahead ? `${p.ahead.by.toFixed(1)}s behind ${p.ahead.tla}` : "", p.behind ? `${p.behind.by.toFixed(1)}s ahead of ${p.behind.tla}` : ""].filter(Boolean).join(" · "));
+      txt(this.lossText, `pit stop costs ~${p.loss.toFixed(0)}s${p.caution ? ` under ${v.track.code === "4" ? "the safety car" : "the VSC"}` : ""}`);
       this.bandPath.setAttribute("class", p.caution ? "c-band-sc" : "c-band");
     } else {
-      this.callText.textContent = "";
-      this.nearText.textContent = "Tap a car to see where it would rejoin after a pit stop";
-      this.lossText.textContent = "";
+      txt(this.callText, "");
+      txt(this.nearText, m.solo ? "Cars in the garage sit in the pit lane" : "Tap a car to see where it would rejoin after a pit stop");
+      txt(this.lossText, "");
     }
+  }
+
+  // Practice / qualifying: remember where each car last was, from the newest minisector it lit up
+  // (and when), so between updates it can carry on at its own lap pace.
+  trackSolo(m, now) {
+    this.front ??= {}; this.prevSegs ??= {}; this.prevLap ??= {};
+    for (const c of m.cars) {
+      const segs = c.segs ?? [], N = segs.length, prev = this.prevSegs[c.n];
+      this.prevSegs[c.n] = segs;
+      if (!N) continue;
+      // crossed the line: back to the start of the lap
+      if (c.lapStart && c.lapStart !== this.prevLap[c.n]) {
+        if (this.prevLap[c.n] !== undefined) this.front[c.n] = { k: 0, at: c.lapStart, N };
+        this.prevLap[c.n] = c.lapStart;
+      }
+      let idx = -1;
+      if (prev && prev.length === N) {
+        // the newest change, looking forward from where the car was (so a new lap's first
+        // minisector wins over the end of the old one)
+        const from = this.front[c.n]?.k ?? 0;
+        for (let j = 0; j < N; j++) { const k = (from + j) % N; if (segs[k] && segs[k] !== prev[k]) idx = k; }
+      }
+      if (idx >= 0) this.front[c.n] = { k: idx + 1, at: now, N };
+      else if (!this.front[c.n]) {
+        // first look: the minisectors already lit this lap
+        let k = 0; while (k < N && segs[k]) k++;
+        this.front[c.n] = { k: k >= N ? 0 : k, at: now, N, guess: true };
+      }
+    }
+  }
+  soloTarget(c, now, ref) {
+    const fr = this.front?.[c.n];
+    if (c.inPit || !fr) return 0;
+    const per = (c.best ? c.best * 1.04 : ref) / fr.N;
+    // keep going at lap pace, but no more than two minisectors past the last one we heard about
+    const ahead = Math.min(2, Math.max(0, (now - fr.at) / 1000 / per));
+    return wrap((fr.k + ahead) / fr.N);
   }
 
   start() {
@@ -254,7 +300,17 @@ export class CircleView {
     // ease each car's gap towards the latest timing, then never let a car slide backwards
     // by a small amount — it pauses for a moment instead (a pit stop or big change still snaps)
     this.lastF ??= {};
-    const pos = m.cars.map((c) => {
+    const pos = m.solo ? m.cars.map((c) => {
+      const target = this.soloTarget(c, now, m.ref), prev = this.lastF[c.n];
+      let f = target;
+      if (prev != null && !c.inPit) {
+        const d = diff(target, prev);
+        if (d < 0 && d > -0.06) f = prev;                       // never slide backwards a little
+        else if (Math.abs(d) < 0.15) f = wrap(prev + d * 0.25);  // glide to a new minisector
+      }
+      this.lastF[c.n] = f;
+      return { c, f };
+    }) : m.cars.map((c) => {
       const s = this.shown[c.n] ?? c.g;
       const next = Math.abs(c.g - s) > 20 ? c.g : s + (c.g - s) * 0.12;
       this.shown[c.n] = next;
@@ -289,20 +345,21 @@ export class CircleView {
       const it = this.items.get(c.n);
       const r = c.inPit ? R - 58 : R;
       const [x, y] = pt(r, f);
-      it.dot.setAttribute("cx", x.toFixed(1));
-      it.dot.setAttribute("cy", y.toFixed(1));
+      const cx = x.toFixed(1), cy = y.toFixed(1);
+      if (it.cx !== cx || it.cy !== cy) { it.cx = cx; it.cy = cy; it.dot.setAttribute("cx", cx); it.dot.setAttribute("cy", cy); }
       const [lx, ly] = pt(LAB_R, labF[i]);
-      it.label.setAttribute("transform", `translate(${lx.toFixed(1)} ${ly.toFixed(1)})`);
+      const tr = `translate(${lx.toFixed(1)} ${ly.toFixed(1)})`;
+      if (it.tr !== tr) { it.tr = tr; it.label.setAttribute("transform", tr); }
       const [ex, ey] = pt(LAB_R - 24, labF[i]);
       leaders += `M${P(r + 9, f)} L${ex.toFixed(1)} ${ey.toFixed(1)} `;
-      if (i > 0 && c.int != null && c.int < 1 && !c.inPit && !pos[i - 1].c.inPit) battles += arc(R, pos[i - 1].f, f) + " ";
+      if (!m.solo && i > 0 && c.int != null && c.int < 1 && !c.inPit && !pos[i - 1].c.inPit) battles += arc(R, pos[i - 1].f, f) + " ";
     });
-    this.leaders.setAttribute("d", leaders);
+    if (leaders !== this.leadersD) { this.leadersD = leaders; this.leaders.setAttribute("d", leaders); }
     if (this.debug) {
       const age = start ? ((now - start) / 1000).toFixed(1) : "—";
       this.debug.textContent = `leader ${leader.tla} · ${leader.lapStart ? "line seen" : this.est ? "estimated" : "unknown"} · ${age}s into lap · ref ${m.ref.toFixed(1)}s · progress ${(lf * 100).toFixed(0)}% · minisectors ${m.segFrac == null ? "—" : (m.segFrac * 100).toFixed(0) + "%"}`;
     }
-    this.battles.setAttribute("d", battles);
+    if (battles !== this.battlesD) { this.battlesD = battles; this.battles.setAttribute("d", battles); }
 
     if (m.pit && m.selCar) {
       const sf = pos.find((p) => p.c === m.selCar)?.f ?? 0;

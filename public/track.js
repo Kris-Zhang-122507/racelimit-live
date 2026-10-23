@@ -30,6 +30,14 @@ export async function loadGps(key) {
   return gpsCache[key];
 }
 
+// set an attribute only if it's different from last time
+function set(it, node, k, v) {
+  const memo = (it.memo ??= new Map()), key = node === it.g ? "g" + k : node === it.dot ? "d" + k : "l" + k;
+  if (memo.get(key) === v) return;
+  memo.set(key, v);
+  node.setAttribute(k, v);
+}
+
 export class TrackView {
   constructor(box, circle, onPick) {
     this.box = box;
@@ -214,14 +222,15 @@ export class TrackView {
         this.items.set(p.n, it);
       }
       const real = t != null ? this.gpsAt(p.n, t) : null;
-      if (t != null && !real) { it.g.setAttribute("opacity", 0); continue; }
+      if (t != null && !real) { set(it, it.g, "opacity", 0); continue; }
       const [x, y] = real ?? this.at(p.f);
-      it.g.setAttribute("transform", `translate(${x.toFixed(1)} ${y.toFixed(1)})`);
-      it.g.setAttribute("opacity", p.inPit ? 0.4 : 1);
-      it.dot.setAttribute("fill", p.colour);
-      it.dot.setAttribute("stroke", p.n === sel ? "#FFB547" : "#0B0D12");
-      it.label.textContent = p.tla;
-      it.label.setAttribute("y", lift[p.n]);
+      // (only what changed: rewriting the same text or colour every frame makes the browser redo the layout)
+      set(it, it.g, "transform", `translate(${x.toFixed(1)} ${y.toFixed(1)})`);
+      set(it, it.g, "opacity", p.hidden ? 0 : p.inPit ? 0.4 : 1);
+      set(it, it.dot, "fill", p.colour);
+      set(it, it.dot, "stroke", p.n === sel ? "#FFB547" : "#0B0D12");
+      if (it.text !== p.tla) { it.text = p.tla; it.label.textContent = p.tla; }
+      set(it, it.label, "y", lift[p.n]);
     }
     for (const [n, it] of this.items) if (!seen.has(n)) { it.g.remove(); this.items.delete(n); }
   }
