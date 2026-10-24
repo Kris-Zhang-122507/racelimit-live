@@ -1,6 +1,27 @@
 {
  "sessions": [
   {
+   "key": 11392,
+   "year": 2026,
+   "meeting": "United States",
+   "location": "Austin",
+   "circuit": "Austin",
+   "name": "Qualifying",
+   "type": "Qualifying",
+   "startUtc": "2026-10-24T21:00:00+00:00",
+   "file": "11392.jsonl.gz",
+   "sizeKb": 38,
+   "score": 2,
+   "reasons": [
+    "close at the top"
+   ],
+   "laps": null,
+   "v": 4,
+   "grid": false,
+   "telemetry": true,
+   "incidents": 0
+  },
+  {
    "key": 11388,
    "year": 2026,
    "meeting": "Singapore",
@@ -731,5 +752,5 @@
    "grid": true
   }
  ],
- "updated": "2026-10-12T02:23:22.859Z"
+ "updated": "2026-10-24T23:11:37.874Z"
 }
