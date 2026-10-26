@@ -1,6 +1,66 @@
 {
  "sessions": [
   {
+   "key": 11396,
+   "meeting": "United States",
+   "name": "Race",
+   "startUtc": "2026-10-25T20:00:00+00:00",
+   "incidents": [
+    {
+     "ms": 1792959395000,
+     "n": "87",
+     "kind": "collision",
+     "points": 6,
+     "lap": 8,
+     "message": "TURN 13 INCIDENT INVOLVING CARS 87 (BEA) AND 10 (GAS) NOTED - CAUSING A COLLISION (15:06:57)",
+     "t": "2026-10-25T20:16:35.000Z",
+     "tla": "BEA",
+     "team": "Haas F1 Team",
+     "colour": "#9C9FA2",
+     "peakG": 1.6
+    },
+    {
+     "ms": 1792959395000,
+     "n": "10",
+     "kind": "collision",
+     "points": 6,
+     "lap": 8,
+     "message": "TURN 13 INCIDENT INVOLVING CARS 87 (BEA) AND 10 (GAS) NOTED - CAUSING A COLLISION (15:06:57)",
+     "t": "2026-10-25T20:16:35.000Z",
+     "tla": "GAS",
+     "team": "Alpine",
+     "colour": "#00A1E8",
+     "peakG": 1.8
+    },
+    {
+     "ms": 1792960525000,
+     "n": "87",
+     "kind": "collision",
+     "points": 6,
+     "lap": 19,
+     "message": "FIA STEWARDS: 10 SECOND TIME PENALTY FOR CAR 87 (BEA) - CAUSING A COLLISION (15:06:57)",
+     "t": "2026-10-25T20:35:25.000Z",
+     "tla": "BEA",
+     "team": "Haas F1 Team",
+     "colour": "#9C9FA2",
+     "peakG": 3.3
+    },
+    {
+     "ms": 1792961116000,
+     "n": "87",
+     "kind": "collision",
+     "points": 6,
+     "lap": 25,
+     "message": "FIA STEWARDS: PENALTY SERVED - 10 SECOND TIME PENALTY FOR CAR 87 (BEA) - CAUSING A COLLISION (15:06:57)",
+     "t": "2026-10-25T20:45:16.000Z",
+     "tla": "BEA",
+     "team": "Haas F1 Team",
+     "colour": "#9C9FA2",
+     "peakG": 1.3
+    }
+   ]
+  },
+  {
    "key": 11392,
    "meeting": "United States",
    "name": "Qualifying",
@@ -756,5 +816,5 @@
    "incidents": []
   }
  ],
- "updated": "2026-10-24T23:11:37.873Z"
+ "updated": "2026-10-26T00:16:14.483Z"
 }

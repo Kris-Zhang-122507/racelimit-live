@@ -1,6 +1,31 @@
 {
  "sessions": [
   {
+   "key": 11396,
+   "year": 2026,
+   "meeting": "United States",
+   "location": "Austin",
+   "circuit": "Austin",
+   "name": "Race",
+   "type": "Race",
+   "startUtc": "2026-10-25T20:00:00+00:00",
+   "file": "11396.jsonl.gz",
+   "sizeKb": 417,
+   "score": 5,
+   "reasons": [
+    "lots of overtaking",
+    "safety cars",
+    "changes for the lead",
+    "several retirements"
+   ],
+   "laps": 56,
+   "v": 4,
+   "grid": true,
+   "telemetry": true,
+   "incidents": 4,
+   "gps": true
+  },
+  {
    "key": 11392,
    "year": 2026,
    "meeting": "United States",
@@ -752,5 +777,5 @@
    "grid": true
   }
  ],
- "updated": "2026-10-24T23:11:37.874Z"
+ "updated": "2026-10-26T00:16:14.484Z"
 }

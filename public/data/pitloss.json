@@ -1,5 +1,21 @@
 {
  "circuits": {
+  "austin": {
+   "circuit": "Austin",
+   "green": 20.7,
+   "sc": null,
+   "vsc": null,
+   "samples": {
+    "green": 31,
+    "sc": 0,
+    "vsc": 2
+   },
+   "sessions": [
+    "2026 Race",
+    "2025 Race",
+    "2025 Sprint"
+   ]
+  },
   "singapore": {
    "circuit": "Singapore",
    "green": 23.1,
@@ -295,21 +311,6 @@
    },
    "sessions": [
     "2025 Race"
-   ]
-  },
-  "austin": {
-   "circuit": "Austin",
-   "green": 20.7,
-   "sc": null,
-   "vsc": null,
-   "samples": {
-    "green": 20,
-    "sc": 0,
-    "vsc": 1
-   },
-   "sessions": [
-    "2025 Race",
-    "2025 Sprint"
    ]
   },
   "mexico-city": {

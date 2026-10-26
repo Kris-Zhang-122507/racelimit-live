@@ -1,8 +1,8 @@
 {
- "key": 11388,
- "meeting": "Singapore",
- "date": "2026-10-11T12:00:00+00:00",
- "winner": "VER",
+ "key": 11396,
+ "meeting": "United States",
+ "date": "2026-10-25T20:00:00+00:00",
+ "winner": "ANT",
  "drivers": [
   {
    "n": 12,
@@ -10,9 +10,9 @@
    "name": "Kimi ANTONELLI",
    "team": "Mercedes",
    "colour": "00D7B6",
-   "points": 340,
+   "points": 365,
    "pos": 1,
-   "pointsStart": 325,
+   "pointsStart": 340,
    "posStart": 1
   },
   {
@@ -21,9 +21,9 @@
    "name": "George RUSSELL",
    "team": "Mercedes",
    "colour": "00D7B6",
-   "points": 238,
+   "points": 242,
    "pos": 2,
-   "pointsStart": 236,
+   "pointsStart": 238,
    "posStart": 2
   },
   {
@@ -32,9 +32,9 @@
    "name": "Lewis HAMILTON",
    "team": "Ferrari",
    "colour": "ED1131",
-   "points": 229,
+   "points": 241,
    "pos": 3,
-   "pointsStart": 221,
+   "pointsStart": 229,
    "posStart": 3
   },
   {
@@ -43,10 +43,10 @@
    "name": "Max VERSTAPPEN",
    "team": "Red Bull Racing",
    "colour": "4781D7",
-   "points": 221,
+   "points": 236,
    "pos": 4,
-   "pointsStart": 196,
-   "posStart": 5
+   "pointsStart": 221,
+   "posStart": 4
   },
   {
    "n": 16,
@@ -54,10 +54,10 @@
    "name": "Charles LECLERC",
    "team": "Ferrari",
    "colour": "ED1131",
-   "points": 215,
+   "points": 233,
    "pos": 5,
-   "pointsStart": 197,
-   "posStart": 4
+   "pointsStart": 215,
+   "posStart": 5
   },
   {
    "n": 1,
@@ -65,9 +65,9 @@
    "name": "Lando NORRIS",
    "team": "McLaren",
    "colour": "F47600",
-   "points": 201,
+   "points": 211,
    "pos": 6,
-   "pointsStart": 189,
+   "pointsStart": 201,
    "posStart": 6
   },
   {
@@ -76,9 +76,9 @@
    "name": "Oscar PIASTRI",
    "team": "McLaren",
    "colour": "F47600",
-   "points": 138,
+   "points": 144,
    "pos": 7,
-   "pointsStart": 128,
+   "pointsStart": 138,
    "posStart": 7
   },
   {
@@ -87,9 +87,9 @@
    "name": "Isack HADJAR",
    "team": "Red Bull Racing",
    "colour": "4781D7",
-   "points": 97,
+   "points": 105,
    "pos": 8,
-   "pointsStart": 96,
+   "pointsStart": 97,
    "posStart": 8
   },
   {
@@ -98,9 +98,9 @@
    "name": "Liam LAWSON",
    "team": "Racing Bulls",
    "colour": "6C98FF",
-   "points": 75,
+   "points": 77,
    "pos": 9,
-   "pointsStart": 69,
+   "pointsStart": 75,
    "posStart": 9
   },
   {
@@ -109,7 +109,7 @@
    "name": "Pierre GASLY",
    "team": "Alpine",
    "colour": "00A1E8",
-   "points": 41,
+   "points": 42,
    "pos": 10,
    "pointsStart": 41,
    "posStart": 10
@@ -155,8 +155,8 @@
    "colour": "F50537",
    "points": 13,
    "pos": 14,
-   "pointsStart": 9,
-   "posStart": 15
+   "pointsStart": 13,
+   "posStart": 14
   },
   {
    "n": 5,
@@ -167,7 +167,7 @@
    "points": 10,
    "pos": 15,
    "pointsStart": 10,
-   "posStart": 14
+   "posStart": 15
   },
   {
    "n": 31,
@@ -261,42 +261,42 @@
  "teams": [
   {
    "name": "Mercedes",
-   "points": 578,
+   "points": 607,
    "pos": 1,
-   "pointsStart": 561,
+   "pointsStart": 578,
    "posStart": 1
   },
   {
    "name": "Ferrari",
-   "points": 444,
+   "points": 474,
    "pos": 2,
-   "pointsStart": 418,
+   "pointsStart": 444,
    "posStart": 2
   },
   {
-   "name": "McLaren",
-   "points": 339,
-   "pos": 3,
-   "pointsStart": 317,
-   "posStart": 3
-  },
-  {
    "name": "Red Bull Racing",
-   "points": 332,
-   "pos": 4,
-   "pointsStart": 306,
+   "points": 355,
+   "pos": 3,
+   "pointsStart": 332,
    "posStart": 4
   },
   {
+   "name": "McLaren",
+   "points": 355,
+   "pos": 4,
+   "pointsStart": 339,
+   "posStart": 3
+  },
+  {
    "name": "Racing Bulls",
-   "points": 100,
+   "points": 102,
    "pos": 5,
-   "pointsStart": 94,
+   "pointsStart": 100,
    "posStart": 5
   },
   {
    "name": "Alpine",
-   "points": 68,
+   "points": 69,
    "pos": 6,
    "pointsStart": 68,
    "posStart": 6
@@ -312,7 +312,7 @@
    "name": "Audi",
    "points": 23,
    "pos": 8,
-   "pointsStart": 19,
+   "pointsStart": 23,
    "posStart": 8
   },
   {
@@ -337,5 +337,5 @@
    "posStart": 11
   }
  ],
- "updated": "2026-10-11T22:15:48.402Z"
+ "updated": "2026-10-26T00:16:14.481Z"
 }
