@@ -17,8 +17,16 @@ To view a screen, open a file with `?screen=<name>`, for example `design9.html?s
 | `design9.html` | `camedit` camera editor · `champ` custom championships · `glow` brake glow · `highlights` auto highlights · `lift` lift and coast · `pitgame` optional pit stop mini-game · `setup` setup sharing codes · `slip` slipstream and dirty air · `tod` time of day · `weekly` weekly events |
 | `design10.html` (+ `.js`) | `garage` 3D garage · `livery` livery editor · `kit` driver kit · `parts` parts that change the car · `engine` engine makers · `build` engine builder · `wear` engine and gearbox wear · `team` create your team · `upgrades` |
 | `design11.html` (+ `.js`) | `gears` gearbox ratios · `firing` how the engine fires (sound) · `drive` driveline and wheel controls |
+| `concepts/list1.html` | `weather` `rubber` `debris` `night` `marshals` `weekend` `tyres` `rules` `school` `daily` `ghost` `broadcast` `split` `radio` |
+| `concepts/list2.html` | `gforce` `brakes` `pressures` `fuel` `porpoise` `flatspot` `defend` `orders` `redflag` `towgame` `classic` `sharecode` `seasons` `pole` `photo` `ticker` `pitwall` `trophies` |
+| `concepts/list3.html` | `crowd` `podium` `gridwalk` `onboard` `dash` `suspension` `haze` `dirty` `rivals` `wet` `crewcam` `endurance` `famous` `ladder` `access` `calib` |
 
 Rules that apply to everything here:
 - All teams, brands, sponsors and engine makers are made up.
 - Flags and lights are solid colours and never flash.
 - The pit stop mini-game is only a custom, optional setting.
+
+## Concept renders, October 27 2026 (`concepts/`)
+48 ideas for the game, in three lists. The pages are ES modules, so serve the folder (`python3 -m http.server`) and open e.g. `list2.html?screen=pitwall`.
+Backgrounds are game screenshots without the HUD, made with `node bgshot.mjs 'name|track|place|speed|cam|eye'` (saved to `bg/`, not committed); `node render.mjs list1` writes every screen of a list to `out/`.
+Other cars in these shots are copies of the player's car (`clone()` in `common.js`), because the game has no AI cars yet.
