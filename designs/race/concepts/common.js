@@ -78,12 +78,25 @@ export function trackSvg(pts, w, h, opts = {}) {
   d += " Z";
   return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block;overflow:visible"><path d="${d}" fill="none" stroke="${opts.under ?? "#2A2F3B"}" stroke-width="${opts.wd ?? 10}" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="${opts.c ?? "#C3C9D4"}" stroke-width="${opts.wd2 ?? 3}" stroke-linejoin="round"/>${opts.extra ?? ""}</svg>`;
 }
-export function mount(screens) {
+export async function mount(screens) {
   const q = new URLSearchParams(location.search).get("screen");
   const fn = screens[q] ?? Object.values(screens)[0];
-  document.getElementById("root").innerHTML = fn();
+  document.getElementById("root").innerHTML = await fn();
   document.title = q ?? "";
 }
+// where things are on screen in a staged shot (written by shoot.mjs next to the picture)
+const AN = {};
+export async function A(name) { if (!(name in AN)) { try { AN[name] = await (await fetch(`bg/${name}.json`)).json(); } catch { AN[name] = {}; } } return AN[name]; }
+// a label above a point in the shot, with a thin pointer down to it
+export const pin = (a, k, inner, o = {}) => {
+  const p = a?.[k]; if (!p) return "";
+  const sc = o.scale ?? 1, x = Math.round(p[0] * sc), y = Math.round(p[1] * sc), up = o.up ?? 70, dx = o.dx ?? 0, side = o.side;
+  const lx = x + dx, ly = y - up;
+  const anchor = side === "right" ? "translate(0,-50%)" : side === "left" ? "translate(-100%,-50%)" : "translate(-50%,-100%)";
+  const ty = side ? ly : ly;
+  return `<svg style="position:absolute;inset:0;pointer-events:none;z-index:4" width="1600" height="900"><line x1="${x}" y1="${y}" x2="${lx}" y2="${ly}" stroke="rgba(232,234,240,.85)" stroke-width="1.5"/><circle cx="${x}" cy="${y}" r="4" fill="#E8EAF0" stroke="#0B0D12" stroke-width="1.5"/></svg>
+    <div class="hudbox" style="left:${lx}px;top:${ty}px;transform:${anchor};padding:6px 10px;white-space:nowrap">${inner}</div>`;
+};
 // another car: the player's car copied out of the same shot, scaled down, moved up the road and recoloured
 // crop = [x, y, w, h] of the car in the shot; (x, y) = where its centre goes
 export const clone = (name, crop, x, y, scale, filter = "", opacity = 1) => `<div style="position:absolute;left:${x - (crop[2] * scale) / 2}px;top:${y - (crop[3] * scale) / 2}px;width:${crop[2] * scale}px;height:${crop[3] * scale}px;background:url(bg/${name}.png) ${-crop[0] * scale}px ${-crop[1] * scale}px/${1600 * scale}px ${900 * scale}px;filter:${filter};opacity:${opacity};-webkit-mask-image:radial-gradient(ellipse 60% 62% at 50% 52%,#000 72%,transparent 92%)"></div>`;

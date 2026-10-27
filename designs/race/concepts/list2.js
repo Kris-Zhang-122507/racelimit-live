@@ -1,10 +1,14 @@
-import { top, sl, tg, hb, gear, t2, note, box, concept, bg, kv, pill, tag, drv, chart, trackSvg, mount, TEAMS, clone, CAR } from "./common.js";
+import { top, sl, tg, hb, gear, t2, note, box, concept, bg, kv, pill, tag, drv, chart, trackSvg, mount, TEAMS, clone, CAR, A, pin } from "./common.js";
+const AA = {};
+await Promise.all(["s-brakes", "s-fuel", "s-porpoise", "s-flatspot", "s-defend", "s-redflag", "s-tow", "s-photo", "s-ticker"].map(async (n) => (AA[n] = await A(n))));
 
 const S = {};
+// brake glow over a wheel in the shot
+const glow = (a, k) => (a?.[k] ? `<div style="position:absolute;left:${a[k][0] - 26}px;top:${a[k][1] - 30}px;width:52px;height:60px;border-radius:50%;background:radial-gradient(closest-side,#FFE8B8,#FF8A2A 45%,rgba(255,90,20,.35) 72%,transparent);mix-blend-mode:screen;z-index:2"></div>` : "");
 const tyreBox = (n, t, p, c) => `<div class="card2" style="text-align:center;box-shadow:inset 0 0 0 1px ${c}"><b>${n}</b><div class="mono" style="font-size:20px;color:${c}">${t}</div><div class="muted mono" style="font-size:12px">${p}</div></div>`;
 
 // 1 · G-force and fatigue
-S.gforce = () => `<div style="position:absolute;inset:-40px;background:url(bg/spa-cockpit.png) center/cover;transform:rotate(-4deg) translateX(-30px)"></div>
+S.gforce = () => `<div style="position:absolute;inset:-40px;background:url(bg/s-gforce.png) center/cover;transform:rotate(-3.5deg) translateX(-24px)"></div>
   <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%,transparent 45%,rgba(0,0,0,.55) 80%,rgba(0,0,0,.85))"></div>
   ${note("G-force and fatigue", "Feel the corner through the camera", ["In a fast corner your head leans: the camera tilts and slides a little to the outside, like a real onboard.", "Around 5 g the edges of the screen darken slightly.", "In long races your reactions slow a touch near the end. All of this can be turned down or off."])}
   ${box("right:18px;top:18px", 300, `<div class="lbl2" style="margin-bottom:8px">G-meter</div>
@@ -15,10 +19,8 @@ S.gforce = () => `<div style="position:absolute;inset:-40px;background:url(bg/sp
   ${concept("Concept render · G-force and fatigue")}`;
 
 // 2 · brake temperatures
-S.brakes = () => `${bg("spa-chase", "brightness(.85)")}
-  <div style="position:absolute;left:712px;top:527px;width:36px;height:46px;border-radius:50%;background:radial-gradient(#FFD08A,#FF6A1A 50%,transparent 72%);mix-blend-mode:screen"></div>
-  <div style="position:absolute;left:853px;top:527px;width:36px;height:46px;border-radius:50%;background:radial-gradient(#FFD08A,#FF6A1A 50%,transparent 72%);mix-blend-mode:screen"></div>
-  ${tag(800, 505, `${pill("BRAKES 980°", "#2A1A10", "#FFB060")}`)}
+S.brakes = () => `${bg("s-brakes")}${glow(AA["s-brakes"], "rl")}${glow(AA["s-brakes"], "rr")}
+  ${pin(AA["s-brakes"], "rr", `${pill("REAR BRAKES 880°", "#2A1A10", "#FFB060")} <span class="muted" style="font:600 12px B">glowing into the corner</span>`, { up: 130, dx: 90 })}
   ${note("Brake temperatures", "Cold brakes won't stop, hot ones fade", ["Carbon brakes work best between about 400 and 1000 °C.", "On the formation lap or behind the safety car they cool: brake gently at first or you'll lock up.", "Behind another car they overheat and start to fade. Open the brake ducts in the setup, or move over for cool air."])}
   ${box("right:18px;top:18px", 330, `<div class="lbl2" style="margin-bottom:8px">Brakes on the dash</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${tyreBox("FL", "980°", "fading soon", "#FF8A3A")}${tyreBox("FR", "940°", "hot", "#FFB060")}${tyreBox("RL", "610°", "good", "#6EE7A8")}${tyreBox("RR", "590°", "good", "#6EE7A8")}</div>
@@ -40,7 +42,8 @@ S.pressures = () => `${bg("suzuka-far")}
   ${concept("Concept render · tyre pressure build-up")}`;
 
 // 4 · fuel saving
-S.fuel = () => `${bg("monza-chase")}
+S.fuel = () => `${bg("s-fuel")}
+  ${pin(AA["s-fuel"], "lift", `${pill("LIFT HERE", "#10213A", "#7FC4FF")} <span class="muted" style="font:600 12px B">then coast to the 100 board</span>`, { up: 70 })}
   ${note("Fuel targets", "Hit the number each lap", ["The engineer gives you a fuel target for the lap. The dash shows if you're over or under as you go.", "Lifting before the braking zones saves the most. Each target you hit scores a small bonus in career mode.", "Run out and the car stops on the last lap."])}
   ${box("right:18px;top:18px", 340, `<div class="lbl2" style="margin-bottom:8px">Fuel</div>
     <div class="row" style="justify-content:space-between"><span class="big mono">41.2<span style="font-size:16px"> kg</span></span><span class="pill" style="background:#14361F;color:#6EE7A8">ON TARGET</span></div>
@@ -53,8 +56,8 @@ S.fuel = () => `${bg("monza-chase")}
   ${concept("Concept render · fuel targets with lift and coast")}`;
 
 // 5 · porpoising
-S.porpoise = () => `<div style="position:absolute;inset:-20px;background:url(bg/spa-tcam.png) center/cover;transform:translateY(-8px)"></div>
-  <div style="position:absolute;inset:0;background:url(bg/spa-tcam.png) center/cover;opacity:.25;transform:translateY(10px);filter:blur(2px)"></div>
+S.porpoise = () => `${bg("s-porpoise")}
+  ${pin(AA["s-porpoise"], "sparks", `${pill("PLANK HITTING THE GROUND", "#2A1A10", "#FFB060")}`, { up: 90, dx: 150 })}
   ${note("Bottoming out and porpoising", "Run it low and it bounces", ["Lower ride height means more downforce, until the floor hits the ground. Then the car bounces on the straights (porpoising) and sparks fly.", "Bumpy tracks punish a low car more. Stiffer springs help but make kerbs harder.", "Too much bouncing wears the plank, and a worn plank can mean disqualification."])}
   ${box("right:18px;top:18px", 380, `<div class="lbl2" style="margin-bottom:8px">Ride height on the Kemmel straight</div>
     ${chart(350, 110, [{ pts: [0.6, 0.55, 0.4, 0.2, 0.5, 0.15, 0.45, 0.12, 0.42, 0.1, 0.4, 0.12, 0.45, 0.2, 0.5], c: "#FFB547" }], { extra: `<rect x="0" y="94" width="350" height="16" fill="#FF6B6B" opacity=".2"/><text x="4" y="106" fill="#FF8A8A" font-family="B" font-weight="600" font-size="11">floor touching</text>` })}
@@ -64,9 +67,8 @@ S.porpoise = () => `<div style="position:absolute;inset:-20px;background:url(bg/
   ${concept("Concept render · bottoming out and porpoising")}`;
 
 // 6 · spins and flat-spots
-S.flatspot = () => `${bg("zand-chase")}
-  <svg style="position:absolute;inset:0" width="1600" height="900"><path d="M520,900 C600,760 700,640 780,570" stroke="#141519" stroke-width="16" fill="none" opacity=".55"/><path d="M640,900 C700,770 780,650 850,575" stroke="#141519" stroke-width="16" fill="none" opacity=".55"/></svg>
-  ${tag(620, 760, `${pill("LOCKED UP", "#3A1218", "#FF8A8A")} <span class="muted" style="font:600 12px B">front left · 0.8 s</span>`)}
+S.flatspot = () => `${bg("s-flatspot")}
+  ${pin(AA["s-flatspot"], "skid", `${pill("LOCKED UP", "#3A1218", "#FF8A8A")} <span class="muted" style="font:600 12px B">front left · 0.8 s · last lap</span>`, { up: 70, dx: -60 })}
   ${note("Spins and flat-spots", "Lock a wheel and you'll feel it", ["Lock up under braking and the tyre slides on one spot, wearing it flat.", "A flat-spotted tyre vibrates every lap after: the camera shakes and the wheel pulls slightly.", "Spin and stop, and you can stall the engine (optional): hold the clutch to restart."])}
   ${box("right:18px;top:18px", 330, `<div class="lbl2" style="margin-bottom:8px">Front left tyre</div>
     <svg width="300" height="180" viewBox="0 0 300 180"><circle cx="90" cy="90" r="78" fill="#1A1C22" stroke="#F2C230" stroke-width="10"/><circle cx="90" cy="90" r="40" fill="#2A2F3B"/><path d="M33,36 L14,62" stroke="#FF6B6B" stroke-width="14"/><text x="190" y="70" fill="#FF8A8A" font-family="B" font-weight="600" font-size="14">flat spot</text><text x="190" y="90" fill="#C3C9D4" font-family="JB" font-weight="600" font-size="14">0.9 mm deep</text><text x="190" y="115" fill="#9AA3B2" font-family="B" font-weight="600" font-size="12">vibration: medium</text></svg>
@@ -76,9 +78,10 @@ S.flatspot = () => `${bg("zand-chase")}
   ${concept("Concept render · spins and flat-spots")}`;
 
 // 7 · defending rules
-S.defend = () => `${bg("inter-chase")}
-  <svg style="position:absolute;inset:0" width="1600" height="900"><path d="M800,880 C790,760 760,660 700,600" stroke="#FFB547" stroke-width="5" fill="none" stroke-dasharray="12 8"/><path d="M700,600 C740,570 790,555 830,545" stroke="#FF6B6B" stroke-width="5" fill="none" stroke-dasharray="12 8"/><text x="840" y="548" fill="#FF8A8A" font-family="B" font-weight="600" font-size="16">2nd move</text></svg>
-  ${tag(800, 210, `<div style="display:grid;gap:4px;text-align:center"><span class="pill" style="background:#3A1218;color:#FF8A8A;font-size:13px">STEWARDS · WARNING 1 OF 2</span><b style="font:600 16px B">More than one change of direction while defending</b><span class="muted" style="font:600 12px B">next time: 5-second penalty</span></div>`, "translate(-50%,0)")}
+S.defend = () => `${bg("s-defend")}
+  ${pin(AA["s-defend"], "move2", `${pill("2ND MOVE", "#3A1218", "#FF8A8A")} <span class="muted" style="font:600 12px B">not allowed</span>`, { up: 60, dx: 60 })}
+  ${pin(AA["s-defend"], "brd", `${drv("BRD")} <span class="muted" style="font:600 12px B">0.3 s behind</span>`, { up: 50, dx: -40 })}
+  ${tag(800, 24, `<div style="display:grid;gap:4px;text-align:center"><span class="pill" style="background:#3A1218;color:#FF8A8A;font-size:13px">STEWARDS · WARNING 1 OF 2</span><b style="font:600 16px B">More than one change of direction while defending</b><span class="muted" style="font:600 12px B">next time: 5-second penalty</span></div>`, "translate(-50%,0)")}
   ${note("Defending rules", "One move only, and never under braking", ["You can move once to defend. Moving back to the racing line is fine, but a second move to block is not.", "Moving while the car behind is braking, or squeezing them off the track, gets a warning, then a penalty.", "Weaving on the straight to break the tow is also a warning."], "left:18px;top:300px")}
   ${box("right:18px;top:300px", 320, `<div class="lbl2" style="margin-bottom:8px">Your defending this race</div>
     <div style="display:grid;gap:6px">${kv("Clean defences", `<span class="good">7</span>`)}${kv("Warnings", `<span class="acc">1</span>`)}${kv("Penalties", "0")}</div>
@@ -99,9 +102,10 @@ S.orders = () => `${bg("monaco-cockpit")}
   ${concept("Concept render · team orders")}`;
 
 // 9 · red flag restart
-S.redflag = () => `${bg("silver-grid", "brightness(.8)")}
-  <div style="position:absolute;inset:0;box-shadow:inset 0 0 0 6px #E8002D"></div>
+S.redflag = () => `${bg("s-redflag", "brightness(.9)")}
+  <div style="position:absolute;inset:0;box-shadow:inset 0 0 0 6px #E8002D;z-index:3"></div>
   <div class="hudbox" style="left:50%;top:40px;transform:translateX(-50%);display:flex;align-items:center;gap:16px;padding:14px 20px"><div style="width:56px;height:40px;border-radius:4px;background:#E8002D"></div><div><b style="font:700 30px/1 BC;letter-spacing:.04em">RED FLAG · SESSION STOPPED</b><div class="muted" style="font:600 13px B">Barrier repair at Copse · restart in 12:40</div></div></div>
+  ${pin(AA["s-redflag"], "panel", `${pill("PIT EXIT CLOSED", "#3A1218", "#FF8A8A")}`, { up: 50 })}
   ${note("Red flag and restart", "Everyone stops in the pit lane", ["Cars line up in the pit lane in race order. Teams can change tyres for free and fix small damage.", "Then a standing restart from the grid, or a rolling one behind the safety car.", "Your engineer asks which tyres you want while you wait."], "left:18px;top:170px")}
   ${box("right:18px;top:170px", 360, `<div class="lbl2" style="margin-bottom:8px">While you wait</div>
     <div class="lbl2" style="margin-bottom:4px">Tyres for the restart (free change)</div>${tg(["Soft · new", "Medium · new", "Hard · used 8 laps", "Keep current"], 1)}
@@ -112,13 +116,9 @@ S.redflag = () => `${bg("silver-grid", "brightness(.8)")}
   ${concept("Concept render · red flag and restart")}`;
 
 // 10 · quali tow games
-S.towgame = () => `${bg("monza-chase")}
-  ${clone("monza-chase", CAR["monza-chase"], 742, 410, 0.36, "hue-rotate(150deg) saturate(1.3)")}
-  ${clone("monza-chase", CAR["monza-chase"], 806, 396, 0.27, "grayscale(1) brightness(1.5)")}
-  ${clone("monza-chase", CAR["monza-chase"], 770, 384, 0.21, "hue-rotate(310deg) saturate(1.6)")}
-  ${clone("monza-chase", CAR["monza-chase"], 830, 432, 0.5, "hue-rotate(-40deg) saturate(1.5) brightness(.9)")}
-  ${tag(885, 432, `${pill("SLV · slowing for a tow", "#2A1A10", "#FFB060")}`, "translate(0,-50%)")}
-  ${tag(700, 395, `${pill("3 cars waiting", "#1C2230", "#C3C9D4")}`, "translate(-100%,-50%)")}
+S.towgame = () => `${bg("s-tow")}
+  ${pin(AA["s-tow"], "NOVA", `${pill("SLV · slowing for a tow", "#2A1A10", "#FFB060")}`, { up: 70, dx: -120 })}
+  ${pin(AA["s-tow"], "AXIOM", `${pill("3 cars queuing", "#1C2230", "#C3C9D4")}`, { up: 60, dx: 110 })}
   ${note("Qualifying tow games", "Everyone wants the car in front", ["At Monza the AI slows on the out lap so nobody gets their tow. Cars bunch up, and the clock keeps running.", "Leave the pits at the right moment, find a gap, or follow a car for a tow down the straights.", "Get it wrong and you don't start your lap before the flag."])}
   ${box("right:18px;top:18px", 360, `<div class="lbl2" style="margin-bottom:8px">Q3 · 2:41 left</div>
     <div style="display:grid;gap:6px">${kv("Time to the line at this pace", `<span class="bad">2:48 · too slow</span>`)}${kv("Car ahead", "SLV · 120 m")}${kv("Tow worth", `<span class="good">−0.25 s on the lap</span>`)}</div>
@@ -129,10 +129,10 @@ S.towgame = () => `${bg("monza-chase")}
   ${concept("Concept render · qualifying tow games")}`;
 
 // 11 · classic tracks
-const hock = [[10, 70], [12, 40], [30, 20], [70, 8], [92, 18], [88, 34], [70, 42], [55, 60], [42, 66], [30, 78], [14, 82]];
-const spaOld = [[8, 85], [12, 55], [26, 20], [44, 8], [60, 18], [74, 40], [92, 60], [90, 78], [70, 84], [48, 90], [28, 92]];
-const monzaOld = [[10, 60], [16, 30], [40, 20], [70, 18], [90, 28], [94, 50], [86, 70], [60, 76], [36, 76], [16, 72]];
-const kyalami = [[12, 72], [20, 30], [44, 18], [62, 26], [84, 18], [92, 44], [74, 58], [64, 80], [40, 84], [22, 84]];
+const hock = [[8, 74], [10, 62], [18, 58], [40, 40], [62, 24], [80, 12], [90, 10], [94, 18], [88, 26], [70, 36], [56, 46], [44, 56], [30, 66], [24, 72], [22, 82], [14, 86]];
+const spaOld = [[20, 18], [26, 10], [32, 16], [30, 30], [40, 42], [56, 50], [74, 58], [88, 70], [92, 84], [80, 90], [62, 84], [46, 78], [34, 72], [24, 60], [18, 44], [16, 30]];
+const monzaOld = [[12, 70], [14, 30], [24, 16], [40, 12], [52, 18], [56, 30], [64, 22], [78, 18], [90, 28], [92, 50], [86, 72], [70, 82], [44, 84], [24, 82]];
+const kyalami = [[10, 60], [16, 24], [30, 14], [44, 22], [52, 40], [64, 30], [82, 22], [92, 34], [86, 52], [70, 60], [62, 76], [44, 86], [24, 84]];
 S.classic = () => top("Circuits · <b>Classic layouts</b>", `<span class="chip">Uses each era's cars</span>`, "spa-eau") + `
   <div class="grid" style="grid-template-columns:repeat(4,1fr);height:727px">
     ${[["Hockenheim", "1970–2001", "Long flat-out runs through the forest, broken by chicanes. Low wing, huge top speed.", "6.8 km", hock, true], ["Spa-Francorchamps", "1950–1970", "The original 14 km road course through the Ardennes villages. Very fast, very dangerous.", "14.1 km", spaOld], ["Monza with banking", "1955–1969", "The road course plus the steep oval banking. Cars ran flat out for minutes at a time.", "10.0 km", monzaOld], ["Kyalami", "1967–1985", "A fast old layout with a long downhill straight into Crowthorne.", "4.1 km", kyalami]].map(([n, y, d, l, pts, on]) => `<div class="panel" style="${on ? "box-shadow:inset 0 0 0 2px #FFB547" : ""};display:grid;gap:8px;align-content:start"><div style="height:250px;border-radius:10px;background:#0E1117;display:grid;place-items:center">${trackSvg(pts, 300, 210, { c: on ? "#FFB547" : "#C3C9D4" })}</div><b style="font:700 26px BC">${n}</b><div class="row"><span class="chip">${y}</span><span class="chip">${l}</span></div><div class="muted" style="font:500 13px B">${d}</div></div>`).join("")}
@@ -158,9 +158,9 @@ S.sharecode = () => top("Track Builder · <b>Share your circuit</b>", `<span cla
   </div>${concept("Concept render · track builder share codes")}`;
 
 // 13 · seasons and time of day
-S.seasons = () => top("Race settings · <b>Season and time of day</b>", "", "yas-chase") + `
+S.seasons = () => top("Race settings · <b>Season and time of day</b>", "", "se-sunset") + `
   <div class="grid" style="grid-template-columns:repeat(3,1fr);height:727px">
-    ${[["spa-chase", "sepia(.25) saturate(1.2) brightness(1.05) hue-rotate(-12deg)", "07:10", "Dawn practice", "Low sun, cold track, mist in the valleys"], ["silver-far", "saturate(1.5) sepia(.45) hue-rotate(-18deg) brightness(.95)", "16:30", "Autumn", "Orange trees, leaves blown onto the run-off, cooler air"], ["yas-chase", "", "18:40", "Sunset race", "Sun on the horizon, lights coming on"]].map(([f, flt, t, a, b]) => `<div class="panel" style="padding:0;overflow:hidden"><div style="height:330px;background:url(bg/${f}.png) center/cover;filter:${flt}"></div><div style="padding:12px 16px"><div class="row" style="align-items:baseline"><b class="mono acc" style="font-size:22px">${t}</b><b style="font:600 18px B">${a}</b></div><div class="muted" style="margin-top:4px">${b}</div></div></div>`).join("")}
+    ${[["se-dawn", "", "07:10", "Dawn practice", "Low sun, cold track, mist in the valleys"], ["se-autumn", "", "16:30", "Autumn", "Orange trees, cooler air, leaves on the run-off"], ["se-sunset", "", "18:40", "Sunset race", "Sun on the horizon, lights coming on"]].map(([f, flt, t, a, b]) => `<div class="panel" style="padding:0;overflow:hidden"><div style="height:330px;background:url(bg/${f}.png) center/cover;filter:${flt}"></div><div style="padding:12px 16px"><div class="row" style="align-items:baseline"><b class="mono acc" style="font-size:22px">${t}</b><b style="font:600 18px B">${a}</b></div><div class="muted" style="margin-top:4px">${b}</div></div></div>`).join("")}
     <div class="panel" style="grid-column:span 3;display:grid;grid-template-columns:repeat(3,1fr);gap:24px">
       <div><h2>Season</h2>${tg(["Real (race date)", "Spring", "Summer", "Autumn", "Winter testing"], 0)}<div class="muted" style="margin-top:8px;font:500 13px B">Changes tree colours, grass, how warm the track is, and how low the sun sits.</div></div>
       <div><h2>Start time</h2>${tg(["Real", "Dawn", "Midday", "Sunset", "Night"], 0)}<div style="margin-top:10px">${sl("Time speed", 30, "×4")}</div></div>
@@ -178,9 +178,9 @@ S.pole = () => `${bg("spa-chase")}
   ${concept("Concept render · hot lap vs the real pole")}`;
 
 // 15 · photo mode
-S.photo = () => `<div style="position:absolute;inset:0;background:url(bg/monaco-chase.png) center/cover;filter:blur(5px) brightness(.9)"></div>
-  <div style="position:absolute;inset:0;background:url(bg/monaco-chase.png) center/cover;mask-image:radial-gradient(ellipse 22% 26% at 50% 58%,#000 60%,transparent 100%);filter:saturate(1.15) contrast(1.06)"></div>
-  <div style="position:absolute;left:470px;top:250px;width:660px;height:420px;border:1px solid rgba(255,255,255,.35)"><i style="position:absolute;left:33%;top:0;bottom:0;border-left:1px solid rgba(255,255,255,.18)"></i><i style="position:absolute;left:66%;top:0;bottom:0;border-left:1px solid rgba(255,255,255,.18)"></i><i style="position:absolute;top:33%;left:0;right:0;border-top:1px solid rgba(255,255,255,.18)"></i><i style="position:absolute;top:66%;left:0;right:0;border-top:1px solid rgba(255,255,255,.18)"></i></div>
+S.photo = () => `${((c) => `<div style="position:absolute;inset:0;background:url(bg/s-photo.png) center/cover;filter:blur(6px) brightness(.92)"></div>
+  <div style="position:absolute;inset:0;background:url(bg/s-photo.png) center/cover;-webkit-mask-image:radial-gradient(ellipse 330px 230px at ${c[0]}px ${c[1]}px,#000 55%,transparent 100%);filter:saturate(1.12) contrast(1.05)"></div>
+  <div style="position:absolute;left:${c[0] - 360}px;top:${c[1] - 230}px;width:720px;height:440px;border:1px solid rgba(255,255,255,.35)"><i style="position:absolute;left:33.3%;top:0;bottom:0;border-left:1px solid rgba(255,255,255,.18)"></i><i style="position:absolute;left:66.6%;top:0;bottom:0;border-left:1px solid rgba(255,255,255,.18)"></i><i style="position:absolute;top:33.3%;left:0;right:0;border-top:1px solid rgba(255,255,255,.18)"></i><i style="position:absolute;top:66.6%;left:0;right:0;border-top:1px solid rgba(255,255,255,.18)"></i></div>`)(AA["s-photo"].car ?? [800, 500])}
   ${box("left:18px;top:18px", 330, `<div class="lbl2" style="margin-bottom:8px;color:#FFB547">Photo mode · paused</div>
     <div style="display:grid;gap:10px">${sl("Focus distance", 35, "6.2 m")}${sl("Blur (aperture)", 70, "f/1.8")}${sl("Field of view", 30, "28°")}${sl("Tilt", 50, "0°")}${sl("Exposure", 55, "+0.3")}</div>
     <div class="lbl2" style="margin:12px 0 6px">Filter</div>${tg(["None", "Film", "Black & white", "Warm", "Cold"], 1)}
@@ -190,7 +190,7 @@ S.photo = () => `<div style="position:absolute;inset:0;background:url(bg/monaco-
   ${concept("Concept render · photo mode")}`;
 
 // 16 · commentary feed
-S.ticker = () => `${bg("silver-far")}
+S.ticker = () => `${bg("s-ticker")}
   <div style="position:absolute;left:0;right:0;bottom:0;height:46px;background:#0B0D12E8;border-top:2px solid #FFB547;display:flex;align-items:center;gap:26px;padding:0 18px;white-space:nowrap;overflow:hidden;z-index:4"><span class="pill" style="background:#FFB547;color:#17120A;font-size:13px">LAP 23</span>${["<b>Overtake!</b> BRD passes SLV into Brooklands for P4", "<b>Fastest lap</b> OKA · 1:28.904", "<b>Pit stop</b> ISH · 2.3 s · Medium → Hard", "<b>Investigation</b> DEL and KAI, Turn 1, lap 22"].map((x) => `<span style="font:600 15px B">${x}</span><span class="faint">·</span>`).join("")}</div>
   <div class="hudbox" style="left:50%;top:22px;transform:translateX(-50%);text-align:center;padding:12px 24px"><div class="lbl2" style="color:#FFB547">Just now</div><b style="font:700 32px BC">OVERTAKE INTO BROOKLANDS!</b><div class="muted" style="font:600 14px B">${drv("BRD")} passes ${drv("SLV")} for P4</div></div>
   ${note("Commentary feed", "What's happening, as it happens", ["A ticker along the bottom shows overtakes, fastest laps, pit stops and penalties, written like a TV caption.", "Big moments get a headline for a few seconds.", "Choose how chatty it is, or only show things about you."], "left:18px;top:140px", 400)}
@@ -203,7 +203,7 @@ S.pitwall = () => top("Pit wall · <b>You're the strategist</b>", `<span class="
     <div class="panel" style="grid-row:span 2"><h2>Timing</h2><table><tr><th>P</th><th>Car</th><th class="r">Gap</th><th class="r">Last</th><th>Tyre</th></tr>
       ${[["1", "OKA", "AXIOM", "—", "1:29.10", "M 18"], ["2", "BRD", "VELOCE", "+2.4", "1:29.32", "H 9"], ["3", "SLV", "NOVA", "+5.0", "1:29.55", "M 20"], ["4", "MOR", "MERIDIAN", "+6.1", "1:29.41", "M 22"], ["5", "ISH", "KESTREL", "+9.8", "1:29.20", "H 6"], ["6", "VRG", "HALCYON", "+13.0", "1:29.90", "M 21"], ["7", "DEL", "VORTEX", "+18.4", "1:30.02", "H 11"], ["8", "KAI", "ORBITA", "+20.2", "1:30.11", "M 25"]].map(([p, c, t, g, l, ty], i) => `<tr${c === "MOR" ? ` style="background:#1E1A12"` : ""}><td class="mono">${p}</td><td><i style="display:inline-block;width:4px;height:14px;background:${TEAMS[t]};margin-right:6px;vertical-align:middle"></i><b>${c}</b></td><td class="r mono">${g}</td><td class="r mono">${l}</td><td><span class="pill" style="background:${ty[0] === "M" ? "#2A2310" : "#22252C"};color:${ty[0] === "M" ? "#F2C230" : "#E8EAF0"}">${ty}</span></td></tr>`).join("")}</table>
       <div class="lbl2" style="margin:12px 0 6px">Undercut check · ${"MOR"} vs SLV</div><div class="card2">${kv("Pit now, rejoin", "P6 · 2.1 s behind VRG")}${kv("Fresh tyre gain", `<span class="good">~1.1 s a lap</span>`)}${kv("Undercut works if SLV stays 2+ laps", `<span class="good">likely</span>`)}</div></div>
-    <div class="panel" style="padding:0;overflow:hidden;position:relative"><div style="height:100%;background:url(bg/silver-far.png) center/cover"></div><div class="hudbox" style="left:12px;top:12px"><b>Onboard · MOR</b> <span class="muted">· 287 km/h</span></div></div>
+    <div class="panel" style="padding:0;overflow:hidden;position:relative"><div style="height:100%;background:url(bg/s-ticker.png) center/cover"></div><div class="hudbox" style="left:12px;top:12px"><b>Onboard · MOR</b> <span class="muted">· 287 km/h</span></div></div>
     <div class="panel"><h2>Call it</h2><div style="display:grid;gap:8px"><span class="btn primary" style="justify-content:center;height:48px">Box this lap → Hard</span><span class="btn" style="justify-content:center">Stay out 3 more laps</span><span class="btn" style="justify-content:center">Push now</span><span class="btn" style="justify-content:center">Save tyres</span><span class="btn" style="justify-content:center">Swap places with teammate</span></div></div>
     <div class="panel"><h2>Tyre wear · MOR</h2>${chart(400, 120, [{ pts: [0.9, 0.86, 0.83, 0.79, 0.76, 0.72, 0.67, 0.6, 0.52], c: "#F2C230" }], { extra: `<line x1="0" x2="400" y1="90" y2="90" stroke="#FF6B6B" stroke-dasharray="6 4"/><text x="4" y="86" fill="#FF8A8A" font-family="B" font-weight="600" font-size="11">cliff</text>` })}<div class="muted" style="font:600 12px B;margin-top:6px">Mediums 22 laps old · about 4 laps before the cliff</div></div>
     <div class="panel"><h2>Radio</h2><div style="display:grid;gap:8px;font:600 13px B"><div><span class="acc">MOR:</span> "Rears are going, I can't hold SLV much longer."</div><div><span class="blue">You:</span> "Copy, box box this lap."</div><div class="muted">Weather: dry · rain 8% in 20 min</div></div></div>
