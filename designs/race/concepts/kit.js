@@ -90,6 +90,7 @@ K.person = (p, yaw, o = {}) => {
   else { K.mesh(new THREE.SphereGeometry(0.12, 16, 12), skin, head, [0, 0, 0], g); K.mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.06, 16), std(o.cap ?? o.suit ?? 0xFF7A1A), V(0, head.y + 0.08, 0), [0, 0, 0], g); }
   const arm = (x, up) => K.mesh(new THREE.CapsuleGeometry(0.06, 0.55, 4, 8), suit, V(x, hip + (up ? 0.75 : 0.32), up ? 0.05 : 0), [up ? 0.15 : 0, 0, up ? (x > 0 ? 0.25 : -0.25) : (x > 0 ? 0.12 : -0.12)], g);
   arm(-0.27, o.pose === "wave" || o.pose === "both"); arm(0.27, o.pose === "both" || o.pose === "lolli");
+  if (o.flagDraw) { const cv = document.createElement("canvas"); cv.width = 200; cv.height = 136; o.flagDraw(cv.getContext("2d"), 200, 136); const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; K.mesh(new THREE.CylinderGeometry(0.012, 0.012, 1.0, 6), std(0x8C939E, { metal: 0.6 }), V(-0.33, hip + 1.35, 0.05), [0, 0, 0.2], g); K.mesh(new THREE.PlaneGeometry(1.0, 0.68), new THREE.MeshStandardMaterial({ map: tx, side: THREE.DoubleSide, roughness: 0.7, emissive: 0xffffff, emissiveMap: tx, emissiveIntensity: 0.25 }), V(-0.62, hip + 1.6, 0.05), [0, 0.2, -0.05], g); }
   if (o.flag) { K.mesh(new THREE.CylinderGeometry(0.012, 0.012, 1.0, 6), std(0x8C939E, { metal: 0.6 }), V(-0.33, hip + 1.35, 0.05), [0, 0, 0.2], g);
     K.mesh(new THREE.PlaneGeometry(1.0, 0.68), std(o.flag, { rough: 0.7, side: THREE.DoubleSide, emissive: o.flag, ei: 0.25 }), V(-0.62, hip + 1.6, 0.05), [0, 0.2, -0.05], g); }
   if (o.pose === "lolli") { K.mesh(new THREE.CylinderGeometry(0.015, 0.015, 1.4, 6), std(0x2A2F3B), V(0.4, hip + 0.9, 0.3), [0.6, 0, -0.2], g); K.mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.04, 24), std(0x2FD27A, { emissive: 0x2FD27A, ei: 0.8 }), V(0.55, hip + 1.45, 0.75), [Math.PI / 2 - 0.6, 0, 0], g); }
@@ -112,7 +113,7 @@ K.text = (p, yaw, w, h, draw, o = {}) => { // a sign: draw(ctx, W, H) onto a can
 K.TEAMS = CarM.TEAMS;
 K.car = (team, d, o = null, opt = {}) => {
   const t = CarM.TEAMS.find((x) => x.team === team) ?? CarM.TEAMS[1];
-  const g = CarM.f1car({ era: opt.era ?? 2026, team: t.team, body: t.body, accent: t.accent, stripe: t.stripe, number: t.number, helmet: t.helmet, tcam: "#111", aero: "corner", compound: opt.compound ?? "#F2C230", compoundName: "C · MEDIUM" });
+  const g = CarM.f1car({ era: opt.era ?? 2026, team: t.team, body: t.body, accent: t.accent, stripe: t.stripe, number: t.number, helmet: t.helmet, tcam: "#111", aero: "corner", compound: opt.compound ?? "#F2C230", compoundName: "C · MEDIUM", ...(opt.livery ?? {}) });
   const i = opt.pit ? null : K.idx(d), oo = o ?? K.off(i ?? 0);
   if (opt.pos) { g.position.copy(opt.pos); g.rotation.y = opt.yaw ?? 0; }
   else { g.position.copy(K.at(i, oo, lift(i, oo))); g.rotation.set(0, K.yaw(i) + (opt.turn ?? 0), 0, "YXZ"); }
@@ -187,3 +188,85 @@ K.sparks = (g, n = 70) => { const grp = new THREE.Group(); const mk = (c) => new
 // a sign with text on a post
 K.board = (p, yaw, txt, o = {}) => K.text(V(p.x, p.y + (o.h ?? 1.2), p.z), yaw, o.w ?? 0.9, o.hh ?? 0.9, (x, W, H) => { x.fillStyle = o.bg ?? "#F2F3F5"; x.fillRect(0, 0, W, H); x.fillStyle = o.fg ?? "#16171B"; x.font = `700 ${Math.round(H * (o.fs ?? 0.5))}px Barlow, Arial`; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText(txt, W / 2, H / 2); }, { lit: true });
 K.V = V;
+
+// ---------- more props for the later concept shots ----------
+const grp = (p, yaw) => { const g = new THREE.Group(); g.position.copy(p); g.rotation.y = yaw; scene.add(g); return g; };
+const wheelM = std(0x15161A, { rough: 0.9 });
+const addWheel = (g, x, y, z, r, w) => { const m = K.mesh(new THREE.CylinderGeometry(r, r, w, 24), wheelM, V(x, y, z), [0, 0, Math.PI / 2], g); K.mesh(new THREE.CylinderGeometry(r * 0.6, r * 0.6, w + 0.01, 16), std(0x9AA1AA, { metal: 0.8, rough: 0.3 }), V(x, y, z), [0, 0, Math.PI / 2], g); return m; };
+// a sports-car safety car (made up): side profile extruded across its width, amber light bar (steady)
+K.safetyCar = (p, yaw, o = {}) => { const g = grp(p, yaw), L = 4.6, W = 1.95;
+  const prof = [[-2.3, 0.3], [-2.34, 0.82], [-1.95, 0.96], [-0.95, 1.0], [-0.35, 1.24], [0.45, 1.25], [1.2, 0.93], [2.2, 0.7], [2.36, 0.45], [2.3, 0.3]];
+  const sh = new THREE.Shape(); prof.forEach(([z, y], i) => (i ? sh.lineTo(z, y) : sh.moveTo(z, y)));
+  const body = new THREE.ExtrudeGeometry(sh, { depth: W, bevelEnabled: true, bevelSize: 0.08, bevelThickness: 0.08, bevelSegments: 3 }); body.translate(0, 0, -W / 2); body.rotateY(-Math.PI / 2);
+  K.mesh(body, new THREE.MeshPhysicalMaterial({ color: o.color ?? 0xE8EAF0, roughness: 0.3, clearcoat: 0.8, metalness: 0.2 }), V(0, 0, 0), [0, 0, 0], g);
+  const gl = new THREE.Shape(); [[-0.42, 1.0], [-0.3, 1.2], [0.4, 1.21], [1.08, 0.94]].forEach(([z, y], i) => (i ? gl.lineTo(z, y) : gl.moveTo(z, y)));
+  const glass = new THREE.ExtrudeGeometry(gl, { depth: W + 0.24, bevelEnabled: false }); glass.translate(0, 0, -(W + 0.24) / 2); glass.rotateY(-Math.PI / 2);
+  K.mesh(glass, std(0x10141C, { rough: 0.1, metal: 0.6 }), V(0, 0, 0), [0, 0, 0], g);
+  const quad = (a, b, w) => { const q = new THREE.BufferGeometry(); q.setAttribute("position", new THREE.BufferAttribute(new Float32Array([-w / 2, a[1], a[0], w / 2, a[1], a[0], w / 2, b[1], b[0], -w / 2, b[1], b[0]]), 3)); q.setIndex([0, 1, 2, 0, 2, 3]); q.computeVertexNormals(); return q; };
+  const gm = std(0x10141C, { rough: 0.08, metal: 0.6, side: THREE.DoubleSide });
+  K.mesh(quad([0.55, 1.315], [1.16, 1.05], 1.62), gm, V(0, 0, 0), [0, 0, 0], g); K.mesh(quad([-0.9, 1.13], [-0.45, 1.305], 1.5), gm, V(0, 0, 0), [0, 0, 0], g);
+  const hl = new THREE.MeshBasicMaterial({ color: 0xFFF6DA }); for (const s of [-1, 1]) { K.mesh(new THREE.BoxGeometry(0.42, 0.1, 0.06), hl, V(s * 0.62, 0.62, 2.33), [0, 0, 0], g); K.mesh(new THREE.BoxGeometry(0.36, 0.1, 0.06), new THREE.MeshBasicMaterial({ color: 0xB0202A }), V(s * 0.66, 0.78, -2.36), [0, 0, 0], g); }
+  K.mesh(new THREE.BoxGeometry(0.9, 0.12, 0.05), std(0x1A1C22), V(0, 0.44, 2.44), [0, 0, 0], g);
+  for (const s of [-1, 1]) for (const z of [1.45, -1.45]) addWheel(g, s * 0.92, 0.34, z, 0.34, 0.28);
+  K.mesh(new THREE.BoxGeometry(1.3, 0.1, 0.22), std(0x1A1C22), V(0, 1.39, 0.05), [0, 0, 0], g);
+  const amb = new THREE.MeshBasicMaterial({ color: o.lights === false ? 0x4A3A1A : 0xFFB020, toneMapped: false }), grn = new THREE.MeshBasicMaterial({ color: 0x2FD27A, toneMapped: false });
+  for (const x of [-0.5, -0.25, 0.25, 0.5]) K.mesh(new THREE.BoxGeometry(0.2, 0.08, 0.18), Math.abs(x) < 0.3 ? grn : amb, V(x, 1.44, 0.05), [0, 0, 0], g);
+  K.text(V(0, 0.62, -2.42), Math.PI, 1.3, 0.22, (x, W2, H2) => { x.fillStyle = "#16171B"; x.fillRect(0, 0, W2, H2); x.fillStyle = "#FFB547"; x.font = "bold " + Math.round(H2 * 0.7) + "px Arial"; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText("SAFETY CAR", W2 / 2, H2 / 2); }).parent.remove; 
+  const sign = scene.children[scene.children.length - 1]; g.attach(sign); sign.position.set(0, 0.62, -2.43); sign.rotation.set(0, Math.PI, 0);
+  for (const sx of [-1, 1]) { const st = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 0.12), new THREE.MeshBasicMaterial({ color: 0xFFA51F, side: THREE.DoubleSide })); st.position.set(sx * (W / 2 + 0.1), 0.62, 0); st.rotation.y = Math.PI / 2; g.add(st);
+    K.text(V(0, 0, 0), 0, 1.5, 0.26, (x, W2, H2) => { x.fillStyle = "#16171B"; x.font = "bold " + Math.round(H2 * 0.75) + "px Arial"; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText("SAFETY CAR", W2 / 2, H2 / 2); }); const t = scene.children[scene.children.length - 1]; g.attach(t); t.position.set(sx * (W / 2 + 0.11), 0.42, 0.2); t.rotation.set(0, sx * Math.PI / 2, 0); t.material.transparent = true; }
+  return g; };
+// a racing kart with a seated driver
+K.kart = (p, yaw, color, helmet = 0xF2F3F5) => { const g = grp(p, yaw);
+  K.mesh(new THREE.BoxGeometry(0.9, 0.05, 1.45), std(0x2A2F3B, { metal: 0.6 }), V(0, 0.08, 0), [0, 0, 0], g);
+  K.mesh(new THREE.BoxGeometry(0.75, 0.16, 0.35), std(color, { rough: 0.4 }), V(0, 0.16, 0.82), [-0.25, 0, 0], g);
+  for (const s of [-1, 1]) K.mesh(new THREE.BoxGeometry(0.16, 0.14, 0.75), std(color, { rough: 0.4 }), V(s * 0.6, 0.14, 0), [0, 0, 0], g);
+  K.mesh(new THREE.BoxGeometry(1.1, 0.12, 0.12), std(color, { rough: 0.4 }), V(0, 0.16, -0.78), [0, 0, 0], g);
+  for (const s of [-1, 1]) { addWheel(g, s * 0.55, 0.13, 0.55, 0.13, 0.13); addWheel(g, s * 0.58, 0.14, -0.55, 0.14, 0.2); }
+  K.mesh(new THREE.BoxGeometry(0.42, 0.06, 0.4), std(0x1A1C22), V(0, 0.2, -0.15), [0, 0, 0], g);
+  K.mesh(new THREE.CapsuleGeometry(0.17, 0.32, 4, 10), std(color, { rough: 0.8 }), V(0, 0.52, -0.18), [-0.2, 0, 0], g);
+  K.mesh(new THREE.SphereGeometry(0.15, 16, 12), std(helmet, { rough: 0.3 }), V(0, 0.9, -0.12), [0, 0, 0], g);
+  K.mesh(new THREE.BoxGeometry(0.2, 0.06, 0.05), std(0x10141C, { rough: 0.1, metal: 0.4 }), V(0, 0.91, 0.01), [0, 0, 0], g);
+  for (const s of [-1, 1]) K.mesh(new THREE.CapsuleGeometry(0.05, 0.3, 4, 6), std(color, { rough: 0.8 }), V(s * 0.17, 0.5, 0.1), [1.2, 0, 0], g);
+  return g; };
+// the drivers' parade truck: cab + flat bed with rails
+K.truck = (p, yaw, o = {}) => { const g = grp(p, yaw), col = o.color ?? 0x16171B;
+  K.mesh(new THREE.BoxGeometry(2.5, 2.1, 2.0), std(col, { rough: 0.4 }), V(0, 1.55, 3.6), [0, 0, 0], g);
+  K.mesh(new THREE.BoxGeometry(2.3, 0.8, 0.05), std(0x10141C, { rough: 0.1, metal: 0.5 }), V(0, 2.05, 4.61), [0, 0, 0], g);
+  for (const s of [-1, 1]) { K.mesh(new THREE.BoxGeometry(0.05, 0.7, 1.3), std(0x10141C, { rough: 0.1, metal: 0.5 }), V(s * 1.26, 2.05, 3.75), [0, 0, 0], g); K.mesh(new THREE.BoxGeometry(0.4, 0.22, 0.05), new THREE.MeshBasicMaterial({ color: 0xFFF6DA }), V(s * 0.85, 0.95, 4.62), [0, 0, 0], g); }
+  K.mesh(new THREE.BoxGeometry(1.1, 0.5, 0.05), std(0x2A2F3B, { metal: 0.6 }), V(0, 1.0, 4.62), [0, 0, 0], g); K.mesh(new THREE.BoxGeometry(2.52, 0.18, 2.02), std(0xFFA51F), V(0, 1.45, 3.6), [0, 0, 0], g);
+  K.mesh(new THREE.BoxGeometry(2.5, 0.5, 8.5), std(0x2A2F3B, { metal: 0.4 }), V(0, 0.9, -0.6), [0, 0, 0], g);
+  K.mesh(new THREE.BoxGeometry(2.55, 0.3, 6.6), std(o.deck ?? 0xFFA51F, { rough: 0.5 }), V(0, 1.2, -1.3), [0, 0, 0], g);
+  for (const s of [-1, 1]) { for (let z = -4.5; z <= 1.8; z += 1.05) K.mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.9, 6), std(0xC3C9D4, { metal: 0.7 }), V(s * 1.22, 1.8, z), [0, 0, 0], g); K.mesh(new THREE.CylinderGeometry(0.035, 0.035, 6.5, 8), std(0xC3C9D4, { metal: 0.7 }), V(s * 1.22, 2.25, -1.3), [Math.PI / 2, 0, 0], g); }
+  K.text(V(1.29, 1.2, -1.3), Math.PI / 2, 6.4, 0.3, (x, W2, H2) => { x.fillStyle = "#FFA51F"; x.fillRect(0, 0, W2, H2); x.fillStyle = "#16171B"; x.font = "bold " + Math.round(H2 * 0.75) + "px Arial"; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText("RACELIMIT GRAND PRIX · DRIVERS' PARADE", W2 / 2, H2 / 2); });
+  const sign = scene.children[scene.children.length - 1]; g.attach(sign); sign.position.set(1.29, 1.2, -1.3); sign.rotation.set(0, Math.PI / 2, 0);
+  for (const s of [-1, 1]) { addWheel(g, s * 1.15, 0.5, 3.4, 0.5, 0.4); addWheel(g, s * 1.15, 0.5, -2.2, 0.5, 0.4); addWheel(g, s * 1.15, 0.5, -3.4, 0.5, 0.4); }
+  return g; };
+// a display-team jet (made up), with a coloured smoke trail behind it
+K.jet = (p, yaw, color, smoke, trail = 60) => { const g = grp(p, yaw), m = std(color, { rough: 0.35, metal: 0.3 });
+  K.mesh(new THREE.CylinderGeometry(0.45, 0.6, 9, 14), m, V(0, 0, 0), [Math.PI / 2, 0, 0], g);
+  K.mesh(new THREE.ConeGeometry(0.45, 2.4, 14), m, V(0, 0, 5.7), [Math.PI / 2, 0, 0], g);
+  K.mesh(new THREE.BoxGeometry(8.4, 0.12, 2.4), m, V(0, -0.1, -0.5), [0, 0, 0], g);
+  K.mesh(new THREE.BoxGeometry(3.2, 0.1, 1.2), m, V(0, 0, -4), [0, 0, 0], g);
+  K.mesh(new THREE.BoxGeometry(0.12, 1.8, 1.4), m, V(0, 0.9, -3.9), [0, 0, 0], g);
+  K.mesh(new THREE.SphereGeometry(0.42, 12, 8), std(0x10141C, { rough: 0.1, metal: 0.5 }), V(0, 0.38, 2.4), [0, 0, 0], g).scale.set(1, 0.7, 2.2);
+  if (smoke) for (let k = 0; k < trail; k++) { const t = k / trail, s = new THREE.Mesh(new THREE.SphereGeometry(0.5 + t * 2.4, 10, 8), new THREE.MeshStandardMaterial({ color: smoke, transparent: true, opacity: 0.5 * (1 - t), roughness: 1, depthWrite: false })); s.position.set(Math.sin(k * 1.7) * t * 0.6, Math.cos(k * 2.1) * t * 0.6, -5 - k * 1.6); g.add(s); }
+  return g; };
+// puffs of smoke (tyre smoke, flares)
+K.smoke = (p, n, spread, color = 0xE6E8EC, o = {}) => { let r = o.seed ?? 3; const rnd = () => ((r = (r * 9301 + 49297) % 233280) / 233280);
+  for (let k = 0; k < n; k++) { const t = rnd(), s = new THREE.Mesh(new THREE.SphereGeometry((o.size ?? 0.6) * (0.5 + t), 12, 8), new THREE.MeshStandardMaterial({ color, transparent: true, opacity: (o.opacity ?? 0.3) * (1 - t * 0.6), roughness: 1, depthWrite: false })); s.position.set(p.x + (rnd() - 0.5) * spread, p.y + rnd() * (o.rise ?? spread * 0.6), p.z + (rnd() - 0.5) * spread); scene.add(s); } };
+// fireworks: bursts of small glowing points
+K.firework = (p, r, color, n = 80, seed = 1) => { let s = seed * 7; const rnd = () => ((s = (s * 9301 + 49297) % 233280) / 233280); const m = new THREE.MeshBasicMaterial({ color, toneMapped: false }), m2 = new THREE.MeshBasicMaterial({ color: 0xFFF6D8, toneMapped: false });
+  for (let k = 0; k < n; k++) { const th = rnd() * Math.PI * 2, ph = Math.acos(2 * rnd() - 1), rr = r * (0.75 + rnd() * 0.25), d = V(Math.sin(ph) * Math.cos(th), Math.cos(ph), Math.sin(ph) * Math.sin(th));
+    const tail = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.012, r * 0.004, r * 0.3, 4), k % 4 ? m : m2); tail.position.copy(p).addScaledVector(d, rr * 0.85); tail.quaternion.setFromUnitVectors(V(0, 1, 0), d); scene.add(tail); } };
+// a pumpkin
+K.pumpkin = (p, s = 1) => { const g = grp(p, 0); for (let k = 0; k < 6; k++) { const m = K.mesh(new THREE.SphereGeometry(0.28 * s, 14, 10), std(0xE8701A, { rough: 0.6 }), V(Math.cos(k) * 0.08 * s, 0.25 * s, Math.sin(k) * 0.08 * s), [0, k, 0], g); m.scale.set(0.75, 0.85, 1); }
+  K.mesh(new THREE.CylinderGeometry(0.03 * s, 0.04 * s, 0.14 * s, 6), std(0x3E5A26), V(0, 0.52 * s, 0), [0, 0, 0.2], g); return g; };
+// a mobile crane with its arm over the barrier
+K.crane = (p, yaw, reach = 7, h = 7) => { const g = grp(p, yaw), y = std(0xF2C230, { rough: 0.5 });
+  K.mesh(new THREE.BoxGeometry(2.6, 1.2, 6), y, V(0, 1.1, 0), [0, 0, 0], g); K.mesh(new THREE.BoxGeometry(2.2, 1.4, 1.8), y, V(0, 2.3, 1.6), [0, 0, 0], g);
+  for (const s of [-1, 1]) for (const z of [-2, 0, 2]) addWheel(g, s * 1.2, 0.5, z, 0.5, 0.45);
+  const arm = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, Math.hypot(reach, h)), y); arm.position.set(0, 1.8 + h / 2, reach / 2); arm.rotation.x = -Math.atan2(h, reach) + Math.PI / 2 - Math.PI / 2; arm.lookAt(g.localToWorld(V(0, 1.8 + h, reach))); g.add(arm);
+  arm.position.set(0, 1.8 + h / 2, reach / 2); arm.rotation.set(-Math.atan2(h, reach), 0, 0);
+  return { g, tip: () => g.localToWorld(V(0, 1.8 + h, reach)) }; };
+K.line3 = (a, b, color = 0x2A2F3B, r = 0.02) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, a.distanceTo(b), 6), std(color)); m.position.copy(a).lerp(b, 0.5); m.quaternion.setFromUnitVectors(V(0, 1, 0), b.clone().sub(a).normalize()); scene.add(m); return m; };

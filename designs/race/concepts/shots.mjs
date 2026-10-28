@@ -292,4 +292,188 @@ export const SHOTS = [
     const w = me.worldToLocal(K.wheel(me, "fl"));
     let r = 5; const rnd = () => ((r = (r * 9301 + 49297) % 233280) / 233280); for (let k = 0; k < 46; k++) { const t = rnd(), m = new THREE.Mesh(new THREE.SphereGeometry(0.1 + t * 0.5, 16, 12), new THREE.MeshStandardMaterial({ color: 0xE9EBEF, transparent: true, opacity: 0.2 - t * 0.14, roughness: 1, depthWrite: false })); m.position.set(w.x + 0.05 + t * 0.4 + (rnd() - 0.5) * 0.25, 0.1 + t * 0.5 + (rnd() - 0.5) * 0.15, w.z - 0.05 - t * 3.4 + (rnd() - 0.5) * 0.3); me.add(m); }
     K.camCar([3.2, 1.0, zf + 3.6], [0.6, 0.35, zf - 0.6], 42); K.anchor("fl", K.wheel(me, "fl"));`),
+  // ===== list 6 =====
+  shot("l6-safetycar", "silverstone", `
+    const iC = C(15); K.placeBefore(iC, 330); K.hideLine(); K.hideCar();
+    K.safetyCar(K.ahead(0, K.c.lat, 0.0), K.yaw(K.c.idx));
+    [["AXIOM", -8.5], ["VELOCE", -16.5], ["RACELIMIT", -24.5], ["NOVA", -32.5], ["HALCYON", -40.5]].forEach(([t, d]) => K.car(t, d, K.c.lat));
+    K.cam(K.ahead(9, K.c.lat - 4.2, 1.6), K.ahead(-13, K.c.lat, 0.6), 46); K.anchor("sc", K.ahead(0, K.c.lat, 1.8)); K.anchor("leader", K.ahead(-8.5, K.c.lat, 1.3));`),
+  shot("l6-train", "monza", `
+    const iC = C(1); K.placeBefore(iC, 330); K.hideLine(); K.chase({ fov: 54 });
+    [["AXIOM", 9, -0.6], ["VELOCE", 17, 0.7], ["NOVA", 25, -0.3], ["HALCYON", 33, 0.5], ["ORBITA", 41, -0.4]].forEach(([t, d, o]) => { K.car(t, d, K.c.lat + o); K.anchor(t, K.ahead(d, K.c.lat + o, 1.3)); });`),
+  shot("l6-replay3d", "singapore", `
+    const iC = C(7); K.place(K.idx(-30, iC), K.off(K.idx(-30, iC))); K.hideLine(); const s = sgn(K.off(iC));
+    [["AXIOM", 26], ["VELOCE", 16], ["NOVA", 7], ["KESTREL", -3], ["HALCYON", -14], ["VORTEX", -26]].forEach(([t, d]) => K.car(t, d, null));
+    K.cam(K.at(K.idx(40), s * (half + 14), 18), K.ahead(4, null, 0.5), 40); K.anchor("lead", K.ahead(26, null, 1.4));`),
+  shot("l6-concept", "silverstone", `
+    K.hideLine(); const g = K.group(); const base = K.at(K.c.idx, 0, 0), yaw = K.c.yaw;
+    K.hideWorld([g]); K.scene.background = new THREE.Color(0x0B0D12); K.scene.fog = null; K.me.visible = false;
+    const fl = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), K.std(0x08090C, { rough: 0.92 })); fl.rotation.x = -Math.PI / 2; fl.position.copy(base).add(K.V(0, 0.002, 0)); g.add(fl);
+    const spot = (p) => { const lt = new THREE.SpotLight(0xFFF2E0, 110, 16, 0.55, 0.6, 1.4); lt.position.set(p.x, p.y + 7, p.z); lt.target.position.copy(p); g.add(lt, lt.target); };
+    const put = (k, team, era) => { const a = yaw + (k - 1) * 0.5, p = base.clone().add(K.V(Math.sin(a) * 12, 0, Math.cos(a) * 12)); K.box(K.V(p.x, p.y + 0.12, p.z), [3.4, 0.24, 6.4], 0x2A2F3B, [0, a + Math.PI / 2 + 0.25, 0], { rough: 0.4 }); spot(p); const c = K.car(team, 0, 0, { era, pos: K.V(p.x, p.y + 0.24, p.z), yaw: a + Math.PI / 2 + 0.25 + Math.PI }); c.updateMatrixWorld(); K.anchor("c" + k, K.V(p.x, p.y + 1.7, p.z)); return c; };
+    { const c = put(0, "NOVA", 1998), E = c.userData.E, f = K.wheel(c, "fl"), fr = K.wheel(c, "fr"); for (const w of [f, fr]) { const lp = c.worldToLocal(w.clone()); lp.z += 0.95; const m = new THREE.Mesh(new THREE.CylinderGeometry(E.r * 0.72, E.r * 0.72, 0.24, 24), K.std(0x15161A, { rough: 0.9 })); m.position.copy(lp); m.position.y = E.r * 0.72; m.rotation.z = Math.PI / 2; c.add(m); } }
+    { const c = put(1, "VORTEX", 1998), zr = c.userData.zr; const fan = new THREE.Group(); fan.position.set(0, 0.42, zr - 0.62); c.add(fan); fan.add(new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.12, 32, 1, true), K.std(0x2A2F3B, { side: THREE.DoubleSide }))); fan.children[0].rotation.x = Math.PI / 2; for (let b = 0; b < 6; b++) { const bl = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.36, 0.02), K.std(0x9AA1AA, { metal: 0.7 })); bl.rotation.z = b * Math.PI / 3; bl.position.set(Math.sin(b * Math.PI / 3) * 0.18, Math.cos(b * Math.PI / 3) * 0.18, 0); fan.add(bl); } }
+    { const c = put(2, "AXIOM", 1998), zf = c.userData.zf, zr = c.userData.zr; for (const sx of [-1, 1]) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.2, zf - zr - 1.4), K.std(0xF2C230)); m.position.set(sx * 0.62, 0.1, (zf + zr) / 2); c.add(m); } }
+    K.cam(base.clone().add(K.V(Math.sin(yaw) * 2.5, 3.2, Math.cos(yaw) * 2.5)), base.clone().add(K.V(Math.sin(yaw) * 12, 0.4, Math.cos(yaw) * 12)), 60);`, { place: 30 }),
+  shot("l6-cockpit", "monza", `const iC = C(1); K.placeBefore(iC, 360); K.hideLine(); K.car("VELOCE", 30, null);`, { cam: "cockpit" }),
+  shot("l6-era09", "monza", `
+    const iC = C(1); K.placeBefore(iC, 330); K.hideLine(); K.hideCar(); const c = K.car("AXIOM", 0, K.c.lat, { era: 2009 }); c.updateMatrixWorld();
+    K.cam(c.localToWorld(K.V(-5.6, 2.1, -0.8)), c.localToWorld(K.V(0, 0.5, -0.4)), 42);
+    K.anchor("cockpit", c.localToWorld(K.V(0, 0.95, c.userData.ck - 0.1))); K.anchor("rear", c.localToWorld(K.V(0, 0.95, c.userData.zr - 0.75)));`),
+  shot("l6-grid", "silverstone", `
+    K.hideLine(); K.place(K.c.idx, 2.4);
+    [["AXIOM", 16, 2.4], ["VELOCE", 8, -2.4], ["NOVA", -8, -2.4], ["KESTREL", -16, 2.4], ["HALCYON", 24, -2.4]].forEach(([t, d, o]) => K.car(t, d, o));
+    K.chase({ back: 6.5, up: 1.6, ahead: 12, fov: 58 });`, { place: 30 }),
+  shot("l6-rewind", "spa", `
+    const iC = C(1); const s = sgn(K.off(iC)); const j = K.idx(18, iC); K.place(j, -s * (half + 5), 2.2 * s); K.hideLine();
+    K.smoke(K.at(j, -s * (half + 3.5), 0.4), 14, 4, 0xC9B79A, { size: 1.1, opacity: 0.22, seed: 4 });
+    K.cam(K.at(K.idx(8, iC), -s * 1.0, 3.2), K.at(j, -s * (half + 5), 0.6), 44); K.anchor("car", K.at(j, -s * (half + 5), 1.2));`),
+  shot("l6-bigscreen", "silverstone", `
+    const iC = C(15); K.placeBefore(iC, 300); K.hideLine(); K.chase();
+    const i = K.idx(24), o = half + 7, p = K.at(i, o, 0), yw = face(i, o);
+    K.box(K.V(p.x, p.y + 3, p.z), [0.4, 6, 0.4], 0x2A2F3B, [0, yw, 0]);
+    K.box(K.V(p.x, p.y + 7.6, p.z), [12.6, 7.4, 0.5], 0x15171C, [0, yw, 0]);
+    const f = K.V(Math.sin(yw), 0, Math.cos(yw));
+    K.text(K.V(p.x, p.y + 7.6, p.z).addScaledVector(f, 0.27), yw, 12, 6.75, (x, W, Hh) => {
+      const sk = x.createLinearGradient(0, 0, 0, Hh * 0.45); sk.addColorStop(0, "#9DBBDD"); sk.addColorStop(1, "#DCE6EE"); x.fillStyle = sk; x.fillRect(0, 0, W, Hh); x.fillStyle = "#3E8A3A"; x.fillRect(0, Hh * 0.45, W, Hh);
+      x.fillStyle = "#5A5F68"; x.beginPath(); x.moveTo(W * 0.46, Hh * 0.45); x.lineTo(W * 0.54, Hh * 0.45); x.lineTo(W * 0.95, Hh); x.lineTo(W * 0.05, Hh); x.fill();
+      const car = (cx, cy, sc, col) => { x.fillStyle = "#16171B"; x.fillRect(cx - 70 * sc, cy - 10 * sc, 140 * sc, 40 * sc); x.fillStyle = col; x.fillRect(cx - 45 * sc, cy - 40 * sc, 90 * sc, 50 * sc); x.fillRect(cx - 80 * sc, cy - 55 * sc, 160 * sc, 18 * sc); x.fillStyle = "#0B0D12"; for (const s2 of [-1, 1]) x.fillRect(cx + s2 * 75 * sc - 22 * sc, cy - 20 * sc, 44 * sc, 55 * sc); };
+      car(W * 0.5, Hh * 0.6, 1.2, "#C8102E"); car(W * 0.5, Hh * 0.86, 2.0, "#FFA51F");
+      x.fillStyle = "rgba(11,13,18,.88)"; x.fillRect(W * 0.03, Hh * 0.05, W * 0.3, Hh * 0.2); x.fillStyle = "#FFB547"; x.font = "bold " + Math.round(Hh * 0.08) + "px Arial"; x.fillText("P3  KIRI", W * 0.05, Hh * 0.17); x.fillStyle = "#E8EAF0"; x.font = "bold " + Math.round(Hh * 0.05) + "px Arial"; x.fillText("+0.8 to BRD", W * 0.05, Hh * 0.23);
+      x.fillStyle = "#E8002D"; x.fillRect(W * 0.85, Hh * 0.06, W * 0.12, Hh * 0.08); x.fillStyle = "#fff"; x.font = "bold " + Math.round(Hh * 0.055) + "px Arial"; x.fillText("● LIVE", W * 0.865, Hh * 0.12); }, { lit: false });
+    K.anchor("screen", K.V(p.x, p.y + 11.5, p.z)); K.car("VELOCE", 12, K.c.lat - 0.6);`),
+  shot("l6-donuts", "singapore", `
+    K.hideLine(); const j = K.c.idx; K.place(j, 0, 1.9);
+    const g = new THREE.Mesh(new THREE.RingGeometry(2.6, 3.1, 48), new THREE.MeshBasicMaterial({ color: 0x0B0B0D, transparent: true, opacity: 0.75, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 })); g.rotation.x = -Math.PI / 2; const c0 = K.at(j, 0.8, 0.07); g.position.copy(c0); K.scene.add(g);
+    const g2 = g.clone(); g2.scale.setScalar(0.82); K.scene.add(g2);
+    K.smoke(K.at(j, 0, 0.3), 70, 7, 0xE9EBEF, { size: 1.0, opacity: 0.22, rise: 2.5, seed: 9 });
+    for (const [d, o, h, col, r] of [[50, -40, 60, 0xFFB547, 16], [70, 30, 70, 0x5AA9FF, 14], [40, 10, 85, 0xFF5A6A, 12], [90, -10, 55, 0x2FD27A, 13]]) K.firework(K.at(K.idx(d), o, h), r, col, 90, d);
+    K.cam(K.at(K.idx(-10), 3.5, 3.4), K.at(K.idx(8), 0, 3.5), 62); K.anchor("car", K.at(j, 0, 1.4));`),
+  shot("l6-crowd", "zandvoort", `
+    const iC = C(1); K.placeBefore(iC, 120); K.hideLine(); K.chase();
+    for (const [d, o] of [[30, 1], [55, 1], [80, 1], [40, -1], [70, -1]]) { const i = K.idx(d), p = K.at(i, o * (half + 14), 3); K.smoke(p, 90, 7, 0xFF8A2A, { size: 1.3, opacity: 0.16, rise: 14, seed: d }); }
+    for (const d of [20, 34, 48, 62]) { const i = K.idx(d), o = half + 6; K.flagpole(K.at(i, o), K.yaw(i) + 1.2, 0xFF7A1A, 0.6); }
+    K.anchor("smoke", K.at(K.idx(55), half + 14, 8));`),
+  shot("l6-easter", "spa", `
+    const iC = C(1); const s = sgn(K.off(iC)); K.place(K.idx(-40, iC), 0); K.hideLine();
+    const i = K.idx(8, iC), p = K.at(i, s * (half + 3.2), 0.9), g = new THREE.Group(); g.position.copy(p); g.rotation.y = face(i, s * (half + 3.2)); K.scene.add(g);
+    const y = K.std(0xF2C230, { rough: 0.35 }); K.mesh(new THREE.SphereGeometry(0.45, 20, 14), y, K.V(0, 0, 0), [0, 0, 0], g).scale.set(1, 0.8, 1.25); K.mesh(new THREE.SphereGeometry(0.3, 20, 14), y, K.V(0, 0.5, 0.35), [0, 0, 0], g);
+    K.mesh(new THREE.ConeGeometry(0.1, 0.3, 12), K.std(0xFF7A1A), K.V(0, 0.48, 0.7), [Math.PI / 2, 0, 0], g); for (const sx of [-1, 1]) K.mesh(new THREE.SphereGeometry(0.045, 8, 6), K.std(0x111111), K.V(sx * 0.13, 0.6, 0.6), [0, 0, 0], g);
+    K.mesh(new THREE.BoxGeometry(0.42, 0.12, 0.2), K.std(0x16171B), K.V(0, 0.82, 0.32), [0, 0, 0], g);
+    K.cam(K.at(K.idx(-2, iC), s * (half - 1.5), 1.6), K.at(i, s * (half + 3.2), 1.0), 34); K.anchor("duck", K.at(i, s * (half + 3.2), 1.9));`),
+  shot("l6-classic98", "monza", `
+    const iC = C(1); K.placeBefore(iC, 360); K.hideLine(); K.hideCar(); const c = K.car("VELOCE", 0, K.c.lat, { era: 1998 }); c.updateMatrixWorld(); K.car("AXIOM", 26, null, { era: 1998 });
+    K.cam(c.localToWorld(K.V(0, 1.18, c.userData.ck - 0.6)), c.localToWorld(K.V(0, 0.8, c.userData.ck + 20)), 60);`),
+  shot("l6-team", "spa", `const iC = C(5); K.placeBefore(iC, 480); K.hideLine(); K.chase(); K.car("RACELIMIT", 13, K.c.lat - 1.4); K.anchor("mate", K.ahead(13, K.c.lat - 1.4, 1.4));`),
+  // ===== list 7 =====
+  shot("l7-stack", "silverstone", `
+    K.hideLine(); K.hideCar(); const q1 = K.pitAt(150, 0), q2 = K.pitAt(141, 0);
+    const a = K.car("RACELIMIT", 0, 0, { pos: q1.p, yaw: q1.yaw }), b = K.car("RACELIMIT", 0, 0, { pos: q2.p, yaw: q2.yaw }); a.updateMatrixWorld();
+    for (const w of ["fl", "fr", "rl", "rr"]) { const p = K.wheel(a, w), side = w[1] === "l" ? 1 : -1, qq = a.localToWorld(a.worldToLocal(p.clone()).add(K.V(side * 0.75, 0, 0))); qq.y = q1.p.y; K.person(qq, q1.yaw - side * Math.PI / 2, { suit: 0xFFA51F, helmet: 0x16171B, pose: "kneel", gun: true }); }
+    K.person(a.localToWorld(K.V(0, 0, a.userData.zf + 1.9)).setY(q1.p.y), q1.yaw + Math.PI, { suit: 0xFFA51F, helmet: 0x16171B, pose: "kneel" });
+    K.cam(a.localToWorld(K.V(-7.5, 6.5, -10)), a.localToWorld(K.V(0, 0.2, -4.6)), 48); K.anchor("a", a.localToWorld(K.V(0, 1.3, 0))); K.anchor("b", b.localToWorld(K.V(0, 1.3, 0)));`),
+  shot("l7-yas", "yas-marina-circuit", `const iC = C(9, 40); K.placeBefore(iC, 160); K.hideLine(); K.chase();`, { place: 1500 }),
+  shot("l7-restart", "silverstone", `
+    const iC = C(15); K.placeBefore(iC, 330); K.hideLine();
+    [["VELOCE", -6.8, 0.6], ["NOVA", -13.5, -0.5], ["AXIOM", -20, 0.7], ["KESTREL", -26.5, -0.4]].forEach(([t, d, o]) => K.car(t, d, K.c.lat + o));
+    K.camCar([-3.2, 1.6, 8.5], [0, 0.6, -9], 48); K.anchor("you", K.ahead(0, K.c.lat, 1.3)); K.anchor("pack", K.ahead(-13.5, K.c.lat - 0.5, 1.3));`),
+  shot("l7-hot", "lusail", `const iC = C(1); K.placeBefore(iC, 280); K.hideLine(); K.car("NOVA", 26, null);`, { cam: "cockpit" }),
+  shot("l7-karts", "zandvoort", `
+    const iC = C(1); K.placeBefore(iC, 60); K.hideLine(); K.hideCar();
+    [[0, 0.2, 0xFFA51F, 0x16171B], [5, -1.6, 0x16B8A6, 0xF2F3F5], [9.5, 1.2, 0xC8102E, 0xF2F3F5], [14, -0.4, 0x5B2A86, 0xF2C230], [19, 1.0, 0x0F4D3A, 0xF2F3F5]].forEach(([d, o, c, h]) => K.kart(K.ahead(d, K.c.lat + o), K.yaw(K.idx(d)) + 0.05, c, h));
+    K.cam(K.ahead(-4.5, K.c.lat + 1.2, 1.25), K.ahead(9, K.c.lat, 0.3), 50); K.anchor("you", K.ahead(0, K.c.lat + 0.2, 1.1));`),
+  shot("l7-paddock", "silverstone", `
+    K.hideLine(); const g = K.group(); K.hideWorld([g]); K.scene.background = new THREE.Color(0xB9CBDD); K.me.visible = false;
+    const y = K.c.yaw, f = K.V(Math.sin(y), 0, Math.cos(y)), l = K.V(Math.cos(y), 0, -Math.sin(y)), base = K.V(K.c.x, K.c.y, K.c.z), P = (a, b, h = 0) => base.clone().addScaledVector(f, a).addScaledVector(l, b).add(K.V(0, h, 0));
+    const fl = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), K.std(0x3E434B, { rough: 0.95 })); fl.rotation.x = -Math.PI / 2; fl.position.copy(P(0, 0, 0.001)); g.add(fl);
+    for (const sd of [-1, 1]) { K.box(P(30, sd * 5.6, 0.01), [0.18, 0.02, 80], 0xF2C230, [0, y, 0]); K.box(P(30, sd * 6.1, 0.06), [0.8, 0.12, 80], 0x8A9099, [0, y, 0]); }
+    for (let a = 2; a < 60; a += 7) for (const sd of [-1, 1]) { const q = P(a + (sd > 0 ? 3 : 0), sd * 5.0); K.mesh(new THREE.CylinderGeometry(0.32, 0.26, 0.55, 12), K.std(0x2A2F3B), K.V(q.x, q.y + 0.27, q.z)); K.mesh(new THREE.SphereGeometry(0.45, 12, 8), K.std(0x3F7A3A, { rough: 0.9 }), K.V(q.x, q.y + 0.85, q.z)); }
+    const teams = [["AXIOM", "#16245C", "#F2C230"], ["VELOCE", "#C8102E", "#F2F2F2"], ["NOVA", "#16B8A6", "#0E0F12"], ["RACELIMIT", "#FFA51F", "#16171B"], ["KESTREL", "#0F4D3A", "#9BE33A"], ["HALCYON", "#F2F3F5", "#121316"]];
+    teams.forEach(([n, c1, c2], k) => { const side = k % 2 ? -1 : 1, a = 8 + Math.floor(k / 2) * 17, p = P(a, side * 9.5, 0); const b = K.box(K.V(p.x, p.y + 3.5, p.z), [15, 7, 6], new THREE.Color(c1).getHex(), [0, y + Math.PI / 2, 0], { rough: 0.35, metal: 0.2 });
+      K.box(K.V(p.x, p.y + 4.8, p.z), [15.1, 0.5, 6.1], new THREE.Color(c2).getHex(), [0, y + Math.PI / 2, 0]); K.box(K.V(p.x, p.y + 1.6, p.z).addScaledVector(l, -side * 3.02), [13, 2.6, 0.06], 0x10141C, [0, y + Math.PI / 2, 0], { rough: 0.1, metal: 0.6 });
+      K.text(K.V(p.x, p.y + 6.0, p.z).addScaledVector(l, -side * 3.06), y + (side > 0 ? -Math.PI / 2 : Math.PI / 2), 8, 1.0, (x, W, Hh) => { x.fillStyle = c1; x.fillRect(0, 0, W, Hh); x.fillStyle = c2; x.font = "bold " + Math.round(Hh * 0.7) + "px Arial"; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText(n, W / 2, Hh / 2); }, { lit: true });
+      K.box(K.V(p.x, p.y + 3.4, p.z).addScaledVector(l, -side * 3.03), [13, 0.9, 0.05], 0x1C2A3A, [0, y + Math.PI / 2, 0], { rough: 0.05, metal: 0.7 });
+      const t = P(a - 3.5, side * 5.9); K.umbrella(t, new THREE.Color(c1).getHex()); K.mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.05, 16), K.std(0xE8EAF0), K.V(t.x, t.y + 0.75, t.z)); K.mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.75, 6), K.std(0x2A2F3B), K.V(t.x, t.y + 0.37, t.z));
+      K.flagpole(P(a + 6.8, side * 6.2), y + (side > 0 ? 0 : Math.PI), new THREE.Color(c1).getHex(), 0.4); });
+    for (const [a, b, c, cap] of [[6, 1.5, 0xFFA51F, 0x16171B], [9, -2.2, 0x16245C, 0xF2C230], [14, 0.6, 0xC8102E, 0xF2F2F2], [20, -1, 0x2A2F3B, 0x2A2F3B], [24, 2.4, 0x16B8A6, 0x0E0F12], [11, 3.2, 0xE8EAF0, 0x2A2F3B]]) K.person(P(a, b), y + (b > 0 ? 2.6 : 3.6), { suit: c, helmet: false, cap });
+    const sun = new THREE.DirectionalLight(0xFFF2E0, 2.2); sun.position.copy(P(-20, 30, 40)); sun.target.position.copy(P(10, 0)); g.add(sun, sun.target); g.add(new THREE.HemisphereLight(0xC8DAF0, 0x55604E, 0.8));
+    K.cam(P(-6, 0.4, 1.75), P(28, 0, 2.4), 54);`, { place: 30 }),
+  shot("l7-flypast", "silverstone", `
+    K.hideLine(); K.place(K.c.idx, 2.4);
+    [["AXIOM", 8, -2.4], ["VELOCE", 16, 2.4], ["NOVA", 24, -2.4], ["KESTREL", 32, 2.4], ["HALCYON", -8, -2.4]].forEach(([t, d, o]) => K.car(t, d, o));
+    const y = K.yaw(K.c.idx) + 0.5; [[0, 0, 0xFFA51F], [-9, -6, 0xE8EAF0], [9, -6, 0x5AA9FF], [-18, -12, 0xFFA51F], [18, -12, 0xE8EAF0]].forEach(([x, z, c]) => { const p = K.ahead(70 + z, x, 42); K.jet(p, y, 0xE8EAF0, c, 50); });
+    K.cam(K.ahead(-9, -4.5, 1.7), K.ahead(50, 0, 24), 66); K.anchor("jets", K.ahead(70, 0, 44));`, { place: 30 }),
+  shot("l7-crane", "monte-carlo", `
+    const iC = C(1, 40); const s = sgn(K.off(iC)); K.hideLine(); K.hideCar(); K.place(K.idx(-50, iC), 0);
+    const j = K.idx(-5, iC), o = s * (half + 1.6), cr = K.crane(K.at(j, o + s * 5.5, 0), face(j, o + s * 5.5) + Math.PI, 5, 6);
+    const tip = cr.tip(), car = K.car("VORTEX", 0, 0, { pos: K.V(tip.x, tip.y - 4.2, tip.z), yaw: K.yaw(j) + 0.6 }); car.rotation.z = 0.08; car.updateMatrixWorld();
+    for (const w of ["fl", "fr", "rl", "rr"]) K.line3(tip, K.wheel(car, w), 0x2A2F3B, 0.015);
+    for (const [d, oo] of [[3, o - s * 1.2], [6, o - s * 2.5]]) { const i = K.idx(d, j); K.person(K.at(i, oo), K.yaw(i) + 1.2, { suit: 0xFF7A1A, helmet: false, cap: 0xFF7A1A }); }
+    K.cam(K.at(K.idx(-24, iC), -s * 1.5, 2.2), K.at(j, o, 2.6), 54); K.anchor("car", K.V(tip.x, tip.y - 3.4, tip.z)); K.anchor("crane", tip);`),
+  shot("l7-ghost", "spa", `const iC = C(5); K.placeBefore(iC, 480); K.hideLine(); K.chase(); K.car("RACELIMIT", 8, K.c.lat + 1.6, { ghost: true }); K.anchor("ghost", K.ahead(8, K.c.lat + 1.6, 1.4));`),
+  shot("l7-swap", "silverstone", `
+    K.hideLine(); K.placePit(150, 0); await K.frames(2); const me = K.me; me.updateMatrixWorld();
+    const p1 = me.localToWorld(K.V(1.1, 0, me.userData.ck - 0.1)); p1.y = K.c.y; K.person(p1, K.c.yaw - Math.PI / 2, { suit: 0xFFA51F, helmet: 0xFFA51F, pose: "wave" });
+    const p2 = me.localToWorld(K.V(1.9, 0, me.userData.ck + 0.9)); p2.y = K.c.y; K.person(p2, K.c.yaw - Math.PI / 2 - 0.4, { suit: 0x16245C, helmet: 0x16245C });
+    for (const w of ["fl", "fr", "rl", "rr"]) { const p = K.wheel(me, w), side = w[1] === "l" ? 1 : -1; if (side > 0 && w[0] === "f") continue; const qq = me.localToWorld(me.worldToLocal(p.clone()).add(K.V(side * 0.75, 0, 0))); qq.y = K.c.y; K.person(qq, K.c.yaw - side * Math.PI / 2, { suit: 0xFFA51F, helmet: 0x16171B, pose: "kneel", gun: true }); }
+    K.camCar([4.6, 1.9, 4.4], [0.6, 0.6, -0.4], 44); K.anchor("out", p1.clone().add(K.V(0, 2.0, 0))); K.anchor("in", p2.clone().add(K.V(0, 2.0, 0)));`),
+  // ===== list 8 =====
+  shot("l8-oil", "spa", `
+    const iC = C(5); K.placeBefore(iC, 480); K.hideLine(); K.chase();
+    K.patch(10, K.c.lat - 0.5, 3.4, 8, 0x0E0E12, { opacity: 0.82, order: 5, round: true }); K.patch(17, K.c.lat + 0.7, 2.6, 6, 0x0E0E12, { opacity: 0.78, order: 5, round: true }); K.patch(12.5, K.c.lat + 0.1, 1.2, 4.2, 0x0E0E12, { opacity: 0.7, order: 5, round: true, rot: 0.25 }); K.patch(11, K.c.lat - 0.2, 1.6, 3.5, 0x4A3A78, { opacity: 0.3, order: 6, round: true, y: 0.07 }); K.patch(16.5, K.c.lat + 0.9, 0.9, 2.2, 0x2A5A6A, { opacity: 0.3, order: 6, round: true, y: 0.07 });
+    K.anchor("oil", K.ahead(10, K.c.lat - 0.5, 0.1));
+    const i = K.idx(16), oo = half + 2.4; K.person(K.at(i, oo), face(i, oo), { suit: 0xFF7A1A, helmet: false, pose: "wave", flagDraw: (x, W, Hh) => { for (let k = 0; k < 10; k++) { x.fillStyle = k % 2 ? "#E8002D" : "#F2C230"; x.fillRect(k * W / 10, 0, W / 10 + 1, Hh); } } });
+    K.anchor("flag", K.at(i, oo, 2.9));
+    { const j = K.idx(26), o2 = -(half + 1.5); const c = K.car("KESTREL", 26, o2); K.smoke(K.at(j, o2, 1.0), 26, 3, 0xD8DADF, { size: 0.9, opacity: 0.25, rise: 6, seed: 5 }); K.anchor("blown", K.at(j, o2, 1.6)); }`),
+  shot("l8-storm", "silverstone", `
+    K.hideLine(); K.placePit(150, 0); await K.frames(2);
+    K.light({ sunCol: 0x8A96A8, sun: 0.45, hemi: [0x4A5466, 0x22262E, 0.55], fog: 0x3A4250, fogD: 0.004, skyEl: 8, turb: 20, ray: 0.3 });
+    K.camCar([2.4, 1.5, -6.5], [0, 0.6, 6], 56);`),
+  shot("l8-impede", "monza", `
+    const iC = C(1); K.placeBefore(iC, 380); K.hideLine(); K.car("VELOCE", -9.5, K.c.lat - 0.2);
+    K.camCar([1.4, 3.4, -21], [0, 0.4, 2], 46); K.anchor("you", K.ahead(0, K.c.lat, 1.3)); K.anchor("fast", K.ahead(-9.5, K.c.lat - 0.2, 1.3));`),
+  shot("l8-multi", "spa", `
+    const iC = C(5); K.placeBefore(iC, 480); K.hideLine(); K.chase();
+    [["VELOCE", 10, -1.4, 1998], ["AXIOM", 18, 1.5, 2009], ["NOVA", 27, -0.6, 2017]].forEach(([t, d, o, era]) => { K.car(t, d, K.c.lat + o, { era }); K.anchor("e" + era, K.ahead(d, K.c.lat + o, 1.3)); });`),
+  shot("l8-pitboard", "silverstone", `
+    K.hideLine(); K.hideCar(); const P0 = K.tr.pitRoad, mid = Math.floor(P0.N / 2); let best = 0, bd = 1e9; for (let i = 0; i < K.tr.N; i++) { const d = (K.tr.X[i] - P0.X[mid]) ** 2 + (K.tr.Z[i] - P0.Z[mid]) ** 2; if (d < bd) { bd = d; best = i; } }
+    const ps = sgn((P0.X[mid] - K.tr.X[best]) * K.tr.LX[best] + (P0.Z[mid] - K.tr.Z[best]) * K.tr.LZ[best]);
+    const j = K.idx(-60, best); K.place(j, K.off(j)); const c = K.car("VELOCE", 0, K.c.lat, { era: 1998 });
+    c.updateMatrixWorld(); const camP = c.localToWorld(K.V(0, 1.18, c.userData.ck - 0.6));
+    const i = K.idx(11), oo = ps * (half + 1.2), p = K.at(i, oo), fy = Math.atan2(camP.x - p.x, camP.z - p.z); K.person(p, fy, { suit: 0xC8102E, helmet: false, cap: 0xF2F2F2, pose: "both" });
+    K.text(K.at(i, oo, 2.0).add(K.V(Math.sin(fy) * 0.45, 0, Math.cos(fy) * 0.45)), fy, 1.4, 1.6, (x, W, Hh) => { x.fillStyle = "#16171B"; x.fillRect(0, 0, W, Hh); x.fillStyle = "#F2F3F5"; x.font = "bold " + Math.round(Hh * 0.2) + "px Arial"; x.textAlign = "center"; x.fillText("P3", W / 2, Hh * 0.27); x.fillStyle = "#FFB547"; x.fillText("+2.4", W / 2, Hh * 0.55); x.fillStyle = "#F2F3F5"; x.fillText("L23", W / 2, Hh * 0.85); }, { lit: true });
+    K.cam(camP, K.at(i, oo * 0.8, 1.7), 34); K.anchor("board", K.at(i, oo, 3.0));`),
+  shot("l8-classic", "monza", `
+    const iC = C(1); K.placeBefore(iC, 360); K.hideLine(); K.hideCar(); const c = K.car("VELOCE", 0, K.c.lat, { era: 1998 }); c.updateMatrixWorld();
+    K.cam(c.localToWorld(K.V(-2.6, 1.15, 2.4)), c.localToWorld(K.V(0, 0.55, 0.1)), 40);`),
+  shot("l8-testing", "sakhir", `
+    const iC = C(1); K.placeBefore(iC, 260); K.hideLine(); K.hideCar();
+    const c = K.car("RACELIMIT", 0, K.c.lat, { livery: { body: "#1A1C22", accent: "#F2F3F5", stripe: "#8C939E", style: "chevron" } }); c.updateMatrixWorld();
+    K.car("AXIOM", 34, null, { livery: { body: "#2A2F3B", accent: "#C3C9D4", stripe: "#16171B", style: "split" } });
+    K.cam(c.localToWorld(K.V(-3.4, 1.3, 3.0)), c.localToWorld(K.V(0, 0.5, 0)), 42);`),
+  shot("l8-crew", "silverstone", `
+    K.hideLine(); K.placePit(150, 0); await K.frames(2); const me = K.me; me.updateMatrixWorld();
+    for (const w of ["fl", "fr", "rl", "rr"]) { const p = K.wheel(me, w), side = w[1] === "l" ? 1 : -1; for (const dz of [0, -0.7]) { const qq = me.localToWorld(me.worldToLocal(p.clone()).add(K.V(side * (0.75 + Math.abs(dz) * 0.6), 0, dz))); qq.y = K.c.y; K.person(qq, K.c.yaw - side * Math.PI / 2, { suit: 0xFFA51F, helmet: 0x16171B, pose: dz ? undefined : "kneel", gun: !dz }); } }
+    K.person(me.localToWorld(K.V(0, 0, me.userData.zf + 1.9)).setY(K.c.y), K.c.yaw + Math.PI, { suit: 0xFFA51F, helmet: 0x16171B, pose: "kneel" });
+    K.person(me.localToWorld(K.V(0, 0, me.userData.zr - 1.3)).setY(K.c.y), K.c.yaw, { suit: 0xFFA51F, helmet: 0x16171B, pose: "kneel" });
+    K.camCar([0.01, 9.5, 0.6], [0, 0, 0.2], 46);`),
+  shot("l8-driver", "spa", `
+    const iC = C(1); K.placeBefore(iC, 40); K.hideLine(); await K.frames(2); const sw = window.__sw; if (sw) sw.rotation.z += 0.55;
+    const ck = K.me.userData.ck; K.camCar([0.95, 1.05, ck + 1.0], [0, 0.72, ck - 0.25], 40); K.anchor("helmet", K.me.localToWorld(K.V(0, 0.95, ck - 0.25))); K.anchor("wheel", K.me.localToWorld(K.V(0, 0.62, ck + 0.25)));`),
+  shot("l8-halloween", "singapore", `
+    const iC = C(7); K.placeBefore(iC, 140); K.hideLine(); K.chase(); K.light({ sunCol: 0xFFB070, sun: 1.0, hemi: [0xC07040, 0x2A2C33, 0.6], fog: 0x2A1608, fogD: 0.0012 });
+    for (let k = 0; k < 14; k++) { const d = 8 + k * 6, sd = k % 2 ? 1 : -1, i = K.idx(d); K.pumpkin(K.at(i, sd * (half + 0.9), 0), 1.4); }`),
+  shot("l8-festive", "silverstone", `
+    const iC = C(15); K.placeBefore(iC, 330); K.hideLine(); K.hideCar(); K.light({ sunCol: 0xFFC48A, sun: 1.3, fog: 0xD8DDE6, fogD: 0.0009, skyEl: 6, skyAz: 220 });
+    const c = K.car("RACELIMIT", 0, K.c.lat, { livery: { body: "#B3121F", accent: "#F2F3F5", stripe: "#1F7A3A", style: "stripe" } }); c.updateMatrixWorld();
+    K.cam(c.localToWorld(K.V(-3, 1.2, 3.2)), c.localToWorld(K.V(0, 0.5, 0)), 42);`),
+  shot("l8-cruise", "spa", `
+    const iC = C(3); const s = sgn(K.off(iC)); const j = K.idx(-30, iC); K.place(j, -s * (half + 3.5), 0.4 * s); K.hideLine();
+    K.cam(K.at(K.idx(-46, iC), -s * (half - 1), 2.2), K.at(j, -s * (half + 3.5), 1.5), 46); K.anchor("car", K.at(j, -s * (half + 3.5), 1.3));`),
+  shot("l8-parade", "silverstone", `
+    K.hideLine(); K.hideCar(); const j = K.idx(40); const t = K.truck(K.at(j, 0.6, 0), K.yaw(j), { color: 0xF2F3F5 }); t.updateMatrixWorld();
+    { const q = t.localToWorld(K.V(0.2, 1.35, -4.1)); K.person(q, K.yaw(j), { suit: 0x2A2F3B, helmet: false, cap: 0x16171B }); const cm = t.localToWorld(K.V(0.45, 3.0, -3.95)); K.box(cm, [0.26, 0.3, 0.6], 0x16171B, [0, K.yaw(j), 0], { rough: 0.4 }); }
+    const drivers = [[0xFFA51F, 0x16171B], [0x16245C, 0xF2C230], [0xC8102E, 0xF2F2F2], [0x16B8A6, 0x0E0F12], [0x0F4D3A, 0x9BE33A], [0xF2F3F5, 0x121316], [0xFF7A1A, 0x1C3F8C], [0x5B2A86, 0xC9CED6]];
+    drivers.forEach(([suit, cap], k) => { const x = (k % 2 ? -0.6 : 0.6), z = 1.2 - Math.floor(k / 2) * 1.35; const p = t.localToWorld(K.V(x, 1.35, z)); K.person(p, K.yaw(j) + (x > 0 ? -1.1 : 1.1), { suit, helmet: false, cap, pose: k % 3 ? "wave" : "both" }); });
+    K.cam(K.at(K.idx(53), half - 1.2, 1.5), t.localToWorld(K.V(0, 2.1, -0.2)), 40); K.anchor("truck", t.localToWorld(K.V(0, 3.8, -1)));`, { place: 30 }),
 ];
