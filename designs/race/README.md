@@ -22,13 +22,14 @@ To view a screen, open a file with `?screen=<name>`, for example `design9.html?s
 | `concepts/list3.html` | `crowd` `podium` `gridwalk` `onboard` `dash` `suspension` `haze` `dirty` `rivals` `wet` `crewcam` `endurance` `famous` `ladder` `access` `calib` |
 
 | `concepts/list4.html` | `realrace` `realweather` `rejoin` `explain` `spotter` `migration` `wind` `kerbs` `blankets` `mirror` `trackwalk` `museum` `pa` `sound` `graphics` `tvwatch` `tvhost` |
+| `concepts/list5.html` | `ladder` `sponsors` `market` `media` `personalities` `visor` `radiator` `invader` `stall` `weighin` `racesim` `teamsim` `thisweek` `tvgames` `headtrack` `rumble` |
 Rules that apply to everything here:
 - All teams, brands, sponsors and engine makers are made up.
 - Flags and lights are solid colours and never flash.
 - The pit stop mini-game is only a custom, optional setting.
 
 ## Concept renders, October 2026 (`concepts/`)
-65 ideas for the game in four lists (redone on October 28 with everything staged in 3D). The pages are ES modules, so serve the folder (`python3 -m http.server`) and open e.g. `list4.html?screen=tvwatch`.
+81 ideas for the game in five lists (redone on October 28 with everything staged in 3D). The pages are ES modules, so serve the folder (`python3 -m http.server`) and open e.g. `list4.html?screen=tvwatch`.
 
 How the pictures are made:
 - `shots.mjs` lists each staged shot: the circuit, where the car is, and a setup script that runs inside the real game page with `kit.js` loaded. The kit pauses the game and adds things to its 3D scene: other cars (the real car model in other team colours, or a see-through ghost), lines and patches laid on the track surface, cones, debris, marshals, flag panels, pit crew, boards, windsocks, a podium; it also sets the camera and lighting, and records where named points land on screen.

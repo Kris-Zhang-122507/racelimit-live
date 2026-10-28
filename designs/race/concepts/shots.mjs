@@ -211,4 +211,85 @@ export const SHOTS = [
   shot("se-autumn", "silverstone", `K.hideLine(); K.chase(); const pal = [0xC8641E, 0xD9922B, 0xB8471C, 0xE0B040, 0x9C5A28].map((x) => new THREE.Color(x));
     K.scene.traverse((m) => { if (m.isInstancedMesh && m.material?.map && m.material.flatShading) { m.material = m.material.clone(); m.material.map = null; m.material.color.set(0xffffff); m.material.needsUpdate = true; for (let j = 0; j < m.count; j++) m.setColorAt(j, pal[(j * 7) % pal.length]); m.instanceColor.needsUpdate = true; } }); K.light({ sunCol: 0xFFE2B8, sun: 2.0, fog: 0xD8CBB8, fogD: 0.0006 });`, { place: 1500 }),
   shot("se-sunset", "yas-marina-circuit", `K.hideLine(); K.chase();`, { place: 1500 }),
+  // ===== list 5 =====
+  shot("l5-ladder", "silverstone", `
+    K.hideLine(); K.hideCar();
+    const rows = [[-3.2, "NOVA", 2009, 0.8], [0, "KESTREL", 2017, 0.9], [3.2, "RACELIMIT", 2026, 1]];
+    for (const [o, t, era, sc] of rows) { const g = K.car(t, 10, o, { era }); g.scale.setScalar(sc); K.anchor("c" + era, K.ahead(10, o, 1.35 * sc)); }
+    K.cam(K.ahead(19.5, -2.2, 1.6), K.ahead(9.5, 0, 0.35), 44);`, { place: 30 }),
+  shot("l5-speedtrap", "monza", `
+    const iC = C(1); K.placeBefore(iC, 300); K.hideLine(); K.chase();
+    K.car("VORTEX", 9, K.c.lat + 0.4);
+    const i = K.idx(19), w = half + 1.5;
+    for (const sd of [-1, 1]) { const p = K.at(i, sd * w); K.box(K.V(p.x, p.y + 3, p.z), [0.3, 6, 0.3], 0x8C939E, [0, K.yaw(i), 0], { metal: 0.5 }); }
+    { const p = K.at(i, 0, 6.1); K.box(p, [0.35, 0.5, w * 2 + 0.6], 0x2A2F3B, [0, K.yaw(i) + Math.PI / 2, 0]);
+      K.text(K.at(K.idx(18.7), 0, 6.1), K.yaw(i) + Math.PI, 8, 1.1, (x, W, Hh) => { x.fillStyle = "#16181F"; x.fillRect(0, 0, W, Hh); x.fillStyle = "#FFB547"; x.font = "bold " + Math.round(Hh * 0.62) + "px Arial, sans-serif"; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText("SPEED TRAP · NORTHWIND", W / 2, Hh / 2); });
+      K.anchor("trap", K.at(i, 0, 6.6)); }
+    K.anchor("vortex", K.ahead(9, K.c.lat + 0.4, 1.3));`),
+  shot("l5-media", "silverstone", `
+    K.hideLine(); K.hideCar(); const q = K.pitAt(150, 0), y = q.yaw, f = K.V(Math.sin(y), 0, Math.cos(y)), l = K.V(Math.cos(y), 0, -Math.sin(y)), P = (a, b, h = 0) => q.p.clone().addScaledVector(f, a).addScaledVector(l, b).add(K.V(0, h, 0));
+    K.text(P(3.1, 0, 1.45), y + Math.PI, 6.2, 2.9, (x, W, Hh) => { x.fillStyle = "#14171E"; x.fillRect(0, 0, W, Hh); const names = ["RACELIMIT", "NORTHWIND", "ARCLIGHT", "TIDELINE", "QUILLON", "BLUEFERN"], cols = ["#FFB547", "#7FC4FF", "#FF8A5A", "#6EE7D8", "#F2C230", "#9BE3A0"]; x.textAlign = "center"; x.textBaseline = "middle"; let k = 0; for (let r = 0; r < 6; r++) for (let c = 0; c < 4; c++) { const n = (r * 4 + c + r) % 6; x.fillStyle = cols[n]; x.font = "bold " + Math.round(Hh * 0.06) + "px Arial, sans-serif"; x.fillText(names[n], (c + 0.5 + (r % 2) * 0.5 - 0.25) * W / 4, (r + 0.5) * Hh / 6); } }, { lit: true });
+    const d = K.person(P(1.9, 0), y + Math.PI, { suit: 0xFFA51F, helmet: false, cap: 0x16171B });
+    for (const [b, c, suit] of [[1.35, 0xE8002D, 0x2A2F3B], [-1.4, 0x16245C, 0x4A5060]]) { K.person(P(0.9, b), y + (b > 0 ? 0.9 : -0.9), { suit, helmet: false, cap: 0x1A1C22 });
+      const hand = P(1.05, b * 0.8, 1.35), tip = P(1.6, b * 0.14, 1.62), mid = hand.clone().lerp(tip, 0.5), len = hand.distanceTo(tip);
+      const st = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, len, 6), K.std(0x2A2F3B)); st.position.copy(mid); st.quaternion.setFromUnitVectors(K.V(0, 1, 0), tip.clone().sub(hand).normalize()); K.scene.add(st);
+      K.mesh(new THREE.SphereGeometry(0.05, 12, 8), K.std(0x1A1C22, { rough: 0.9 }), tip); K.mesh(new THREE.SphereGeometry(0.055, 12, 8), K.std(c), tip.clone().lerp(hand, 0.12)); }
+    K.cam(P(-2.9, 0.1, 1.6), P(1.9, 0, 1.4), 44); K.anchor("driver", P(1.9, 0, 2.05));`),
+  shot("l5-pack", "suzuka", `
+    const iC = C(1); K.placeBefore(iC, 260); K.hideLine(); K.chase({ back: 8, up: 2.8 });
+    [["AXIOM", 8, -1.6], ["VELOCE", 13, 1.7], ["NOVA", 19, -1.2], ["HALCYON", 26, 1.4]].forEach(([t, d, o]) => { K.car(t, d, K.c.lat + o); K.anchor(t, K.ahead(d, K.c.lat + o, 1.3)); });`),
+  shot("l5-visor", "spa", WET + `
+    const iC = C(5); K.placeBefore(iC, 480); K.hideLine(); wet(-5, 120); K.car("VELOCE", 22, null);`, { cam: "cockpit" }),
+  shot("l5-bag", "monza", `
+    const iC = C(1); K.placeBefore(iC, 400); K.hideLine(); await K.frames(2);
+    const me = K.me, ck = me.userData.ck; me.updateMatrixWorld();
+    const geo = new THREE.PlaneGeometry(0.42, 0.3, 10, 8), pa = geo.attributes.position; let r = 11; const rnd = () => ((r = (r * 9301 + 49297) % 233280) / 233280);
+    for (let k = 0; k < pa.count; k++) pa.setZ(k, (rnd() - 0.5) * 0.07 + Math.sin(pa.getX(k) * 18) * 0.02); geo.computeVertexNormals();
+    const bag = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xF2F2EE, roughness: 0.35, transparent: true, opacity: 0.88, side: THREE.DoubleSide }));
+    bag.position.set(0.52, 0.56, ck + 0.34); bag.rotation.set(0.1, 0.15, 0.05); me.add(bag);
+    K.camCar([2.2, 1.05, ck + 2.6], [0.45, 0.5, ck + 0.1], 34); K.anchor("bag", me.localToWorld(K.V(0.52, 0.62, ck + 0.34)));`),
+  shot("l5-groundhog", "montreal", `
+    const iC = C(2, 60); K.placeBefore(iC, 140); K.hideLine(); K.chase();
+    const i = K.idx(8.5), o = K.c.lat + 2.0, p = K.at(i, o, 0.03), g = new THREE.Group(); g.position.copy(p); g.rotation.y = K.yaw(i) + Math.PI + 0.4; g.scale.setScalar(1.6); K.scene.add(g);
+    const fur = K.std(0x7A5A3A, { rough: 0.95 }), dark = K.std(0x3A2A1C, { rough: 0.9 });
+    K.mesh(new THREE.CapsuleGeometry(0.13, 0.16, 6, 12), fur, K.V(0, 0.22, 0), [-0.25, 0, 0], g);
+    K.mesh(new THREE.SphereGeometry(0.1, 14, 10), fur, K.V(0, 0.46, 0.06), [0, 0, 0], g);
+    for (const sx of [-1, 1]) { K.mesh(new THREE.SphereGeometry(0.03, 8, 6), dark, K.V(sx * 0.06, 0.54, 0.04), [0, 0, 0], g); K.mesh(new THREE.CapsuleGeometry(0.025, 0.08, 4, 6), fur, K.V(sx * 0.07, 0.32, 0.12), [1.1, 0, 0], g); K.mesh(new THREE.SphereGeometry(0.014, 6, 4), K.std(0x111111), K.V(sx * 0.035, 0.49, 0.15), [0, 0, 0], g); }
+    K.mesh(new THREE.SphereGeometry(0.025, 8, 6), K.std(0x2A1C14), K.V(0, 0.45, 0.16), [0, 0, 0], g);
+    K.anchor("hog", K.at(i, o, 1.2));
+    { const j = K.idx(22), oo = half + 2.6; K.person(K.at(j, oo), face(j, oo), { suit: 0xFF7A1A, pose: "wave", flag: 0xF2C230, helmet: false }); K.panel(K.at(K.idx(25), oo), face(j, oo), 0xF2C230); K.anchor("marshal", K.at(j, oo, 2.6)); }`),
+  shot("l5-stall", "silverstone", `
+    K.hideLine(); K.place(K.c.idx, 2.4);
+    [["VELOCE", 8, -2.4], ["AXIOM", 16, 2.4], ["NOVA", 24, -2.4], ["KESTREL", 32, 2.4], ["HALCYON", -8, -2.4]].forEach(([t, d, o]) => K.car(t, d, o));
+    const i = K.idx(5.2), o = -2.4; K.person(K.at(i, o - 0.9), K.yaw(i) + Math.PI, { suit: 0xFF7A1A, pose: "wave", flag: 0xF2C230, helmet: false });
+    K.person(K.at(K.idx(5.6), o + 1.1), K.yaw(i) + Math.PI, { suit: 0xFF7A1A, pose: "both", helmet: false });
+    K.anchor("stalled", K.ahead(8, -2.4, 1.6)); K.chase({ back: 8.5, up: 3.2, ahead: 14 });`, { place: 30 }),
+  shot("l5-weighin", "silverstone", `
+    K.hideLine(); K.placePit(150, 0); await K.frames(2); const y = K.c.yaw, f = K.V(Math.sin(y), 0, Math.cos(y)), l = K.V(Math.cos(y), 0, -Math.sin(y)), base = K.V(K.c.x, K.c.y, K.c.z), P = (a, b, h = 0) => base.clone().addScaledVector(f, a).addScaledVector(l, b).add(K.V(0, h, 0));
+    K.box(P(0, 0, 0.04), [2.4, 0.08, 6.2], 0x3A4150, [0, y, 0], { rough: 0.4, metal: 0.4 }); K.c.y += 0.08;
+    K.box(P(0, 1.9, 0.6), [0.12, 1.2, 0.12], 0x2A2F3B, [0, y, 0]);
+    K.text(P(0, 1.9, 1.45), y - Math.PI / 2, 1.7, 0.55, (x, W, Hh) => { x.fillStyle = "#05070A"; x.fillRect(0, 0, W, Hh); x.fillStyle = "#6EE7A8"; x.font = "bold " + Math.round(Hh * 0.34) + "px Arial, sans-serif"; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText("801.6 kg", W / 2, Hh * 0.56); });
+    K.person(P(1.8, -1.6), y + 2.4, { suit: 0xE8EAF0, helmet: false, cap: 0x16245C }); K.person(P(-1.4, 1.8), y - 1.0, { suit: 0xE8EAF0, helmet: false, cap: 0x16245C });
+    K.camCar([-3.3, 1.9, 4.2], [0.4, 0.35, -0.2], 46); K.anchor("scale", P(0, 1.9, 1.75)); K.anchor("plank", P(0, 0, 0.2));`),
+  shot("l5-sim", "silverstone", `
+    K.hideLine(); const g = K.group(); K.hideWorld([g]); K.scene.background = new THREE.Color(0x07080B); K.scene.fog = null;
+    const y = K.c.yaw, f = K.V(Math.sin(y), 0, Math.cos(y)), l = K.V(Math.cos(y), 0, -Math.sin(y)), base = K.V(K.c.x, K.c.y, K.c.z), P = (a, b, h = 0) => base.clone().addScaledVector(f, a).addScaledVector(l, b).add(K.V(0, h, 0));
+    const fl = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), K.std(0x0D0F14, { rough: 0.6 })); fl.rotation.x = -Math.PI / 2; fl.position.copy(P(0, 0, 0.001)); g.add(fl);
+    const pano = (x, W, Hh) => { const sk = x.createLinearGradient(0, 0, 0, Hh * 0.5); sk.addColorStop(0, "#7FA6D6"); sk.addColorStop(1, "#D7E3EE"); x.fillStyle = sk; x.fillRect(0, 0, W, Hh); x.fillStyle = "#3E8A3A"; x.fillRect(0, Hh * 0.46, W, Hh); const vx = W / 2, vy = Hh * 0.46;
+      x.fillStyle = "#5A5F68"; x.beginPath(); x.moveTo(vx - 6, vy); x.lineTo(vx + 6, vy); x.lineTo(W * 0.78, Hh); x.lineTo(W * 0.22, Hh); x.fill();
+      for (let k = 0; k < 14; k++) { const t0 = k / 14, t1 = (k + 1) / 14, e = (t) => t * t; x.fillStyle = k % 2 ? "#E8EAF0" : "#D8202A"; for (const s of [-1, 1]) { x.beginPath(); x.moveTo(vx + s * (6 + (W * 0.28) * e(t0)), vy + (Hh - vy) * e(t0)); x.lineTo(vx + s * (6 + (W * 0.28) * e(t1)), vy + (Hh - vy) * e(t1)); x.lineTo(vx + s * (6 + (W * 0.31) * e(t1)), vy + (Hh - vy) * e(t1)); x.lineTo(vx + s * (6 + (W * 0.31) * e(t0)), vy + (Hh - vy) * e(t0)); x.fill(); } }
+      x.fillStyle = "#2F6A2C"; for (let k = 0; k < 40; k++) { const tx = (k * 137) % W, th = 20 + (k * 53) % 40; x.beginPath(); x.moveTo(tx, vy); x.lineTo(tx + 14, vy - th); x.lineTo(tx + 28, vy); x.fill(); } };
+    const N = 5, R = 5.2;
+    for (let k = 0; k < N; k++) { const a = (k - (N - 1) / 2) * 0.42, pos = P(Math.cos(a) * R + 0.4, Math.sin(a) * R, 1.25); K.text(pos, y + Math.PI + a, 2.25, 1.9, (x, W, Hh) => { x.save(); x.translate(-(N - 1 - k) * W, 0); pano(x, W * N, Hh); x.restore(); }); }
+    K.box(P(-1.2, -2.6, 0.45), [1.6, 0.9, 0.7], 0x1A1C22, [0, y, 0]); for (const b of [-0.5, 0.5]) { const m = K.box(P(-1.2, -2.6 + b * 0.8, 1.15), [0.7, 0.45, 0.04], 0x0A0C10, [0, y + Math.PI / 2 - 0.3, 0]); m.material.emissive = new THREE.Color(0x2A4A7A); m.material.emissiveIntensity = 0.8; }
+    K.person(P(-1.9, -2.6), y + Math.PI / 2 + 0.2, { suit: 0x16171B, helmet: false, cap: 0xFFA51F });
+    const lt = new THREE.PointLight(0xBFD4FF, 30, 12, 1.5); lt.position.copy(P(3, 0, 2.5)); g.add(lt);
+    K.camCar([2.6, 2.7, -5.2], [0, 0.6, 3.5], 52);`, { place: 30 }),
+  shot("l5-mexico", "mexico-city", `const iC = C(13, 40); K.placeBefore(iC, 120); K.hideLine(); K.chase();`),
+  shot("l5-headlook", "spa", `const iC = C(1); K.placeBefore(iC, 45); K.hideLine(); const ck = K.me.userData.ck; K.camCar([0, 0.83, ck - 0.14], [-4.2, 0.32, ck + 12], 66);`, { cam: "cockpit" }),
+  shot("l5-lockup", "zandvoort", `
+    const iC = C(1); K.placeBefore(iC, 55); K.hideLine(); await K.frames(2); const me = K.me, E = me.userData.E, zf = me.userData.zf; me.updateMatrixWorld();
+    const w = me.worldToLocal(K.wheel(me, "fl"));
+    let r = 5; const rnd = () => ((r = (r * 9301 + 49297) % 233280) / 233280); for (let k = 0; k < 46; k++) { const t = rnd(), m = new THREE.Mesh(new THREE.SphereGeometry(0.1 + t * 0.5, 16, 12), new THREE.MeshStandardMaterial({ color: 0xE9EBEF, transparent: true, opacity: 0.2 - t * 0.14, roughness: 1, depthWrite: false })); m.position.set(w.x + 0.05 + t * 0.4 + (rnd() - 0.5) * 0.25, 0.1 + t * 0.5 + (rnd() - 0.5) * 0.15, w.z - 0.05 - t * 3.4 + (rnd() - 0.5) * 0.3); me.add(m); }
+    K.camCar([3.2, 1.0, zf + 3.6], [0.6, 0.35, zf - 0.6], 42); K.anchor("fl", K.wheel(me, "fl"));`),
 ];
