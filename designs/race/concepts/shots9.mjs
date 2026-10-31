@@ -297,4 +297,14 @@ export const MORE = [
     K.smoke(car.localToWorld(K.V(0.6, 0.3, car.userData.zr - 1.0)), 40, 3.2, 0xF6F9FC, { size: 0.7, opacity: 0.28, rise: 1.0, seed: 6 });
     for (let k = 0; k < 10; k++) { const p = at(Math.PI + 0.1 + k * 0.08, 1.12); K.person(p, look(p, E0), { suit: [0xC8102E, 0x16245C, 0xFFA51F, 0x2A6B3A][k % 4], helmet: false, cap: 0xF2F3F5, pose: k % 3 ? undefined : "wave" }); }
     K.cam(at(Math.PI + 0.62, 1.28, 6.5), at(Math.PI + 0.25, 0.5, 0.5), 50); K.anchor("car", cp.clone().add(K.V(0, 1.4, 0)));`, { place: 30 }),
+  // ===== teaser poster: the player's car as the hero (so a silhouette mask can be shot with the same camera) =====
+  ...["p-hero", "p-heromask"].map((nm) => shot(nm, "singapore", `
+    const iC = C(7); K.placeBefore(iC, 230); const lat = 0.2; K.place(K.c.idx, lat); K.hideLine();
+    K.car("VELOCE", -12, lat - 1.8); K.car("AXIOM", -24, lat + 1.4); K.car("NOVA", -37, lat - 0.8);
+    await K.frames(2); K.sparks(K.me, 110);
+    const asp = innerWidth / innerHeight;
+    if (asp > 1.3) K.camCar([-3.1, 0.55, 5.6], [0.5, 1.0, -1.6], 40);
+    else if (asp > 0.7) K.camCar([-3.1, 0.6, 7.0], [-0.2, 0.75, 0.5], 46);
+    else K.camCar([-3.0, 0.55, 7.4], [-0.2, 0.95, 0.5], 52);
+    K.anchor("car", K.me.localToWorld(K.V(0, 1.0, 0)));` + (nm.includes("mask") ? "\n    await K.frames(2); K.maskOnly();" : ""), { place: 30 })),
 ];

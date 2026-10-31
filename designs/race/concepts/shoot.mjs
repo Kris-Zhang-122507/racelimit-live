@@ -12,7 +12,7 @@ for (const s of todo) { const k = s.track + (s.name.includes("mask") ? "#" + s.n
 const queue = [...groups.values()].sort((a, b) => b.length - a.length);
 const b = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium", args: ["--headless=new", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"] });
 async function group(list) {
-  const t0 = Date.now(), first = list[0], p = await b.newPage({ viewport: { width: 1600, height: 900 } });
+  const t0 = Date.now(), first = list[0], p = await b.newPage({ viewport: { width: +(process.env.VW || 1600), height: +(process.env.VH || 900) } });
   const errs = []; p.on("pageerror", (e) => errs.push(e.message)); p.on("console", (m) => { if (m.type() === "error") errs.push(m.text()); });
   await p.addInitScript(() => { try { localStorage.setItem("racelimit.games.race.settings", JSON.stringify({ auto: true, abs: true, tc: true, stability: true, line: "full", camera: "chase", quality: "high", engine: "raw", hud: "normal", hudInfo: "full", hudV: 2 })); } catch {} });
   await p.goto(`http://localhost:8791/race/index.html?track=${first.track}&place=${first.place ?? 300}&speed=0&cam=chase`);
@@ -33,8 +33,8 @@ async function group(list) {
       }, { code: s.setup ?? "", place: s.place ?? null, cam: s.cam ?? "chase" });
       await p.evaluate(() => window.K.frames(4));
       const anchors = await p.evaluate(() => window.K.project());
-      await p.screenshot({ path: `bg/${s.name}.png`, timeout: 300000 });
-      fs.writeFileSync(`bg/${s.name}.json`, JSON.stringify(anchors));
+      await p.screenshot({ path: `bg/${s.name}${process.env.SUF || ""}.png`, timeout: 300000 });
+      fs.writeFileSync(`bg/${s.name}${process.env.SUF || ""}.json`, JSON.stringify(anchors));
       console.log(" ", s.name, ((Date.now() - t1) / 1000).toFixed(0) + "s", JSON.stringify(anchors), [...new Set(errs)].slice(0, 2).join(" | "));
     } catch (e) { console.log("  FAIL", s.name, e.message.split("\n")[0]); }
     errs.length = 0;
