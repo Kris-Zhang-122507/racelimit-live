@@ -15,9 +15,11 @@ const K = { THREE, tr, c, scene, me: car, cam, line, anchorsRaw: {} };
 K.pause = () => { if (K.paused) return; K.paused = true; for (const t of ["keydown", "keyup"]) dispatchEvent(new KeyboardEvent(t, { code: "Escape", key: "Escape" })); };
 // remember the scene so each shot can be undone before the next one
 K.snapshot = () => { const objs = new Set(), vis = new Map(); scene.traverse((m) => { objs.add(m); vis.set(m, m.visible); });
-  K._snap = { objs, vis, bg: scene.background, fog: scene.fog, c: { x: c.x, y: c.y, z: c.z, yaw: c.yaw, idx: c.idx, lat: c.lat, onPit: c.onPit } }; };
+  const lights = []; scene.traverse((m) => { if (m.isLight) lights.push([m, m.color.clone(), m.intensity, m.groundColor ? m.groundColor.clone() : null]); });
+  K._snap = { objs, vis, lights, fogC: scene.fog?.color?.clone(), fogD: scene.fog?.density, bg: scene.background, fog: scene.fog, c: { x: c.x, y: c.y, z: c.z, yaw: c.yaw, idx: c.idx, lat: c.lat, onPit: c.onPit } }; };
 K.restore = () => { const S = K._snap; if (!S) return; const extra = []; scene.traverse((m) => { if (!S.objs.has(m)) extra.push(m); }); for (const m of extra) m.parent?.remove(m);
-  scene.traverse((m) => { if (S.vis.has(m)) m.visible = S.vis.get(m); }); scene.background = S.bg; scene.fog = S.fog; Object.assign(c, S.c); K.anchorsRaw = {}; camSet = null; };
+  scene.traverse((m) => { if (S.vis.has(m)) m.visible = S.vis.get(m); }); scene.background = S.bg; scene.fog = S.fog;
+  for (const [m, col, it, gc] of S.lights) { m.color.copy(col); m.intensity = it; if (gc) m.groundColor.copy(gc); } if (S.fog && S.fogC) { S.fog.color.copy(S.fogC); if (S.fogD != null) S.fog.density = S.fogD; } Object.assign(c, S.c); K.anchorsRaw = {}; camSet = null; };
 K.frames = (n = 3) => new Promise((res) => { let k = 0; const f = () => (++k >= n ? res() : requestAnimationFrame(f)); requestAnimationFrame(f); });
 
 // ---------- where things are ----------
@@ -209,12 +211,13 @@ K.safetyCar = (p, yaw, o = {}) => { const g = grp(p, yaw), L = 4.6, W = 1.95;
   K.mesh(new THREE.BoxGeometry(0.9, 0.12, 0.05), std(0x1A1C22), V(0, 0.44, 2.44), [0, 0, 0], g);
   for (const s of [-1, 1]) for (const z of [1.45, -1.45]) addWheel(g, s * 0.92, 0.34, z, 0.34, 0.28);
   K.mesh(new THREE.BoxGeometry(1.3, 0.1, 0.22), std(0x1A1C22), V(0, 1.39, 0.05), [0, 0, 0], g);
-  const amb = new THREE.MeshBasicMaterial({ color: o.lights === false ? 0x4A3A1A : 0xFFB020, toneMapped: false }), grn = new THREE.MeshBasicMaterial({ color: 0x2FD27A, toneMapped: false });
+  const amb = new THREE.MeshBasicMaterial({ color: o.lights === false ? 0x4A3A1A : (o.lightA ?? 0xFFB020), toneMapped: false }), grn = new THREE.MeshBasicMaterial({ color: o.lightB ?? 0x2FD27A, toneMapped: false });
+  const LBL = o.label ?? "SAFETY CAR";
   for (const x of [-0.5, -0.25, 0.25, 0.5]) K.mesh(new THREE.BoxGeometry(0.2, 0.08, 0.18), Math.abs(x) < 0.3 ? grn : amb, V(x, 1.44, 0.05), [0, 0, 0], g);
-  K.text(V(0, 0.62, -2.42), Math.PI, 1.3, 0.22, (x, W2, H2) => { x.fillStyle = "#16171B"; x.fillRect(0, 0, W2, H2); x.fillStyle = "#FFB547"; x.font = "bold " + Math.round(H2 * 0.7) + "px Arial"; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText("SAFETY CAR", W2 / 2, H2 / 2); }).parent.remove; 
+  K.text(V(0, 0.62, -2.42), Math.PI, 1.3, 0.22, (x, W2, H2) => { x.fillStyle = "#16171B"; x.fillRect(0, 0, W2, H2); x.fillStyle = "#FFB547"; x.font = "bold " + Math.round(H2 * 0.7) + "px Arial"; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText(LBL, W2 / 2, H2 / 2); }).parent.remove; 
   const sign = scene.children[scene.children.length - 1]; g.attach(sign); sign.position.set(0, 0.62, -2.43); sign.rotation.set(0, Math.PI, 0);
-  for (const sx of [-1, 1]) { const st = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 0.12), new THREE.MeshBasicMaterial({ color: 0xFFA51F, side: THREE.DoubleSide })); st.position.set(sx * (W / 2 + 0.1), 0.62, 0); st.rotation.y = Math.PI / 2; g.add(st);
-    K.text(V(0, 0, 0), 0, 1.5, 0.26, (x, W2, H2) => { x.fillStyle = "#16171B"; x.font = "bold " + Math.round(H2 * 0.75) + "px Arial"; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText("SAFETY CAR", W2 / 2, H2 / 2); }); const t = scene.children[scene.children.length - 1]; g.attach(t); t.position.set(sx * (W / 2 + 0.11), 0.42, 0.2); t.rotation.set(0, sx * Math.PI / 2, 0); t.material.transparent = true; }
+  for (const sx of [-1, 1]) { const st = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 0.12), new THREE.MeshBasicMaterial({ color: o.stripe ?? 0xFFA51F, side: THREE.DoubleSide })); st.position.set(sx * (W / 2 + 0.1), 0.62, 0); st.rotation.y = Math.PI / 2; g.add(st);
+    K.text(V(0, 0, 0), 0, 1.5, 0.26, (x, W2, H2) => { x.fillStyle = "#16171B"; x.font = "bold " + Math.round(H2 * 0.75) + "px Arial"; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText(LBL, W2 / 2, H2 / 2); }); const t = scene.children[scene.children.length - 1]; g.attach(t); t.position.set(sx * (W / 2 + 0.11), 0.42, 0.2); t.rotation.set(0, sx * Math.PI / 2, 0); t.material.transparent = true; }
   return g; };
 // a racing kart with a seated driver
 K.kart = (p, yaw, color, helmet = 0xF2F3F5) => { const g = grp(p, yaw);

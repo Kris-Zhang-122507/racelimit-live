@@ -477,3 +477,4 @@ export const SHOTS = [
     drivers.forEach(([suit, cap], k) => { const x = (k % 2 ? -0.6 : 0.6), z = 1.2 - Math.floor(k / 2) * 1.35; const p = t.localToWorld(K.V(x, 1.35, z)); K.person(p, K.yaw(j) + (x > 0 ? -1.1 : 1.1), { suit, helmet: false, cap, pose: k % 3 ? "wave" : "both" }); });
     K.cam(K.at(K.idx(53), half - 1.2, 1.5), t.localToWorld(K.V(0, 2.1, -0.2)), 40); K.anchor("truck", t.localToWorld(K.V(0, 3.8, -1)));`, { place: 30 }),
 ];
+SHOTS.push(...(await import("./shots9.mjs?" + Date.now())).MORE);

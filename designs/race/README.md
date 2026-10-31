@@ -25,6 +25,9 @@ To view a screen, open a file with `?screen=<name>`, for example `design9.html?s
 | `concepts/list6.html` | `safetycar` `elimination` `watch3d` `conceptcars` `enginemodes` `eragadgets` `reaction` `rewind` `bigscreen` `celebrate` `crowds` `easter` `eralooks` `setupwizard` `compare` `trivia` `teammates` `cards` `voice` |
 | `concepts/list7.html` | `doublestack` `fastestlap` `restart` `hot` `karting` `paddock` `engineer` `newspaper` `review` `flypast` `crane` `scenario` `hotseat` `relay` `installapp` `myraces` `mods` |
 | `concepts/list8.html` | `oil` `thunder` `impede` `multiclass` `pitboard` `hpattern` `licence` `testing` `crewtraining` `adaptive` `animdriver` `seasonal` `cruise` `parade` |
+| `concepts/list9.html` | `sprint` `reversegrid` `puncture` `switchfix` `titledecider` `flowvis` `fp1` `banners` `twoseater` `drag` `party` `fantasy` `racelength` `midsave` |
+| `concepts/list10.html` | `medicalcar` `radiodrop` `sand` `fog` `debrief` `launch` `number` `fanzone` `travel` `garagewait` `hillclimb` `demorun` `twists` `contests` |
+| `concepts/list11.html` | `fireup` `installlap` `wingflap` `gestures` `rivalradio` `support` `drones` `whitelines` `cooldown` `retirewalk` `pitwall` `laprecord` `rebuild` `fastestpit` `corner` `documentary` `factory` `racedirector` `knockout` `replayfile` `streamer` `frozenlake` |
 
 Rules that apply to everything here:
 - All teams, brands, sponsors and engine makers are made up.
@@ -32,9 +35,9 @@ Rules that apply to everything here:
 - The pit stop mini-game is only a custom, optional setting.
 
 ## Concept renders, October 2026 (`concepts/`)
-131 ideas for the game in eight lists (lists 1–5 redone on October 28 with everything staged in 3D; lists 6–8 added the same day, including the drivers' parade). The pages are ES modules, so serve the folder (`python3 -m http.server`) and open e.g. `list4.html?screen=tvwatch`.
+181 ideas for the game in eleven lists (lists 1–5 redone on October 28 with everything staged in 3D; lists 6–8 added the same day, including the drivers' parade; lists 9–11 added on October 31). The pages are ES modules, so serve the folder (`python3 -m http.server`) and open e.g. `list4.html?screen=tvwatch`.
 
 How the pictures are made:
-- `shots.mjs` lists each staged shot: the circuit, where the car is, and a setup script that runs inside the real game page with `kit.js` loaded. The kit pauses the game and adds things to its 3D scene: other cars (the real car model in other team colours, or a see-through ghost), lines and patches laid on the track surface, cones, debris, marshals, flag panels, pit crew, boards, windsocks, a podium, a safety car, karts, the drivers' parade truck, display jets, a recovery crane, smoke and fireworks; it also sets the camera and lighting, and records where named points land on screen.
+- `shots.mjs` (and `shots9.mjs` for lists 9–11, which also builds made-up rooms: garages, a launch studio, the factory, a fan zone, a frozen lake) lists each staged shot: the circuit, where the car is, and a setup script that runs inside the real game page with `kit.js` loaded. The kit pauses the game and adds things to its 3D scene: other cars (the real car model in other team colours, or a see-through ghost), lines and patches laid on the track surface, cones, debris, marshals, flag panels, pit crew, boards, windsocks, a podium, a safety car, karts, the drivers' parade truck, display jets, a recovery crane, smoke and fireworks; it also sets the camera and lighting, and records where named points land on screen.
 - `node shoot.mjs [names…]` (with `public/` served on port 8791) renders them to `bg/<name>.png`, plus `bg/<name>.json` with the screen positions that the pages use for their pointer labels (`pin()` in `common.js`). Shots on the same circuit share one page load.
 - `node render.mjs list1` writes every screen of a list to `out/`. `bg/` and `out/` aren't committed.
