@@ -1,6 +1,33 @@
 {
  "sessions": [
   {
+   "key": 11404,
+   "year": 2026,
+   "meeting": "Mexico",
+   "location": "Mexico City",
+   "circuit": "Mexico City",
+   "name": "Race",
+   "type": "Race",
+   "startUtc": "2026-11-01T20:00:00+00:00",
+   "file": "11404.jsonl.gz",
+   "sizeKb": 482,
+   "score": 5,
+   "reasons": [
+    "some good passing",
+    "safety cars",
+    "a red flag",
+    "changes for the lead",
+    "a close finish",
+    "several retirements"
+   ],
+   "laps": 71,
+   "v": 4,
+   "grid": true,
+   "telemetry": true,
+   "incidents": 5,
+   "gps": true
+  },
+  {
    "key": 11400,
    "year": 2026,
    "meeting": "Mexico",
@@ -799,5 +826,5 @@
    "grid": true
   }
  ],
- "updated": "2026-11-01T01:05:14.969Z"
+ "updated": "2026-11-01T23:37:10.502Z"
 }
