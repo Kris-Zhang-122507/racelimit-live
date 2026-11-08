@@ -1,6 +1,13 @@
 {
  "sessions": [
   {
+   "key": 11408,
+   "meeting": "Brazil",
+   "name": "Qualifying",
+   "startUtc": "2026-11-07T18:00:00+00:00",
+   "incidents": []
+  },
+  {
    "key": 11404,
    "meeting": "Mexico",
    "name": "Race",
@@ -896,5 +903,5 @@
    "incidents": []
   }
  ],
- "updated": "2026-11-01T23:37:10.502Z"
+ "updated": "2026-11-08T00:31:37.793Z"
 }

@@ -1,6 +1,27 @@
 {
  "sessions": [
   {
+   "key": 11408,
+   "year": 2026,
+   "meeting": "Brazil",
+   "location": "São Paulo",
+   "circuit": "Interlagos",
+   "name": "Qualifying",
+   "type": "Qualifying",
+   "startUtc": "2026-11-07T18:00:00+00:00",
+   "file": "11408.jsonl.gz",
+   "sizeKb": 52,
+   "score": 2,
+   "reasons": [
+    "a red flag"
+   ],
+   "laps": null,
+   "v": 4,
+   "grid": false,
+   "telemetry": true,
+   "incidents": 0
+  },
+  {
    "key": 11404,
    "year": 2026,
    "meeting": "Mexico",
@@ -826,5 +847,5 @@
    "grid": true
   }
  ],
- "updated": "2026-11-01T23:37:10.502Z"
+ "updated": "2026-11-08T00:31:37.794Z"
 }
