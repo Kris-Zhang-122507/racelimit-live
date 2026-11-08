@@ -73,7 +73,9 @@ export default {
     const cors = { "Access-Control-Allow-Origin": ORIGIN, "Vary": "Origin" };
     if (request.method === "OPTIONS") return new Response(null, { headers: { ...cors, "Access-Control-Allow-Methods": "GET" } });
     const u = new URL(request.url);
-    const clip = u.searchParams.get("url") ?? "";
+    // write letters like the "ã" in São Paulo as %C3%A3 before checking the address
+    let clip = "";
+    try { clip = new URL(u.searchParams.get("url") ?? "").href; } catch {}
     if (!CLIP.test(clip)) return Response.json({ error: "This helper only works with F1 team radio clips." }, { status: 400, headers: cors });
 
     // answers are cached for a day, so each clip is fetched and transcribed once

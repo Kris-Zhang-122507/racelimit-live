@@ -1,24 +1,24 @@
 // RaceLimit Live page: draws the race view, from the RaceLimit server or worked out right here.
-import { LiveState } from "./lib/state.js?v=mvlhim90";
-import { Race, lapSeconds } from "./lib/race.js?v=mvlhim90";
-import { CircleView } from "./circle.js?v=mvlhim90";
-import { renderTyres } from "./tyres.js?v=mvlhim90";
-import { renderStrategy, renderPitTable } from "./strategy.js?v=mvlhim90";
-import { renderCompare } from "./compare.js?v=mvlhim90";
-import { renderRewind } from "./rewind.js?v=mvlhim90";
-import { renderDriver } from "./driver.js?v=mvlhim90";
-import { Player, parseRecording } from "./player.js?v=mvlhim90";
-import { loadSchedule, currentWeekend, renderSchedule, calendarFile } from "./schedule.js?v=mvlhim90";
-import { TrackView, loadTrack, loadTrackInfo, loadGps, circuitSlug } from "./track.js?v=mvlhim90";
-import { Dashboard } from "./dash.js?v=mvlhim90";
-import { CarTelemetry } from "./telemetry.js?v=mvlhim90";
-import { renderStewards, renderPitWindow } from "./racecalls.js?v=mvlhim90";
-import * as tx from "./transcribe.js?v=mvlhim90";
-import { renderKnockout } from "./quali.js?v=mvlhim90";
-import { loadSeason, renderH2H } from "./h2h.js?v=mvlhim90";
-import { loadStandings, renderStandings } from "./standings.js?v=mvlhim90";
-import { loadNews, loadIncidentIndex, loadIncidents, renderNews, renderTechnical } from "./news.js?v=mvlhim90";
-import { loadTechnical, loadCrashCost, renderUpgrades, renderPowerUnits, renderCrashCost } from "./technical.js?v=mvlhim90";
+import { LiveState } from "./lib/state.js?v=mw83rpxa";
+import { Race, lapSeconds } from "./lib/race.js?v=mw83rpxa";
+import { CircleView } from "./circle.js?v=mw83rpxa";
+import { renderTyres } from "./tyres.js?v=mw83rpxa";
+import { renderStrategy, renderPitTable } from "./strategy.js?v=mw83rpxa";
+import { renderCompare } from "./compare.js?v=mw83rpxa";
+import { renderRewind } from "./rewind.js?v=mw83rpxa";
+import { renderDriver } from "./driver.js?v=mw83rpxa";
+import { Player, parseRecording } from "./player.js?v=mw83rpxa";
+import { loadSchedule, currentWeekend, renderSchedule, calendarFile } from "./schedule.js?v=mw83rpxa";
+import { TrackView, loadTrack, loadTrackInfo, loadGps, circuitSlug } from "./track.js?v=mw83rpxa";
+import { Dashboard } from "./dash.js?v=mw83rpxa";
+import { CarTelemetry } from "./telemetry.js?v=mw83rpxa";
+import { renderStewards, renderPitWindow } from "./racecalls.js?v=mw83rpxa";
+import * as tx from "./transcribe.js?v=mw83rpxa";
+import { renderKnockout } from "./quali.js?v=mw83rpxa";
+import { loadSeason, renderH2H } from "./h2h.js?v=mw83rpxa";
+import { loadStandings, renderStandings } from "./standings.js?v=mw83rpxa";
+import { loadNews, loadIncidentIndex, loadIncidents, renderNews, renderTechnical } from "./news.js?v=mw83rpxa";
+import { loadTechnical, loadCrashCost, renderUpgrades, renderPowerUnits, renderCrashCost } from "./technical.js?v=mw83rpxa";
 
 const $ = (id) => document.getElementById(id);
 // Only touch the page when something actually changed: replacing identical HTML still makes

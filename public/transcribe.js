@@ -2,7 +2,7 @@
 // once (tools/radio-helper.js). F1's server doesn't let websites read its radio clips, so the
 // helper fetches each clip and transcribes it with Whisper on Cloudflare. The page then works out
 // which lines are the driver and which are the team (and you can click a tag to correct it).
-import { label } from "./lib/speakers.js?v=mvlhim90";
+import { label } from "./lib/speakers.js?v=mw83rpxa";
 const KEY = "undercut.transcripts.v6";
 const HELPER = "undercut.radioHelper";
 
@@ -70,15 +70,18 @@ function pump() {
 async function work(url) {
   pending.set(url, "working"); changed();
   const h = helper();
+  // send the clip's address with letters like the "ã" in São Paulo written as %C3%A3: the helper only accepts plain characters
+  let clip = url;
+  try { clip = new URL(url).href; } catch {}
   try {
     const [tr, audio] = await Promise.all([
-      fetch(`${h}/transcribe?url=${encodeURIComponent(url)}`).then(async (r) => {
+      fetch(`${h}/transcribe?url=${encodeURIComponent(clip)}`).then(async (r) => {
         const body = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(body.error || `the helper answered ${r.status}`);
         return body;
       }),
       // the audio itself, to tell the voices apart (optional: labels are skipped without it)
-      fetch(`${h}/?url=${encodeURIComponent(url)}`).then((r) => (r.ok ? r.arrayBuffer() : null)).then((b) => (b ? toSamples(b) : null)).catch(() => null),
+      fetch(`${h}/?url=${encodeURIComponent(clip)}`).then((r) => (r.ok ? r.arrayBuffer() : null)).then((b) => (b ? toSamples(b) : null)).catch(() => null),
     ]);
     const segs = (tr.segments?.length ? tr.segments : [{ start: 0, end: audio ? audio.length / 16000 : 0, text: tr.text ?? "" }])
       .map((x) => ({ text: String(x.text ?? "").trim(), from: Number(x.start) || 0, to: Number(x.end) || 0, words: x.words }))
