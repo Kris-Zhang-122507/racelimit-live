@@ -1,5 +1,21 @@
 {
  "circuits": {
+  "interlagos": {
+   "circuit": "Interlagos",
+   "green": 28.8,
+   "sc": null,
+   "vsc": null,
+   "samples": {
+    "green": 57,
+    "sc": 0,
+    "vsc": 0
+   },
+   "sessions": [
+    "2026 Race",
+    "2025 Race",
+    "2025 Sprint"
+   ]
+  },
   "mexico-city": {
    "circuit": "Mexico City",
    "green": 22.3,
@@ -326,21 +342,6 @@
    },
    "sessions": [
     "2025 Race"
-   ]
-  },
-  "interlagos": {
-   "circuit": "Interlagos",
-   "green": 21.2,
-   "sc": null,
-   "vsc": null,
-   "samples": {
-    "green": 34,
-    "sc": 0,
-    "vsc": 0
-   },
-   "sessions": [
-    "2025 Race",
-    "2025 Sprint"
    ]
   },
   "las-vegas": {

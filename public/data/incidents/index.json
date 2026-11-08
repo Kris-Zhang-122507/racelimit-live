@@ -1,6 +1,40 @@
 {
  "sessions": [
   {
+   "key": 11412,
+   "meeting": "Brazil",
+   "name": "Race",
+   "startUtc": "2026-11-08T17:00:00+00:00",
+   "incidents": [
+    {
+     "ms": 1794163067000,
+     "n": "16",
+     "kind": "collision",
+     "points": 6,
+     "lap": 71,
+     "message": "TURN 12 INCIDENT INVOLVING CARS 16 (LEC) AND 30 (LAW) NOTED - CAUSING A COLLISION (15:36:34)",
+     "t": "2026-11-08T18:37:47.000Z",
+     "tla": "LEC",
+     "team": "Ferrari",
+     "colour": "#ED1131",
+     "peakG": 2
+    },
+    {
+     "ms": 1794163067000,
+     "n": "30",
+     "kind": "collision",
+     "points": 6,
+     "lap": 71,
+     "message": "TURN 12 INCIDENT INVOLVING CARS 16 (LEC) AND 30 (LAW) NOTED - CAUSING A COLLISION (15:36:34)",
+     "t": "2026-11-08T18:37:47.000Z",
+     "tla": "LAW",
+     "team": "Racing Bulls",
+     "colour": "#6C98FF",
+     "peakG": 2.1
+    }
+   ]
+  },
+  {
    "key": 11408,
    "meeting": "Brazil",
    "name": "Qualifying",
@@ -903,5 +937,5 @@
    "incidents": []
   }
  ],
- "updated": "2026-11-08T00:31:37.793Z"
+ "updated": "2026-11-08T19:39:34.437Z"
 }
