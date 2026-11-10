@@ -1,76 +1,83 @@
 {
- "updated": "2026-11-10T17:02:22.624Z",
+ "updated": "2026-11-10T22:21:55.873Z",
  "items": [
-  {
-   "source": "Formula 1",
-   "title": "Alonso credits ‘phenomenal’ car after strong drive in Brazil",
-   "link": "https://www.formula1.com/en/latest/article/alonso-credits-phenomenal-car-after-strong-showing-in-sao-paulo.7d9xmDFQhJ3IRqGx0xuFHK",
-   "date": "2026-11-10T17:02:21.792Z",
-   "tags": []
-  },
-  {
-   "source": "Formula 1",
-   "title": "P10 in Sao Paulo GP 'the maximum possible' – Hulkenberg",
-   "link": "https://www.formula1.com/en/latest/article/the-maximum-possible-hulkenberg-on-audis-fight-for-points-in-sao-paulo-grand-prix.1KO1iL7LzQm3Cfl0CGspws",
-   "date": "2026-11-10T17:02:21.792Z",
-   "tags": []
-  },
-  {
-   "source": "Formula 1",
-   "title": "5 betting lessons learnt after Norris wins in Brazil",
-   "link": "https://www.formula1.com/en/latest/article/5-key-betting-lessons-learnt-after-lando-norris-wins-the-sao-paulo-grand-prix-in-brazil.5yqAHXsmHN6KYWGDkNYvUt",
-   "date": "2026-11-10T17:02:21.792Z",
-   "tags": []
-  },
-  {
-   "source": "Formula 1",
-   "title": "The best images from Mercedes' title celebrations",
-   "link": "https://www.formula1.com/en/latest/article/gallery-the-best-images-from-mercedes-title-celebrations-2026.1GRUyTDIodPm4vvlVEydw5",
-   "date": "2026-11-10T17:02:21.792Z",
-   "tags": []
-  },
-  {
-   "source": "Formula 1",
-   "title": "5 Winners and 5 Losers from Sao Paulo",
-   "link": "https://www.formula1.com/en/latest/article/5-winners-and-5-losers-from-sao-paulo.3fmqE8g482DzZTO98sG7Bf",
-   "date": "2026-11-10T17:02:21.792Z",
-   "tags": []
-  },
-  {
-   "source": "Formula 1",
-   "title": "Who impressed our Power Rankings judges in Sao Paulo?",
-   "link": "https://www.formula1.com/en/latest/article/power-rankings-who-impressed-our-judges-at-the-2026-sao-paulo-grand-prix.4dgXaQOufQtljKWj7Q7Yhs",
-   "date": "2026-11-10T17:02:21.791Z",
-   "tags": []
-  },
   {
    "source": "Formula 1",
    "title": "F1 ACADEMY announces 2027 calendar",
    "link": "https://www.formula1.com/en/latest/article/f1-academy-unveils-calendar-for-2027-season.1mYuyMEiCaWyI8pAfg5K0O",
-   "date": "2026-11-10T17:02:21.791Z",
+   "date": "2026-11-10T22:21:55.102Z",
    "tags": []
   },
   {
    "source": "Formula 1",
    "title": "Camara experiences every condition in ‘tricky’ Haas debut",
    "link": "https://www.formula1.com/en/latest/article/camara-experiences-every-condition-going-in-tricky-haas-debut.40TC0zRX2AaMmtJ50RsCYH",
-   "date": "2026-11-10T17:02:21.791Z",
+   "date": "2026-11-10T22:21:55.102Z",
    "tags": []
   },
   {
    "source": "Formula 1",
    "title": "Why McLaren went the opposite way to Mercedes' front wing",
    "link": "https://www.formula1.com/en/latest/article/why-mclaren-went-the-opposite-way-to-mercedes-on-their-front-wing.6adMZ9ne0eiXVRofKcPgF8",
-   "date": "2026-11-10T17:02:21.791Z",
+   "date": "2026-11-10T22:21:55.102Z",
    "tags": [
     "upgrades"
    ]
   },
   {
    "source": "Formula 1",
+   "title": "Alonso credits ‘phenomenal’ car after strong drive in Brazil",
+   "link": "https://www.formula1.com/en/latest/article/alonso-credits-phenomenal-car-after-strong-showing-in-sao-paulo.7d9xmDFQhJ3IRqGx0xuFHK",
+   "date": "2026-11-10T22:21:55.102Z",
+   "tags": []
+  },
+  {
+   "source": "Formula 1",
+   "title": "P10 in Sao Paulo GP 'the maximum possible' – Hulkenberg",
+   "link": "https://www.formula1.com/en/latest/article/the-maximum-possible-hulkenberg-on-audis-fight-for-points-in-sao-paulo-grand-prix.1KO1iL7LzQm3Cfl0CGspws",
+   "date": "2026-11-10T22:21:55.102Z",
+   "tags": []
+  },
+  {
+   "source": "Formula 1",
+   "title": "5 betting lessons learnt after Norris wins in Brazil",
+   "link": "https://www.formula1.com/en/latest/article/5-key-betting-lessons-learnt-after-lando-norris-wins-the-sao-paulo-grand-prix-in-brazil.5yqAHXsmHN6KYWGDkNYvUt",
+   "date": "2026-11-10T22:21:55.102Z",
+   "tags": []
+  },
+  {
+   "source": "Formula 1",
+   "title": "The best images from Mercedes' title celebrations",
+   "link": "https://www.formula1.com/en/latest/article/gallery-the-best-images-from-mercedes-title-celebrations-2026.1GRUyTDIodPm4vvlVEydw5",
+   "date": "2026-11-10T22:21:55.102Z",
+   "tags": []
+  },
+  {
+   "source": "Formula 1",
+   "title": "5 Winners and 5 Losers from Sao Paulo",
+   "link": "https://www.formula1.com/en/latest/article/5-winners-and-5-losers-from-sao-paulo.3fmqE8g482DzZTO98sG7Bf",
+   "date": "2026-11-10T22:21:55.102Z",
+   "tags": []
+  },
+  {
+   "source": "Formula 1",
+   "title": "Who impressed our Power Rankings judges in Sao Paulo?",
+   "link": "https://www.formula1.com/en/latest/article/power-rankings-who-impressed-our-judges-at-the-2026-sao-paulo-grand-prix.4dgXaQOufQtljKWj7Q7Yhs",
+   "date": "2026-11-10T22:21:55.101Z",
+   "tags": []
+  },
+  {
+   "source": "Formula 1",
    "title": "PALMER: Why Norris’ Sao Paulo victory was one of his best ever wins",
    "link": "https://www.formula1.com/en/latest/article/why-norris-sao-paulo-victory-was-one-of-his-best-ever-wins.3hyiRlbfztlQekIw1WuvWd",
-   "date": "2026-11-10T17:02:21.790Z",
+   "date": "2026-11-10T22:21:55.100Z",
+   "tags": []
+  },
+  {
+   "source": "RaceFans",
+   "title": "Social Media: Hamilton witnesses humanitarian relief effort in Gaza Strip | Brief",
+   "link": "https://www.racefans.net/2026/11/10/social-media-hamilton-witnesses-humanitarian-relief-effort-in-gaza-strip/",
+   "date": "2026-11-10T21:38:25.000Z",
    "tags": []
   },
   {
@@ -514,13 +521,6 @@
    "title": "F1 Brazilian GP: Lando Norris wins in mixed conditions, Mercedes clinch constructors’ title",
    "link": "https://www.motorsport.com/f1/news/f1-brazilian-gp-lando-norris-wins-in-mixed-conditions-mercedes-clinches-constructors-title/10873026/?utm_source=RSS&utm_medium=referral&utm_campaign=RSS-F1&utm_term=News&utm_content=www",
    "date": "2026-11-08T18:48:58.000Z",
-   "tags": []
-  },
-  {
-   "source": "RaceFans",
-   "title": "2026 Brazilian Grand Prix race result and championship points | Formula 1",
-   "link": "https://www.racefans.net/2026/11/08/2026-brazilian-grand-prix-race-result-and-championship-points/",
-   "date": "2026-11-08T18:44:32.000Z",
    "tags": []
   },
   {
