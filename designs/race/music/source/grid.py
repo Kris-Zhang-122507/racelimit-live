@@ -22,7 +22,7 @@ HN = [
 ]
 PEAK = HN[:6] + [[(16, "G4")], [(8, "E4"), (8, "C#4")]]
 
-s = Score("RaceLimit – Grid", BARS, 126, key=-1)
+s = Score("RaceLimit – Loading", BARS, 126, key=-1)
 hn, tb, ti, dr, bs, pn = s.add(horns()), s.add(trombones()), s.add(timpani()), s.add(drumset()), s.add(ebass()), s.add(piano())
 v1, v2, va, vc, cb = [s.add(x) for x in strings()]
 for b, name in [(1, "Tension"), (9, "Pulse"), (17, "Peak"), (25, "Settle")]: s.mark(s.bar(b), name)
@@ -111,4 +111,4 @@ pn.dyn(B(1), "p").dyn(B(9), "mf").dyn(B(17), "f").dyn(B(25), "p")
 pn.dyn(B(1), "p", staff=2).dyn(B(9), "mf", staff=2)
 
 if __name__ == "__main__":
-    s.write("out/racelimit-grid.musicxml"); print("ok")
+    s.write("out/racelimit-loading.musicxml"); print("ok")

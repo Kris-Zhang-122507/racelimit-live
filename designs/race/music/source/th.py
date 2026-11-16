@@ -6,7 +6,7 @@ CH = {
     "Asus": "A D E", "Eb": "Eb G Bb", "D": "D F# A", "G": "G B D", "Bm": "B D F#", "Em": "E G B", "F#m": "F# A C#",
     "Dm7": "D F A C", "Bbmaj7": "Bb D F A", "Fmaj7": "F A C E", "Cadd9": "C E G D", "Gm7": "G Bb D F", "Am7": "A C E G",
     "C7sus": "C F G Bb", "Csus": "C F G", "A7": "A C# E G", "Dm9": "D F A C E", "Ebmaj7": "Eb G Bb D", "Gsus": "G C D",
-    "Bm7": "B D F# A", "Em7": "E G B D", "Gmaj7": "G B D F#", "Dsus": "D G A", "Esus": "E A B", "E": "E G# B",
+    "Bm7": "B D F# A", "Em7": "E G B D", "Gmaj7": "G B D F#", "Dsus": "D G A", "Esus": "E A B", "E": "E G# B", "B": "B D# F#", "Cm": "C Eb G", "Ab": "Ab C Eb", "Fm": "F Ab C", "C#m": "C# E G#", "Esus": "E A B", "Bbsus": "Bb Eb F", "Gsus4": "G C D",
 }
 
 def pcs(ch): return CH[ch].split()

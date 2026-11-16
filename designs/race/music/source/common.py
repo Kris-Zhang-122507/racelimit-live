@@ -5,14 +5,13 @@ def melody(s, part, bar0, mel, slur=True, arts_first=(">",)):
     """mel: list of bars, each a list of (dur, pitch or None)"""
     for i, bar in enumerate(mel):
         t = s.bar(bar0 + i)
-        notes = [x for x in bar if x[1]]
+        idx = [j for j, x in enumerate(bar) if x[1]]
         for j, (d, p) in enumerate(bar):
             if p:
                 kw = {}
-                k = notes.index((d, p)) if (d, p) in notes else 0
-                if slur and len(notes) > 1 and (d, p) == notes[0]: kw["slur"] = "start"
-                if slur and len(notes) > 1 and (d, p) == notes[-1]: kw["slur"] = "stop"
-                if (d, p) == notes[0] and arts_first: kw["arts"] = arts_first
+                if slur and len(idx) > 1 and j == idx[0]: kw["slur"] = "start"
+                if slur and len(idx) > 1 and j == idx[-1]: kw["slur"] = "stop"
+                if j == idx[0] and arts_first: kw["arts"] = arts_first
                 part.n(t, d, p, **kw)
             t += d
 
