@@ -60,6 +60,17 @@ namespace RaceLimit
             p.Text(new Rect(x, y, w, size * 1.45f), s.ToUpperInvariant(), HudFont.B600, size, HudLayout.Muted, TextAnchor.MiddleLeft);
         }
 
+        // a 0–10 level: − , ten bars, + ; returns the new level
+        public static int Stepper(IMenuPainter p, float x, float y, int value)
+        {
+            int v = value;
+            if (Chip(p, new Rect(x, y, 36, 30), "−", false, value > 0)) v = value - 1;
+            for (int i = 0; i < 10; i++) p.Fill(new Rect(x + 46 + i * 16, y + 6 + (9 - i) * 0.9f, 11, 18 - (9 - i) * 0.9f), i < value ? HudLayout.Accent : HudLayout.Hex(0x232936), 2);
+            if (Chip(p, new Rect(x + 46 + 160 + 4, y, 36, 30), "+", false, value < 10)) v = value + 1;
+            p.Text(new Rect(x + 46 + 160 + 50, y, 80, 30), value == 0 ? "Off" : value.ToString(), HudFont.JB600, 14, HudLayout.Text, TextAnchor.MiddleLeft);
+            return v;
+        }
+
         public static void Pill(IMenuPainter p, float x, float y, string s, Color bg, Color fg)
         {
             float w = p.Width(s, HudFont.B700, 11) + 18; var r = new Rect(x, y, w, 20);

@@ -1,15 +1,15 @@
 // RaceLimit Race — step 1: one car at Spa. Drive with the keyboard or a controller.
 import * as THREE from "three";
 import { Sky } from "three/addons/objects/Sky.js";
-import { CIRCUITS, buildTrack, speedProfile, racingLine } from "./trackdata.js?v=mw83rpxa";
-import { newCar, stepCar, resetCar, ENVELOPE, CAR, COMPOUNDS, fitTyres, TYRE_NAMES } from "./physics.js?v=mw83rpxa";
-import { buildCircuit } from "./trackmesh.js?v=mw83rpxa";
-import { createInput } from "./input.js?v=mw83rpxa";
-import { createHud } from "./hud.js?v=mw83rpxa";
-import { createEngineAudio } from "./audio.js?v=mw83rpxa";
-import { mergeCar } from "./optimize.js?v=mw83rpxa";
-import { sfx } from "../games/sfx.js?v=mw83rpxa";
-import { load, save } from "../games/common.js?v=mw83rpxa";
+import { CIRCUITS, buildTrack, speedProfile, racingLine } from "./trackdata.js?v=mwj2ar9t";
+import { newCar, stepCar, resetCar, ENVELOPE, CAR, COMPOUNDS, fitTyres, TYRE_NAMES } from "./physics.js?v=mwj2ar9t";
+import { buildCircuit } from "./trackmesh.js?v=mwj2ar9t";
+import { createInput } from "./input.js?v=mwj2ar9t";
+import { createHud } from "./hud.js?v=mwj2ar9t";
+import { createEngineAudio } from "./audio.js?v=mwj2ar9t";
+import { mergeCar } from "./optimize.js?v=mwj2ar9t";
+import { sfx } from "../games/sfx.js?v=mwj2ar9t";
+import { load, save } from "../games/common.js?v=mwj2ar9t";
 
 const q = new URLSearchParams(location.search);
 const settings = Object.assign({ auto: true, abs: true, tc: true, stability: true, line: "full", camera: "chase", quality: "high", engine: "raw", hud: "normal", hudInfo: "full" }, load("race.settings", {}));
@@ -20,10 +20,10 @@ const applyHud = () => document.documentElement.style.setProperty("--hud", { nor
 applyHud();
 const saveSettings = () => save("race.settings", settings);
 // ---------- what to drive: the menus (skipped when the address says what, for testing) ----------
-const { f1car, drawWheelScreen, TEAMS, setTyreLook } = await import("./car.js?v=mw83rpxa");
+const { f1car, drawWheelScreen, TEAMS, setTyreLook } = await import("./car.js?v=mwj2ar9t");
 let choice;
 if (q.get("track") || q.get("place") || q.get("auto")) choice = { track: q.get("track") && CIRCUITS[q.get("track")] ? q.get("track") : "spa", session: q.get("session") || (q.get("auto") ? "grid" : "practice") };
-else { document.getElementById("loading").hidden = true; const { openMenus } = await import("./menu.js?v=mw83rpxa"); choice = await openMenus({ CIRCUITS, settings, saveSettings, TEAMS }); document.getElementById("loading").hidden = false; }
+else { document.getElementById("loading").hidden = true; const { openMenus } = await import("./menu.js?v=mwj2ar9t"); choice = await openMenus({ CIRCUITS, settings, saveSettings, TEAMS }); document.getElementById("loading").hidden = false; }
 const circuitId = choice.track, CFG = CIRCUITS[circuitId], SESSION = choice.session;
 document.title = `${CFG.short} · Race — RaceLimit Live`;
 const $ = (id) => document.getElementById(id);
@@ -87,7 +87,7 @@ const raw = await (await fetch(`../data/tracks/${CFG.slug}.json`)).json();
 // the real shape, heights and pit lane (from F1's position data), if we have them for this circuit
 const real = await fetch(`../data/race/${CFG.slug}.json`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
 // and its real surroundings from OpenStreetMap, lined up with the track (buildings, water, tunnels, gravel traps…)
-const map = await fetch(`../data/race-world/${CFG.slug}.json?v=mw83rpxa`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+const map = await fetch(`../data/race-world/${CFG.slug}.json?v=mwj2ar9t`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
 const tr = buildTrack(raw, CFG, real, map);
 const line = racingLine(tr);
 const vp = speedProfile({ ...tr, K: line.K }, ENVELOPE, 0.95);
@@ -134,7 +134,8 @@ applyLineMode();
 // ---------- the car ----------
 await status("Building the car…");
 const team = TEAMS.find((t) => t.team === load("race.team", "RACELIMIT")) ?? TEAMS[0];
-const livery = { era: 2026, team: team.team, body: team.body, accent: team.accent, stripe: team.stripe, number: team.number, helmet: team.helmet, tcam: "#111" };
+const eraQ = +new URLSearchParams(location.search).get("era"); // (?era=1998…: for exporting the other eras' cars)
+const livery = { era: [1998, 2009, 2014, 2017, 2022, 2026].includes(eraQ) ? eraQ : 2026, team: team.team, body: team.body, accent: team.accent, stripe: team.stripe, number: team.number, helmet: team.helmet, tcam: "#111" };
 const startTyre = COMPOUNDS[load("race.tyre", "medium")] ? load("race.tyre", "medium") : "medium";
 const tyreLabel = (k) => `C · ${COMPOUNDS[k].name.toUpperCase()}`;
 const car = f1car({ ...livery, aero: "corner", compound: COMPOUNDS[startTyre].color, compoundName: tyreLabel(startTyre) });

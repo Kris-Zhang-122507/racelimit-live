@@ -30,7 +30,7 @@ namespace RaceLimit
             startT = Time.unscaledTime;
             hudSize = RaceSettings.HudScale; full = RaceSettings.FullHud;
             painter = new ImguiPainter((f) => FontFor(f));
-            st.hint = "Arrows or W A S D drive · E / Q gears · Space overtake · [ ] brake bias · F aero · Tab more / less info · C camera · B look back · R reset · Esc pause";
+            st.hint = RLKeys.Names(RLAction.Throttle) + " throttle · " + RLKeys.Names(RLAction.Brake) + " brake · " + RLKeys.Names(RLAction.Left) + " " + RLKeys.Names(RLAction.Right) + " steer · " + RLKeys.Names(RLAction.GearUp) + " / " + RLKeys.Names(RLAction.GearDown) + " gears · " + RLKeys.Names(RLAction.Boost) + " overtake · " + RLKeys.Names(RLAction.Camera) + " camera · " + RLKeys.Names(RLAction.Reset) + " reset · " + RLKeys.Names(RLAction.Pause) + " pause";
         }
 
         bool Ready()
@@ -52,7 +52,7 @@ namespace RaceLimit
             // corners in lap order
             var cl = new System.Collections.Generic.List<TrackInfo.Corner>(); if (d.corners != null) foreach (var c in d.corners) if (c.i >= 0 && c.i < n) cl.Add(c);
             cl.Sort((a, b) => a.i.CompareTo(b.i)); corners = cl.ToArray();
-            st.session = "Practice · " + d.name; st.circuit = d.name;
+            st.session = RaceSettings.SessionName(RaceSettings.FromMenu ? RaceSettings.Session : 0) + " · " + d.name; st.circuit = d.name;
             return true;
         }
         float sc = 1, ox, oz, mx = 1;
@@ -60,6 +60,7 @@ namespace RaceLimit
 
         void Update()
         {
+            Update2Nav();
             if (car != null && car.input != null && car.input.info) { full = !full; RaceSettings.FullHud = full; }
             if (!Ready()) return;
             // ---- per-lap tallies ----
@@ -132,7 +133,7 @@ namespace RaceLimit
             // gear, speed, revs, pedals
             st.rpm = c.rpm; st.throttle = c.throttle; st.brake = c.brake;
             st.gear = c.reverse ? "R" : c.kmh < 1.8f && c.throttle < 0.05f && !s.running ? "N" : c.gear.ToString();
-            st.speed = Mathf.RoundToInt(c.kmh).ToString(); st.rpmText = (Mathf.Round(c.rpm / 100) * 100).ToString("#,0");
+            st.speed = Mathf.RoundToInt(c.kmh).ToString(); st.rpmText = (Mathf.Round(c.rpm * c.rpmShown / 100) * 100).ToString("#,0");
             // aero, pit lane, aids
             st.straightMode = c.straightMode; st.onPit = s.onPit; st.pitLimiter = c.pitLimiter;
             st.abs = !c.abs ? 2 : c.absActive || c.lockFront || c.lockRear ? 1 : 0;
@@ -157,20 +158,32 @@ namespace RaceLimit
             if (session.paused) PauseMenu(W, H);
         }
 
-        // Esc: carry on, start again, or back to the main menu
+        // Esc: carry on, start again, change a few settings, or back to the main menu. Arrows / d-pad move, Enter / A chooses.
         void PauseMenu(float W, float H)
         {
             painter.Opacity = 1;
             if (Event.current.type == EventType.Repaint) painter.Fill(new Rect(0, 0, W, H), new Color(0.02f, 0.03f, 0.05f, 0.6f), 0);
-            bool menu = RaceSettings.MenuAvailable; float pw = 340, ph = 96 + (menu ? 3 : 2) * 52, x = W / 2 - pw / 2, y = H / 2 - ph / 2;
+            bool menu = RaceSettings.MenuAvailable; float pw = 380, ph = 96 + (menu ? 3 : 2) * 52 + 150, x = W / 2 - pw / 2, y = H / 2 - ph / 2;
             MenuUi.Panel(painter, new Rect(x, y, pw, ph));
             painter.Text(new Rect(x + 24, y + 20, pw - 48, 34), "Paused", HudFont.BC700, 28, HudLayout.Text, TextAnchor.MiddleLeft);
-            painter.Text(new Rect(x + 24, y + 54, pw - 48, 20), session.track != null && session.track.data != null ? session.track.data.name : "", HudFont.B600, 13, HudLayout.Muted, TextAnchor.MiddleLeft);
+            painter.Text(new Rect(x + 24, y + 54, pw - 48, 20), session.track != null && session.track.data != null ? session.track.data.name + " · " + RaceSettings.SessionName(session.timeTrial ? 2 : RaceSettings.FromMenu ? RaceSettings.Session : 0) : "", HudFont.B600, 13, HudLayout.Muted, TextAnchor.MiddleLeft);
             float by = y + 88;
             if (MenuUi.Button(painter, new Rect(x + 24, by, pw - 48, 42), "Carry on", true)) session.TogglePause(); by += 52;
             if (MenuUi.Button(painter, new Rect(x + 24, by, pw - 48, 42), "Start again", false)) session.Restart(); by += 52;
             if (menu && MenuUi.Button(painter, new Rect(x + 24, by, pw - 48, 42), "Main menu", false)) session.ToMenu();
+            if (menu) by += 52;
+            by += 6; MenuUi.Label(painter, x + 24, by, 200, "Assists"); by += 18;
+            int c = MenuUi.Chips(painter, x + 24, by, new[] { "Lots", "Some", "None" }, RaceSettings.Assists); if (c >= 0) { RaceSettings.Assists = c; RaceSettings.Apply(car); } by += 42;
+            MenuUi.Label(painter, x + 24, by, 200, "Music"); by += 18;
+            c = MenuUi.Chips(painter, x + 24, by, new[] { "Off", "Quiet", "Medium", "Loud" }, RaceSettings.MusicVolume == 0 ? 0 : RaceSettings.MusicVolume <= 4 ? 1 : RaceSettings.MusicVolume <= 7 ? 2 : 3); if (c >= 0) RaceSettings.MusicVolume = c == 0 ? 0 : c == 1 ? 4 : c == 2 ? 7 : 10;
+            painter.EndNav();
         }
 
+        void Update2Nav()
+        {
+            if (session == null || !session.paused || painter == null) return;
+            int dx, dy; bool submit, back; RLKeys.Nav(out dx, out dy, out submit, out back);
+            painter.Navigate(dx, dy, submit);
+        }
     }
 }

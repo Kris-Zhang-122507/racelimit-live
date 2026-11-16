@@ -37,7 +37,7 @@ export const CIRCUITS = {
   spa: { slug: "spa-francorchamps", name: "Spa-Francorchamps", short: "Spa", country: "Belgium", cc: "BE", lengthM: 7004, laps: 44, half: 7.5, run: 13, scenery: "forest", time: "day",
     elev: [[0, 0], [1, 3], [2, -19], [3, -4], [4, 16], [5, 40], [8, 20], [10, -8], [12, -24], [14, -60], [15, -63], [17, -40], [18, -6]],
     names: { 1: "La Source", 2: "Eau Rouge", 3: "Raidillon", 5: "Les Combes", 8: "Bruxelles", 10: "Pouhon", 12: "Fagnes", 14: "Stavelot", 17: "Blanchimont", 18: "Bus Stop" },
-    sectors: [0.32, 0.71],
+    sectors: [0.32, 0.71], steepen: [[2, 4, 0.175]],
     // used only if the real pit lane data is missing: the entry leaves the Bus Stop in the middle,
     // the exit goes round the inside of La Source and joins on the way down to Eau Rouge
     pit: { side: "right", entry: -248, lane: [-175, 285], apex: [325, 415], exit: [520, 640], garages: [-150, 150], limit: [-195, 285] } },
@@ -304,6 +304,17 @@ export function buildTrack(raw, cfg, real = null, map = null) {
     const have = []; for (let i = 0; i < N; i++) if (cnt[i]) { Y[i] = sum[i] / cnt[i]; have.push(i); }
     if (have.length) for (let h = 0; h < have.length; h++) { const a = have[h], b = have[(h + 1) % have.length], gap = wrap(b - a, N); for (let d = 1; d < gap; d++) Y[wrap(a + d, N)] = Y[a] + (Y[b] - Y[a]) * (d / gap); }
     for (let pass = 0; pass < 3; pass++) { const c = Float32Array.from(Y); for (let i = 0; i < N; i++) { let a = 0; for (let k = -25; k <= 25; k++) a += c[wrap(i + k, N)]; Y[i] = a / 51; } }
+    // Climbs the cars' position data rounds off (cfg.steepen: [from corner, to corner, steepest slope]): the slope is
+    // made steeper in the first half of the stretch and gentler in the second, so the heights at both ends stay as
+    // they are. Spa: Raidillon is about 17–18 % at its steepest; the data gives 14 %.
+    for (const [c0, c1, peak] of cfg.steepen ?? []) {
+      if (cIdx[c0] == null || cIdx[c1] == null) continue;
+      const a = cIdx[c0] - 40, L = cIdx[c1] + 80 - a; if (a < 0 || L < 100 || a + L + 20 >= N) continue;
+      const base = Float32Array.from(Y), steepest = (k) => { let g = 0; for (let i = a; i < a + L; i++) { const u0 = (i - a) / L, u1 = Math.min(1, (i + 20 - a) / L), d = k * L / (2 * Math.PI) * (Math.cos(2 * Math.PI * u0) - Math.cos(2 * Math.PI * u1)); g = Math.max(g, (base[i + 20] - base[i] + d) / 20); } return g; };
+      if (steepest(0) >= peak) continue;
+      let lo = 0, hi = 0.2; for (let it = 0; it < 30; it++) { const k = (lo + hi) / 2; if (steepest(k) < peak) lo = k; else hi = k; }
+      for (let i = a; i <= a + L; i++) Y[i] = base[i] + lo * L / (2 * Math.PI) * (1 - Math.cos(2 * Math.PI * (i - a) / L));
+    }
     const y0 = Y[0]; for (let i = 0; i < N; i++) Y[i] -= y0;
   } else if (cfg.elev) {
     const knots = cfg.elev.map(([n, h]) => [n === 0 ? 0 : cIdx[n], h]).filter(([i]) => i != null).sort((a, b) => a[0] - b[0]);
@@ -663,6 +674,23 @@ function buildPitRoad(tr, P0) {
     // which bit of track each point is beside, counted continuously from the start line
     let prev = null; pts = sm2.map(([x, z]) => { let j = prev == null ? tr.nearestGlobal(x, z, 6).i : nearestAhead(tr, x, z, wrap(Math.round(prev), N), 0, 150); if (prev != null) { let d = j - wrap(Math.round(prev), N); if (d > N / 2) d -= N; if (d < -N / 2) d += N; j = prev + d; } else if (j > N / 2) j -= N; prev = j; return { x, z, j }; });
     for (const p of pts) { const i = wrap(Math.round(p.j), N); p.y = Y[i]; p.o = s * ((p.x - X[i]) * LX[i] + (p.z - Z[i]) * LZ[i]); }
+    // Between where it leaves the track and where it joins again, the lane keeps clear of the track (room for a wall):
+    // the real cars' path can lie on our track surface where the real track is narrower than ours, e.g. the exit
+    // round the inside of La Source at Spa, which then joined the track at the apex instead of after the hairpin.
+    {
+      const minO = half + WALL + HW + 0.8, L = pts.length; let moved = false;
+      for (let n = 0; n < L; n++) {
+        const p = pts[n], dEnd = Math.min(n, L - 1 - n), need = minO * sm(45, 115, dEnd);
+        if (dEnd > 45 && p.o < need && p.o > -half) { const i = wrap(Math.round(p.j), N), add = need - p.o; p.x += s * LX[i] * add; p.z += s * LZ[i] * add; p.o = need; moved = true; }
+      }
+      if (moved) {
+        for (let pass = 0; pass < 3; pass++) { const c = pts.map((p) => [p.x, p.z]); for (let n = 4; n < L - 4; n++) { let x = 0, z = 0; for (let d = -4; d <= 4; d++) { x += c[n + d][0]; z += c[n + d][1]; } pts[n].x = x / 9; pts[n].z = z / 9; } }
+        // one point a metre again (round the inside of a hairpin they bunch up)
+        const out = [pts[0]]; for (let n = 1; n < L; n++) { const q = out[out.length - 1]; if (Math.hypot(pts[n].x - q.x, pts[n].z - q.z) >= 0.9 || n === L - 1) out.push(pts[n]); }
+        pts = out;
+        for (const p of pts) { const i = wrap(Math.round(p.j), N); p.o = s * ((p.x - X[i]) * LX[i] + (p.z - Z[i]) * LZ[i]); }
+      }
+    }
   } else {
     // drawn by hand (round the inside of a hairpin the lane narrows a little so its wall can stay clear of the kerb)
     const HWA = 2.3, laneC = half + 3 + WALL + HW, apexO = half + 3.0 + WALL + HWA, mergeO = half - 1.5;

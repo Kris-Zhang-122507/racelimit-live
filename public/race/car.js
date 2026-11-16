@@ -2,7 +2,7 @@
 // z forward, y up, metres; origin on the ground at the middle of the wheelbase.
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
-import { loft, wing, sweep, cascade, rollWing, plate, ring, DEF, tex, canvas, decal, liveryMap, tyreMap, helmetMap, carbon, carbonMatte, boxUV, span } from "./car-kit.js?v=mw83rpxa";
+import { loft, wing, sweep, cascade, rollWing, plate, ring, DEF, tex, canvas, decal, liveryMap, tyreMap, helmetMap, carbon, carbonMatte, boxUV, span } from "./car-kit.js?v=mwj2ar9t";
 
 // ---------- eras ----------
 // wb wheelbase, fo front overhang to the front wing leading edge, ro rear overhang, tf/tr half track,
@@ -90,6 +90,7 @@ export function f1car(o = {}) {
   const dark = new THREE.MeshPhysicalMaterial({ color: accent, roughness: 0.42, metalness: 0.05, clearcoat: 0.4, clearcoatRoughness: 0.15, envMapIntensity: 0.7, side: THREE.DoubleSide });
   { const FIN = { gloss: {}, matte: { roughness: 0.66, clearcoat: 0, envMapIntensity: 0.45 }, satin: { roughness: 0.5, clearcoat: 0.12 }, chrome: { metalness: 0.95, roughness: 0.14, clearcoat: 0.6, envMapIntensity: 1.1 } }[finish] || {}; Object.assign(liv, FIN); Object.assign(paint, FIN); }
   const black = new THREE.MeshStandardMaterial({ color: 0x07080A, roughness: 0.85, side: THREE.DoubleSide });
+  liv.name = "rl_livery"; paint.name = "rl_paint"; dark.name = "rl_accent"; // (named so the Unity version can repaint the car for each team)
   const metal = new THREE.MeshStandardMaterial({ color: 0x6E5E52, metalness: 1, roughness: 0.32, side: THREE.DoubleSide });
   const isC = (m) => m === carbon || m === carbonMatte;
   const add = (geo, m, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) => { if (isC(m)) boxUV(geo); const ob = new THREE.Mesh(geo, m); ob.position.set(x, y, z); ob.rotation.set(rx, ry, rz); ob.castShadow = ob.receiveShadow = true; g.add(ob); return ob; };

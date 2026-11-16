@@ -15,9 +15,62 @@ namespace RaceLimit
         readonly System.Collections.Generic.Dictionary<HudMap, MapTex> maps = new System.Collections.Generic.Dictionary<HudMap, MapTex>();
         public ImguiPainter(System.Func<HudFont, Font> fontFor) { fonts = fontFor; Opacity = 1; }
         public Rect ToScreen(Rect r) { return S(r); }
-        // a click (mouse up) inside r, in the page's pixels; call during OnGUI
-        public bool Hit(Rect r) { var e = Event.current; return e != null && e.type == EventType.MouseUp && e.button == 0 && S(r).Contains(e.mousePosition); }
-        public bool Hover(Rect r) { var e = Event.current; return e != null && S(r).Contains(e.mousePosition); }
+        // ---- choosing with the keyboard or a controller: every box a menu asks about (Hit) can be moved to with the
+        // arrows / d-pad / stick; Enter / A "clicks" the one that's lit. The mouse takes over again when it moves. ----
+        readonly System.Collections.Generic.List<Rect> seen = new System.Collections.Generic.List<Rect>(), last = new System.Collections.Generic.List<Rect>();
+        Rect focus; bool hasFocus, navOn, submit, haveMouse; Vector2 mouseAt;
+        static bool Same(Rect a, Rect b) { return Mathf.Abs(a.x - b.x) < 1.5f && Mathf.Abs(a.y - b.y) < 1.5f && Mathf.Abs(a.width - b.width) < 1.5f && Mathf.Abs(a.height - b.height) < 1.5f; }
+        public bool NavActive { get { return navOn; } }
+        public Rect Focus { get { return focus; } }
+        public void FocusOn(Rect r) { focus = r; hasFocus = true; }
+        // call once a frame from Update with what RLKeys.Nav read
+        public void Navigate(int dx, int dy, bool press)
+        {
+            if (dx == 0 && dy == 0 && !press) return;
+            if (last.Count == 0) return;
+            bool found = false; if (hasFocus) foreach (var r in last) if (Same(r, focus)) { found = true; break; }
+            if (!navOn || !found)
+            {
+                // start at the top-left box (or stay where the mouse was)
+                Rect best = last[0]; foreach (var r in last) if (r.y < best.y - 4 || (Mathf.Abs(r.y - best.y) <= 4 && r.x < best.x)) best = r;
+                focus = best; hasFocus = true; navOn = true;
+                if (press) submit = true;
+                return;
+            }
+            if (press) { submit = true; return; }
+            // the nearest box in that direction, favouring ones in line with this one
+            Vector2 c = focus.center; float bestScore = float.MaxValue; Rect pick = focus; bool any = false;
+            foreach (var r in last)
+            {
+                if (Same(r, focus)) continue;
+                Vector2 d = r.center - c; float along = dx != 0 ? d.x * dx : d.y * dy, across = dx != 0 ? Mathf.Abs(d.y) : Mathf.Abs(d.x);
+                // (boxes that overlap this one's row or column count as in line)
+                if (dx != 0 && r.yMax > focus.y && r.y < focus.yMax) across *= 0.2f;
+                if (dy != 0 && r.xMax > focus.x && r.x < focus.xMax) across *= 0.2f;
+                if (along <= 2) continue;
+                float score = along + across * 2.5f;
+                if (score < bestScore) { bestScore = score; pick = r; any = true; }
+            }
+            if (any) focus = pick;
+        }
+        // call at the end of a menu's OnGUI
+        public void EndNav()
+        {
+            var e = Event.current; if (e == null) return;
+            if (e.type == EventType.MouseDown) navOn = false;
+            if (e.type != EventType.Repaint) return;
+            if (haveMouse && (e.mousePosition - mouseAt).sqrMagnitude > 9) navOn = false;
+            mouseAt = e.mousePosition; haveMouse = true;
+            last.Clear(); last.AddRange(seen); seen.Clear(); submit = false;
+        }
+        // a click (mouse up) inside r, in the page's pixels, or Enter / A on the lit box; call during OnGUI
+        public bool Hit(Rect r)
+        {
+            var e = Event.current; if (e == null) return false;
+            if (e.type == EventType.Repaint) { seen.Add(r); if (submit && navOn && hasFocus && Same(r, focus)) { submit = false; return true; } }
+            return e.type == EventType.MouseUp && e.button == 0 && S(r).Contains(e.mousePosition);
+        }
+        public bool Hover(Rect r) { var e = Event.current; if (e == null) return false; if (navOn) return hasFocus && Same(r, focus); return S(r).Contains(e.mousePosition); }
 
         Rect S(Rect r) { return new Rect(r.x * scale, r.y * scale, r.width * scale, r.height * scale); }
         Color A(Color c) { c.a *= Opacity; return c; }

@@ -9,7 +9,7 @@ namespace RaceLimit
     [Serializable]
     public class TrackEntry
     {
-        public string name, scene, kind;   // kind: "Real circuit" or "Track Builder"
+        public string name, scene, kind, slug;   // kind: "Real circuit" or "Track Builder"
         public float km, climb;
         public int corners;
         public bool pit;
@@ -36,7 +36,7 @@ namespace RaceLimit
         // what the menu shows of a circuit, from its track data (its map drawn as the web game draws maps)
         public static TrackEntry Describe(TrackInfo.Data d, string scene, bool built)
         {
-            var e = new TrackEntry { name = d.name, scene = scene, kind = built ? "Track Builder" : "Real circuit", km = d.len / 1000f, pit = d.hasPit, corners = d.corners != null ? d.corners.Length : 0 };
+            var e = new TrackEntry { name = d.name, slug = d.slug, scene = scene, kind = built ? "Track Builder" : "Real circuit", km = d.len / 1000f, pit = d.hasPit, corners = d.corners != null ? d.corners.Length : 0 };
             int n = d.n; float minX = float.MaxValue, maxX = float.MinValue, minY = float.MaxValue, maxY = float.MinValue, lo = float.MaxValue, hi = float.MinValue;
             Func<int, float> X = (i) => built ? -d.x[i] : d.x[i], Y = (i) => d.z[i]; // (built ones are in this scene's terms, x mirrored from the web game's: drawn the same way round)
             for (int i = 0; i < n; i++) { minX = Mathf.Min(minX, X(i)); maxX = Mathf.Max(maxX, X(i)); minY = Mathf.Min(minY, Y(i)); maxY = Mathf.Max(maxY, Y(i)); lo = Mathf.Min(lo, d.y[i]); hi = Mathf.Max(hi, d.y[i]); }

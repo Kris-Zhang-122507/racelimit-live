@@ -1,5 +1,6 @@
-Draws the Unity main menu's three screens (`MainMenu.cs`, through `MenuUi` and an SVG painter) with sample circuits, outside
-Unity, to compare with the web game's menu (text widths are estimated; the car in the Race weekend card isn't drawn).
+Draws the Unity menus (`MainMenu.cs`, through `MenuUi` and an SVG painter) outside Unity, with every exported circuit, to
+check the layout (text widths are estimated; the car in the studio is a placeholder picture, `car.png`, if there is one).
 
-    mcs -langversion:7.2 -out:menu.exe PreviewUnity.cs Program.cs ../../../unity/com.racelimit.game/Runtime/{MainMenu,MenuUi,HudLayout,TrackRegistry,RaceSettings}.cs
-    mono menu.exe ../../../unity/com.racelimit.game/Tracks/spa-francorchamps/spa-francorchamps.track.json menu   # menu-Main.svg, menu-Weekend.svg, menu-Settings.svg
+    R=../../../unity/com.racelimit.game
+    mcs -langversion:7.2 -out:menu.exe PreviewUnity.cs Program.cs $R/Runtime/{MainMenu,MenuUi,HudLayout,TrackRegistry,RaceSettings,GameData,RLKeys}.cs
+    mono menu.exe $R/Tracks menu [width height]   # menu-Main.svg, -Weekend, -Tracks, -Cars, -Settings0…3, -Loading

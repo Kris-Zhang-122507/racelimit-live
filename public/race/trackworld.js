@@ -36,19 +36,43 @@ export function facadeMaterials({ tex, canvas, isNight, dusk }) {
   return mats;
 }
 
+// ---------- once the ground's own height is known (rawH), before it's carved: settle each pond, lake and pool ----------
+// Water lies flat, a little below the ground round it. The level from the track nearby (prepareMap) is right for a
+// harbour or a lake beside the circuit, but wrong for water further away on a hillside, which got the height of some
+// low bit of track and dug a pit tens of metres deep (the "huge drop in the grass" at Spa). So: water that would lie
+// more than 4 m below its lowest bank is raised to just under that bank, and water on ground that slopes more than
+// 7 m from one end to the other (a stream running downhill) is left out.
+export function settleWater(tr, rawH) {
+  if (!tr.water) return;
+  const carve = (tr.carveExtra ??= []), keep = [];
+  for (const w of tr.water) {
+    const P = w.p, xs = P.map((p) => p[0]), zs = P.map((p) => p[1]), pts = P.map((p) => [p[0], p[1]]);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), z0 = Math.min(...zs), z1 = Math.max(...zs), step = Math.max(5, Math.max(x1 - x0, z1 - z0) / 60);
+    for (let x = x0; x <= x1; x += step) for (let z = z0; z <= z1; z += step) if (pointInPoly(x, z, P)) pts.push([x, z]);
+    let lo = Infinity, hi = -Infinity; for (const [x, z] of pts) { const h = rawH(x, z); lo = Math.min(lo, h); hi = Math.max(hi, h); }
+    if (!w.pool && hi - lo > 7) continue;
+    if (lo - w.level > 4 || w.level > lo) w.level = lo - 0.5;
+    const h = w.level - (w.pool ? 1.6 : 2.2);
+    for (let x = x0; x <= x1; x += 5) for (let z = z0; z <= z1; z += 5) if (pointInPoly(x, z, P)) carve.push([x, z, h]);
+    for (const [x, z] of P) carve.push([x, z, h]);
+    keep.push(w);
+  }
+  tr.water = keep;
+}
+
 // ---------- before the terrain is built: how high the water is, and where the ground has to go under it ----------
 export function prepareMap(tr) {
   const M = tr.map; if (!M) return;
   const { N, X, Z, Y } = tr, carve = (tr.carveExtra ??= []);
   // the water's level: a little below the lowest bit of track nearby (a harbour quay, a lakeside straight)
   const levelNear = (pts, reach, below) => { let lo = Infinity; for (let i = 0; i < N; i += 4) { for (let k = 0; k < pts.length; k += Math.max(1, Math.floor(pts.length / 40))) { const [x, z] = pts[k]; if ((X[i] - x) ** 2 + (Z[i] - z) ** 2 < reach * reach) { lo = Math.min(lo, Y[i]); break; } } } return (lo === Infinity ? Math.min(...Y) - 2 : lo) - below; };
-  const fill = (P, step, h) => { const xs = P.map((p) => p[0]), zs = P.map((p) => p[1]); for (let x = Math.min(...xs); x <= Math.max(...xs); x += step) for (let z = Math.min(...zs); z <= Math.max(...zs); z += step) if (pointInPoly(x, z, P)) carve.push([x, z, h]); for (const [x, z] of P) carve.push([x, z, h]); };
+
   tr.water = [];
   for (const a of M.areas) {
     if (a.k !== "water" && a.k !== "pool") continue;
     const pool = a.k === "pool", ar = area(a.p); if (ar < (pool ? 30 : 200)) continue;
     const level = levelNear(a.p, pool ? 80 : 220, pool ? 0.9 : 1.6);
-    tr.water.push({ p: a.p, level, pool }); fill(a.p, 5, level - (pool ? 1.6 : 2.2));
+    tr.water.push({ p: a.p, level, pool }); // (the ground goes under it in settleWater, once the ground's own height is known)
   }
   if (M.sea) {
     const S = M.sea, pts = S.rows.filter((_, k) => k % 7 === 0).map(([iz, a]) => [S.x0 + (a + 0.5) * S.cell, S.z0 + (iz + 0.5) * S.cell]);

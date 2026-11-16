@@ -26,7 +26,9 @@ namespace RaceLimit
         float[] curTrace, bestTrace; // lap time at each metre of the lap: this lap, the best one
         int sector;
         [System.NonSerialized] public float bestTraceLap; // the lap the delta is against
-        string BestKey { get { return "RaceLimit.best." + (track && track.data != null ? track.data.slug : "track"); } }
+        public bool timeTrial; public int era = 2026;
+        string BestKey { get { return RaceSettings.BestKey(track && track.data != null ? track.data.slug : "track", era, timeTrial); } }
+        bool moved; // (the grid music plays until the car first moves off)
 
         void Start()
         {
@@ -34,22 +36,27 @@ namespace RaceLimit
             if (car == null) car = FindAnyObjectByType<RaceCar>();
             if (input == null) input = FindAnyObjectByType<CarInput>();
             if (!track.Load()) { enabled = false; return; }
-            bestLap = PlayerPrefs.GetFloat(BestKey, -1);
             curTrace = new float[track.N]; for (int i = 0; i < curTrace.Length; i++) curTrace[i] = -1;
             RaceSettings.Apply(car);
-            hotLap = RaceSettings.Session == 1;
+            var garage = car.GetComponent<CarGarage>(); era = garage != null && garage.era != 0 ? garage.era : 2026;
+            timeTrial = RaceSettings.Session == 2; hotLap = RaceSettings.Session == 1 || timeTrial;
+            bestLap = PlayerPrefs.GetFloat(BestKey, -1);
+            var core = RLCore.Get(); core.ApplyGraphics();
+            RLDayNight.Apply(track.data != null ? track.data.slug : "", RaceSettings.TimeOfDay);
             if (hotLap)
             {
-                // hot laps: rolling, 350 m before the line at 200 km/h
+                // hot laps and time trials: rolling, 350 m before the line at 200 km/h
                 car.Teleport(track.PoseAt(-350, 0, 0.45f));
                 car.body.linearVelocity = car.transform.forward * (200f / 3.6f); car.gear = 5;
-                Say("Hot lap — the clock starts at the line", 3);
+                Say(timeTrial ? "Time trial — full battery every lap, your best is saved for this car" : "Hot lap — the clock starts at the line", 3.5f);
+                core.Music(MusicMood.None); moved = true;
             }
             else
             {
                 // on the grid: 40 m behind the line, left of the middle
                 car.Teleport(track.PoseAt(-40, track.data.half * 0.4f, 0.45f));
                 Say("Practice — the clock starts at the line", 3);
+                core.Music(MusicMood.Grid);
             }
             idx = track.Nearest(car.transform.position);
             lastAlong = track.Along(car.transform.position, idx);
@@ -59,15 +66,21 @@ namespace RaceLimit
         public void Say(string text, float secs) { message = text; messageUntil = Time.unscaledTime + secs; }
         bool hotLap;
 
-        public void TogglePause() { paused = !paused; Time.timeScale = paused ? 0 : 1; AudioListener.pause = paused; }
+        public void TogglePause()
+        {
+            paused = !paused; Time.timeScale = paused ? 0 : 1; AudioListener.pause = paused;
+            if (input != null) input.locked = paused;
+            RLCore.Get().Music(paused ? MusicMood.Pause : moved ? MusicMood.None : MusicMood.Grid);
+        }
         public void Restart() { Time.timeScale = 1; AudioListener.pause = false; UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex >= 0 ? UnityEngine.SceneManagement.SceneManager.GetActiveScene().name : gameObject.scene.name); }
-        public void ToMenu() { Time.timeScale = 1; AudioListener.pause = false; if (RaceSettings.MenuAvailable) UnityEngine.SceneManagement.SceneManager.LoadScene(RaceSettings.MenuScene); }
+        public void ToMenu() { Time.timeScale = 1; AudioListener.pause = false; RLCore.Get().Music(MusicMood.None); if (RaceSettings.MenuAvailable) UnityEngine.SceneManagement.SceneManager.LoadScene(RaceSettings.MenuScene); }
 
         void Update()
         {
             if (input == null || car == null) return;
             if (input.pause) TogglePause();
             if (paused) return;
+            if (!moved && car.kmh > 8) { moved = true; RLCore.Get().Music(MusicMood.None); }
             if (input.reset) { int i = track.Nearest(car.transform.position, idx); car.Teleport(track.PoseAt(i, 0, 0.45f)); Say("Back on track", 1.2f); lapInvalid = running; }
             if (input.biasUp || input.biasDown) { car.brakeBias = Mathf.Round(Mathf.Clamp(car.brakeBias + (input.biasUp ? 0.005f : -0.005f), 0.5f, 0.7f) * 1000f) / 1000f; Say("Brake bias " + (car.brakeBias * 100).ToString("0.0") + "% front", 1.1f); }
 
@@ -89,11 +102,12 @@ namespace RaceLimit
                     // (the delta is against the best lap driven in this session)
                     bool sessionBest = !lapInvalid && (bestTrace == null || t < bestTraceLap);
                     if (sessionBest) { bestTraceLap = t; bestTrace = (float[])curTrace.Clone(); float lastT = 0; for (int i = 0; i < bestTrace.Length; i++) { if (bestTrace[i] < 0) bestTrace[i] = lastT; else lastT = bestTrace[i]; } }
-                    if (!lapInvalid && (bestLap < 0 || t < bestLap)) { bestLap = t; PlayerPrefs.SetFloat(BestKey, t); PlayerPrefs.Save(); Say("Best lap " + Fmt(t), 3); }
+                    if (!lapInvalid && (bestLap < 0 || t < bestLap)) { bool first = bestLap < 0; bestLap = t; PlayerPrefs.SetFloat(BestKey, t); PlayerPrefs.Save(); Say((timeTrial ? "New time trial best " : "Best lap ") + Fmt(t), 3); if (!first) RLCore.Get().Sting("pole position"); }
                     else Say(lapInvalid ? "Lap deleted: track limits" : "Lap " + Fmt(t), 2.5f);
                     for (int s = 0; s < 3; s++) if (!lapInvalid && sectors[s] > 0 && (bestSectors[s] < 0 || sectors[s] < bestSectors[s])) bestSectors[s] = sectors[s];
                 }
                 else Say("Timed lap", 1.4f);
+                if (timeTrial) car.ers = car.batteryJ; // (every time-trial lap starts with a full battery)
                 running = true; lap++; lapStart = secStart = now; sector = 0; lapInvalid = false; sectors = new float[] { -1, -1, -1 }; sectorCls = new int[3];
                 for (int i = 0; i < curTrace.Length; i++) curTrace[i] = -1;
             }
@@ -107,14 +121,15 @@ namespace RaceLimit
             }
             if (!running) hasDelta = false;
             lastAlong = along;
-            // track limits: all four wheels on grass or gravel for a moment
-            if (car.offTrack && car.kmh > 30) { offT += Time.deltaTime; if (offT > 0.25f && running && !lapInvalid) { lapInvalid = true; Say("Track limits: lap deleted", 2.2f); } } else offT = 0;
             // the pit limiter, between the lines
             // (in the pit lane: between its walls, measured from the lane's own middle — the working lane by the garages too)
             float pd; bool inLane = track.InPitLane(p, out pd);
             if (inLane && Mathf.Abs(track.Lateral(p, idx)) < track.data.half - 0.3f) inLane = false; // (still on the track where the lane leaves or joins it)
             if (inLane && !onPit && !car.pitLimiter) Say("Pit lane", 1.2f);
             onPit = inLane;
+            // track limits: all four wheels on grass or gravel for a moment
+            // (not in the pit lane: its apron and the garages' forecourt aren't the track, but they aren't off it either)
+            if (car.offTrack && car.kmh > 30 && !inLane && !NearPit(p)) { offT += Time.deltaTime; if (offT > 0.25f && running && !lapInvalid) { lapInvalid = true; Say("Track limits: lap deleted", 2.2f); } } else offT = 0;
             bool lim = inLane && pd >= track.data.pitLimitFrom && pd <= track.data.pitLimitTo;
             if (lim != car.pitLimiter)
             {
@@ -122,6 +137,15 @@ namespace RaceLimit
                 if (lim) Say(car.kmh > 82 ? "Pit limiter on — you came in at " + Mathf.RoundToInt(car.kmh) + " km/h!" : "Pit limiter on · 80 km/h", 2.2f);
                 else Say("Limiter off", 1.4f);
             }
+        }
+
+        // beside the pit lane (within 14 m of its middle), anywhere along it
+        bool NearPit(Vector3 p)
+        {
+            var d = track.data; if (d == null || !d.hasPit || track.pit == null) return false;
+            float best = float.MaxValue;
+            for (int i = 0; i < track.pit.Length; i += 4) { float q = (track.pit[i] - p).sqrMagnitude; if (q < best) best = q; }
+            return best < 14f * 14f;
         }
 
         public static string Fmt(float t)

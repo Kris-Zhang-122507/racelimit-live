@@ -16,12 +16,14 @@ const b = await chromium.launch({ executablePath: process.env.CHROMIUM || "/opt/
 const p = await b.newPage({ viewport: { width: 800, height: 450 } });
 p.on("pageerror", (e) => console.log("ERR", e.message));
 await p.route("**/vendor/three/addons/exporters/GLTFExporter.js", (r) => r.fulfill({ contentType: "text/javascript", body: readFileSync(THREE_EX + "/exporters/GLTFExporter.js") }));
+await p.route("**/vendor/three/addons/utils/BufferGeometryUtils.js", (r) => r.fulfill({ contentType: "text/javascript", body: readFileSync(THREE_EX + "/utils/BufferGeometryUtils.js") }));
 await p.route("**/vendor/three/addons/utils/TextureUtils.js", (r) => r.fulfill({ contentType: "text/javascript", body: readFileSync(THREE_EX + "/utils/TextureUtils.js") }));
 await p.goto(`${BASE}race/index.html?track=${id}&place=0&speed=0&cam=chase`);
 await p.waitForFunction(() => window.__race && window.__circuit && document.getElementById("loading").hidden, null, { timeout: 240000 });
 await p.waitForTimeout(1500);
 const res = await p.evaluate(async () => {
   const THREE = await import("three"), { GLTFExporter } = await import("three/addons/exporters/GLTFExporter.js");
+  const { toCreasedNormals } = await import("three/addons/utils/BufferGeometryUtils.js");
   const { tr } = window.__race, G = window.__circuit, r2 = (v) => Math.round(v * 100) / 100, r1 = (v) => Math.round(v * 10) / 10;
   // ---- the circuit: everything visible, minus what glTF can't carry (points, sprites, lines, custom shaders) ----
   const drop = [];
@@ -42,6 +44,23 @@ const res = await p.evaluate(async () => {
   });
   for (const o of tecDrop) o.parent?.remove(o);
   G.traverse((o) => { o.userData = {}; });
+  // Hard edges: many of the web game's shapes share one vertex (and so one shading direction) between faces that
+  // meet at a sharp edge — a wall's face and its top, the sides of a box. The web game's soft lighting hides it; in
+  // Unity those edges looked rounded, like pillows. So every shape gets its shading worked out again with edges
+  // sharper than 65° kept hard.
+  // The ground itself (terrain, track, kerbs…) is left alone: it should stay smooth.
+  {
+    const done = new Map();
+    G.traverse((o) => {
+      if (!o.isMesh || !o.geometry?.attributes?.position || !o.geometry.attributes.normal) return;
+      const mat = Array.isArray(o.material) ? o.material[0] : o.material, nm = mat?.name ?? "";
+      if (nm.startsWith("rl_ground_")) return;
+      if (mat?.flatShading || o.isInstancedMesh) return; // (trees, rocks and the other repeated scenery: left as they are, faceting them would double their size in the file)
+      const key = o.geometry.uuid;
+      if (!done.has(key)) { let g; try { g = toCreasedNormals(o.geometry, (65 * Math.PI) / 180); const na = g.attributes.normal.array; for (let q = 0; q < na.length; q++) na[q] = Math.round(na[q] * 1024) / 1024; /* (rounded, so corners that share a direction are joined up again when the file is tidied) */ } catch { g = o.geometry; } done.set(key, g); }
+      o.geometry = done.get(key);
+    });
+  }
   // instanced scenery (Tecpro modules, spacers, trees…) baked into ordinary meshes, one per 150 m square, so Unity
   // gets a few hundred objects instead of tens of thousands; the busiest shapes simplified to the same size first
   const simplify = (g, mat) => {
@@ -167,7 +186,7 @@ writeFileSync(dir + slug + ".glb", Buffer.from(res.glb, "base64"));
 // (tidied with gltfpack when it's there: meshes sharing a material merged, names, materials and extras kept. NOT quantized
 // (-noq): its 14-bit positions are relative to each mesh's size, and a strip running round the whole lap came out in
 // ~0.4 m steps — a lumpy, spiky track. Spa: ~77 MB → ~59 MB)
-if (process.env.GLTFPACK) { const { execFileSync } = await import("node:child_process"); execFileSync("node", [process.env.GLTFPACK, "-i", dir + slug + ".glb", "-o", dir + slug + ".glb", "-kn", "-km", "-ke", "-noq"], { stdio: "inherit" }); }
+if (process.env.GLTFPACK) { const { execFileSync } = await import("node:child_process"); execFileSync("node", [process.env.GLTFPACK, "-i", dir + slug + ".glb", "-o", dir + slug + ".glb", ...(process.env.GLTFPACK_ARGS ? process.env.GLTFPACK_ARGS.split(" ") : ["-kn", "-km", "-ke", "-noq"])], { stdio: "inherit" }); }
 writeFileSync(dir + slug + ".track.json", res.data);
 writeFileSync(OUT + "Cars/car.glb", Buffer.from(res.car, "base64"));
 if (res.banner) { mkdirSync(OUT + "Textures", { recursive: true }); writeFileSync(OUT + "Textures/tecpro_banner.png", Buffer.from(res.banner, "base64")); }

@@ -48,6 +48,7 @@ namespace RaceLimit
         public bool reverse, deploying, harvesting, overtake, clipping, straightMode, pitLimiter;
         public bool absActive, tcActive, stabilityActive, lockFront, lockRear, wheelspin;
         public float deployW, harvestW_now;
+        [System.NonSerialized] public float rpmShown = 1f; // (older engines rev higher: what the display shows is rpm × this)
         public SurfaceKind[] wheelSurface = new SurfaceKind[4];
         public bool offTrack;
         public int wheelsDown;

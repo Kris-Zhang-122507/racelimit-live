@@ -4,8 +4,8 @@
 // start gantry and brake boards. Everything is generated, nothing is downloaded.
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
-import { addProps } from "./trackprops.js?v=mw83rpxa";
-import { prepareMap, buildMap } from "./trackworld.js?v=mw83rpxa";
+import { addProps } from "./trackprops.js?v=mwj2ar9t";
+import { prepareMap, settleWater, buildMap } from "./trackworld.js?v=mwj2ar9t";
 
 const smoothstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
@@ -393,21 +393,53 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
     const wallM = named("rl_concrete", new THREE.MeshStandardMaterial({ color: 0xE8EAEE, roughness: 0.6 })), glassM = new THREE.MeshStandardMaterial({ color: 0x223044, metalness: 0.4, roughness: 0.15 }), doorM = new THREE.MeshStandardMaterial({ color: 0x15171C, roughness: 0.8 }), roofM = new THREE.MeshStandardMaterial({ color: 0xBFC4CB, metalness: 0.4, roughness: 0.4 });
     pitInfo.garageRow = { at: [], out: [], depth, cols, len: g1 - g0, trackSide: garTrack };
     const pitAt = (j) => { let pi = 0, bd = Infinity; for (let n = 0; n < M; n++) { const q2 = Math.abs(R.mj[n] - j); if (q2 < bd) { bd = q2; pi = n; } } return pi; };
-    for (let t = 0; t < 10; t++) {
-      // each garage stands behind its stretch of the pit lane, doors facing the lane
-      const pg = pitAt(g0 + (t + 0.5) * segLen), depth = depthAt(pg), og = GS * (gDoor(pg) + depth / 2);
-      pitInfo.garageRow.at.push(pg); pitInfo.garageRow.out.push(gOut(pg));
+    // The pit building: one straight building for all ten teams (not ten separate boxes, which stepped up and down
+    // and sat at odd angles where the lane slopes or bends). It follows the lane's slope end to end. Each team has
+    // three garage doors you can see into, its name on the band above, a glazed upper floor and an overhanging roof.
+    {
+      const pgs = []; for (let t = 0; t < 10; t++) pgs.push(pitAt(g0 + (t + 0.5) * segLen));
+      const doorPt = (pg) => { const o = GS * gDoor(pg); return new THREE.Vector3(R.X[pg] + R.LX[pg] * o, R.Y[pg], R.Z[pg] + R.LZ[pg] * o); };
+      const A = doorPt(pgs[0]), B = doorPt(pgs[9]), xAxis = B.clone().sub(A), span = xAxis.length(); xAxis.normalize();
+      const pm = pgs[5], zAxis = new THREE.Vector3(-GS * R.LX[pm], 0, -GS * R.LZ[pm]); zAxis.sub(xAxis.clone().multiplyScalar(zAxis.dot(xAxis))).normalize();
+      const yAxis = new THREE.Vector3().crossVectors(zAxis, xAxis).normalize(); let dir = 1;
+      if (yAxis.y < 0) { xAxis.negate(); yAxis.negate(); dir = -1; } // (keep it the right way up: then the row runs the other way along x)
+      const seg = span / 9, Lrow = seg * 10, depth = Math.min(...pgs.map(depthAt)), H = 9.6, DH = 4.3;
       const g = new THREE.Group();
-      const body = new THREE.Mesh(new THREE.BoxGeometry(segLen + 0.2, 11, depth), wallM); body.position.y = 5.5; g.add(body);
-      const door = new THREE.Mesh(new THREE.PlaneGeometry(segLen - 4, 5), doorM); door.position.set(0, 2.6, depth / 2 + 0.01); g.add(door);
-      const glass = new THREE.Mesh(new THREE.PlaneGeometry(segLen, 2.6), glassM); glass.position.set(0, 8.2, depth / 2 + 0.02); g.add(glass);
-      const sign = new THREE.Mesh(new THREE.PlaneGeometry(segLen - 4, 1.4), new THREE.MeshBasicMaterial({ map: tex(canvas(512, 64, (cg, w, h) => { cg.fillStyle = "#16181D"; cg.fillRect(0, 0, w, h); cg.fillStyle = cols[t]; cg.fillRect(0, h - 6, w, 6); cg.fillStyle = "#F2F2F2"; cg.font = "700 40px BC, sans-serif"; cg.textAlign = "center"; cg.textBaseline = "middle"; cg.fillText(teams[t], w / 2, h / 2 - 2); })) }));
-      sign.position.set(0, 5.9, depth / 2 + 0.03); g.add(sign);
-      const roof = new THREE.Mesh(new THREE.BoxGeometry(segLen + 0.4, 0.5, depth + 3), roofM); roof.position.set(0, 11.2, 1); g.add(roof);
-      g.position.set(R.X[pg] + R.LX[pg] * og, R.Y[pg], R.Z[pg] + R.LZ[pg] * og);
-      g.lookAt(R.X[pg], R.Y[pg], R.Z[pg]); // +z of the group (the doors) faces the lane
-      g.traverse((m) => { if (m.isMesh) { m.castShadow = m !== sign; m.receiveShadow = true; } });
+      const rep = (t, n) => { t.repeat.set(Math.max(1, n), 1); return t; };
+      const add = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); g.add(m); return m; };
+      const pillarM = new THREE.MeshStandardMaterial({ color: 0xF4F5F7, roughness: 0.55 }), bandM = new THREE.MeshStandardMaterial({ color: 0x16181D, roughness: 0.7 }), edgeM = new THREE.MeshStandardMaterial({ color: 0x2A2E36, roughness: 0.5, metalness: 0.3 });
+      add(new THREE.BoxGeometry(Lrow + 3, H + 0.8, depth), wallM, 0, H / 2 - 0.4, -depth / 2);                       // the building
+      add(new THREE.BoxGeometry(Lrow + 3.1, 1.5, 0.25), bandM, 0, DH + 0.95, 0.1);                                   // the band the names are on
+      add(new THREE.PlaneGeometry(Lrow + 3, 2.5), new THREE.MeshStandardMaterial({ map: rep(tex(canvas(1024, 64, (cg, w, h) => { cg.fillStyle = "#1B2738"; cg.fillRect(0, 0, w, h); const gr = cg.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, "rgba(150,190,230,0.55)"); gr.addColorStop(1, "rgba(40,60,90,0.15)"); cg.fillStyle = gr; cg.fillRect(0, 0, w, h); cg.fillStyle = "#E9EBEF"; for (let x = 0; x < w; x += 32) cg.fillRect(x, 0, 3, h); cg.fillRect(0, 0, w, 4); cg.fillRect(0, h - 4, w, 4); })), Math.round(Lrow / 40)), metalness: 0.35, roughness: 0.2 }), 0, DH + 3.1, 0.03); // glazed upper floor
+      add(new THREE.BoxGeometry(Lrow + 5, 0.35, depth + 5.5), roofM, 0, H + 0.55, -depth / 2 + 2.6);                  // the roof, over the working lane
+      add(new THREE.BoxGeometry(Lrow + 5.1, 0.6, 0.3), edgeM, 0, H + 0.45, 5.3);                                     // its front edge
+      for (let t = 0; t < 10; t++) {
+        const x0 = dir * (t - 4.5) * seg, dw = (seg - 1.6) / 3;
+        // three doors per team: inside is lit, with the team's colour on the back wall
+        add(new THREE.PlaneGeometry(seg - 1.0, DH), new THREE.MeshBasicMaterial({ map: tex(canvas(768, 192, (cg, w, h) => {
+          cg.fillStyle = "#F4F5F7"; cg.fillRect(0, 0, w, h);
+          for (let d = 0; d < 3; d++) {
+            const x = w * (0.012 + d * 0.335), ww = w * 0.306;
+            const gr = cg.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, "#0B0D11"); gr.addColorStop(0.55, "#1A1E26"); gr.addColorStop(1, "#3A404B"); cg.fillStyle = gr; cg.fillRect(x, 0, ww, h);
+            cg.fillStyle = "rgba(255,255,255,0.75)"; cg.fillRect(x + ww * 0.08, h * 0.07, ww * 0.84, 5);                       // a strip light
+            cg.fillStyle = cols[t]; cg.globalAlpha = 0.85; cg.fillRect(x + ww * 0.06, h * 0.26, ww * 0.88, h * 0.3); cg.globalAlpha = 1; // back wall panel
+            cg.fillStyle = "rgba(10,12,16,0.8)"; for (let m = 0; m < 4; m++) cg.fillRect(x + ww * (0.12 + m * 0.2), h * 0.32, ww * 0.15, h * 0.16); // screens
+            cg.fillStyle = "#C9CDD4"; cg.fillRect(x, h * 0.86, ww, h * 0.14);                                                   // the floor
+            cg.fillStyle = cols[t]; cg.fillRect(x, h * 0.86, ww, 4);
+          }
+        })) }), x0, DH / 2, 0.02);
+        for (let d = 0; d <= 3; d++) add(new THREE.BoxGeometry(d === 0 || d === 3 ? 0.9 : 0.45, DH + 0.2, 0.5), pillarM, x0 - seg / 2 + 0.5 + (d === 0 ? 0 : d === 3 ? seg - 1.0 : 0.29 + d * (dw + 0.21)), DH / 2, 0.2);
+        const sign = add(new THREE.PlaneGeometry(seg - 4, 1.2), new THREE.MeshBasicMaterial({ map: tex(canvas(512, 64, (cg, w, h) => { cg.fillStyle = "#16181D"; cg.fillRect(0, 0, w, h); cg.fillStyle = cols[t]; cg.fillRect(0, h - 6, w, 6); cg.fillStyle = "#F2F2F2"; cg.font = "700 40px BC, sans-serif"; cg.textAlign = "center"; cg.textBaseline = "middle"; cg.fillText(teams[t], w / 2, h / 2 - 2); })) }), x0, DH + 0.95, 0.24);
+        sign.userData.sign = true;
+        pitInfo.garageRow.at.push(pgs[t]); pitInfo.garageRow.out.push(gOut(pgs[t]));
+      }
+      const mid = A.clone().add(B).multiplyScalar(0.5);
+      g.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(xAxis, yAxis, zAxis)); g.position.copy(mid);
+      g.traverse((m) => { if (m.isMesh) { m.castShadow = !m.userData.sign; m.receiveShadow = true; } });
       group.add(g);
+    }
+    for (let t = 0; t < 10; t++) {
+      const pg = pitAt(g0 + (t + 0.5) * segLen);
       // the pit box: a painted rectangle in the working lane in front of the garage
       const pi = pg;
       const bo = GS * (R.hw[pi] + (gDoor(pi) - R.hw[pi]) * 0.45), bx = R.X[pi] + R.LX[pi] * bo, bz = R.Z[pi] + R.LZ[pi] * bo;
@@ -432,13 +464,37 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
   let terrainH = null; // the terrain mesh's heights once it's built (carved under the roads), see below
   const groundAt = (x, z) => { const g = groundRaw(x, z); if (terrainH) { const t = terrainH(x, z); if (t != null && t < g.h) g.h = t; } return g; };
   const groundRaw = (x, z) => {
-    const n = tr.nearestGlobal(x, z, 3);
+    let n = tr.nearestGlobal(x, z, 3);
+    // (that only looks about 75 m round; the ground keeps some of the track's height out to 185 m or so, and where the
+    // search stopped short it jumped straight to the far hills' height: straight-edged cliffs up to 30 m tall all
+    // round the circuit. So further out, the nearest of the 6 m samples, then the points round it.)
+    if (n.i < 0 || n.d2 > 60 * 60) {
+      let bq = -1, bd = Infinity; for (let q = 0; q < gS.length; q++) { const j = gS[q], dd = (X[j] - x) ** 2 + (Z[j] - z) ** 2; if (dd < bd) { bd = dd; bq = j; } }
+      for (let j = Math.max(0, bq - 5); j <= Math.min(N - 1, bq + 5); j++) { const dd = (X[j] - x) ** 2 + (Z[j] - z) ** 2; if (dd < bd) { bd = dd; bq = j; } }
+      n = { i: bd < 260 * 260 ? bq : -1, d2: bd };
+    }
     if (n.i < 0) return { h: coarseAt(x, z) + hills(x, z), d: 999 };
     const i = n.i, d = Math.sqrt(n.d2), lat = (x - X[i]) * LX[i] + (z - Z[i]) * LZ[i], k = lat >= 0 ? 0 : 1;
     let flat = W[k][i] + 3; if (pit && k === pit.k && WT[k][i] === 2) flat = pit.laneOut + 26;
     const far = coarseAt(x, z) + hills(x, z), t = smoothstep(flat, flat + 160, d);
-    return { h: (hAt(i, lat) - 0.3) * (1 - t) + far * t, d, flat };
+    if (d <= flat || t >= 1) return { h: (hAt(i, lat) - 0.3) * (1 - t) + far * t, d, flat };
+    // Beyond the verge the ground takes its height from every part of the track nearby, the closer the more — not
+    // just from the nearest one. With the nearest alone, half way between two parts of the lap at different heights
+    // (Spa's hillside between Les Combes and Bruxelles: 30 m apart in height) the ground jumped from one to the
+    // other in a sheer cliff, a "huge drop in the grass". Now it slopes from one to the other.
+    // (each sample of the track says what the ground here would be if it were the only track near — its own height
+    // close by, the far hills' beyond 160 m — and they're averaged, the closer the sample the more it counts)
+    let ws = 0, hs = 0;
+    for (let q = 0; q < gS.length; q++) {
+      const j = gS[q], dx = x - X[j], dz = z - Z[j], dj = Math.sqrt(dx * dx + dz * dz), fj = (dx * LX[j] + dz * LZ[j] >= 0 ? gF0[q] : gF1[q]), tj = smoothstep(fj, fj + 160, dj);
+      const e = Math.max(0, dj - fj), w = 1 / (e * e * e + 8);
+      ws += w; hs += w * ((Y[j] - 0.3) * (1 - tj) + far * tj);
+    }
+    return { h: hs / ws, d, flat };
   };
+  // (the track sampled every 6 m for that, with how far the flat ground reaches on each side)
+  const gS = [], gF0 = [], gF1 = [];
+  for (let j = 0; j < N; j += 6) { gS.push(j); for (const [k, arr] of [[0, gF0], [1, gF1]]) arr.push(pit && k === pit.k && WT[k][j] === 2 ? pit.laneOut + 26 : W[k][j] + 3); }
   {
     const STEP = 8, nx = Math.ceil((maxX - minX) / STEP), nz = Math.ceil((maxZ - minZ) / STEP);
     const g = new THREE.PlaneGeometry(nx * STEP, nz * STEP, nx, nz); g.rotateX(-Math.PI / 2);
@@ -450,6 +506,7 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
     const carve = (x, z, hs) => { const fx = (x - x0) / STEP, fz = (z - z0) / STEP, ix = Math.floor(fx), iz = Math.floor(fz); if (ix < 0 || iz < 0 || ix >= nx || iz >= nz) return; for (const [a, b] of [[0, 0], [1, 0], [0, 1], [1, 1]]) { const k = (iz + b) * (nx + 1) + ix + a; if (H[k] > hs) H[k] = hs; } };
     for (let i = 0; i < N; i += 2) for (const s of [1, -1]) { const k = sideK(s), lim = W[k][i] + 6; for (let o = 0; o <= lim; o += 2.5) { const oo = s * Math.min(o, lim); carve(X[i] + LX[i] * oo, Z[i] + LZ[i] * oo, hAt(i, oo) - 0.4); } }
     if (tr.pitRoad) { const R = tr.pitRoad; for (let i = 0; i < R.N; i += 2) { const out = Math.max(R.wall[0][i] === 40 ? R.hw[i] : R.wall[0][i], R.wall[1][i] === 40 ? R.hw[i] : R.wall[1][i]) + 4; for (let o = -out; o <= out; o += 2.5) carve(R.X[i] + R.LX[i] * o, R.Z[i] + R.LZ[i] * o, R.Y[i] - 0.4); } }
+    settleWater(tr, (x, z) => groundRaw(x, z).h); // (ponds and lakes: their level, and the ground under them)
     for (const c of tr.carveExtra ?? []) carve(c[0], c[1], c[2]); // (water and the like, see trackprops)
     terrainH = (x, z) => { const fx = (x - x0) / STEP, fz = (z - z0) / STEP, ix = Math.floor(fx), iz = Math.floor(fz); if (ix < 0 || iz < 0 || ix >= nx || iz >= nz) return null; const tx = fx - ix, tz = fz - iz, a = H[iz * (nx + 1) + ix], b = H[iz * (nx + 1) + ix + 1], c = H[(iz + 1) * (nx + 1) + ix], d = H[(iz + 1) * (nx + 1) + ix + 1]; return Math.max(a, b, c, d) === Math.min(a, b, c, d) ? a : a + (b - a) * tx + (c - a) * tz + (a - b - c + d) * tx * tz; };
     tr.terrain = { H, x0, z0, nx, nz, STEP };

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEditor;
@@ -61,6 +62,57 @@ namespace RaceLimit.EditorTools
         [MenuItem("RaceLimit/Build Spa scene", priority = 1)]
         public static void BuildSpa() { Build("spa-francorchamps", "Spa"); }
 
+        // every circuit exported from the web game: folder in Tracks/, and the scene's name
+        public static readonly string[,] Circuits = { { "melbourne", "Melbourne" }, { "shanghai", "Shanghai" }, { "suzuka", "Suzuka" }, { "miami", "Miami" }, { "montreal", "Montreal" }, { "monte-carlo", "Monaco" }, { "catalunya", "Barcelona" }, { "spielberg", "Spielberg" }, { "silverstone", "Silverstone" }, { "spa-francorchamps", "Spa" }, { "hungaroring", "Hungaroring" }, { "zandvoort", "Zandvoort" }, { "monza", "Monza" }, { "madring", "Madrid" }, { "baku", "Baku" }, { "kuala-lumpur", "Sepang" }, { "singapore", "Singapore" }, { "austin", "Austin" }, { "mexico-city", "Mexico City" }, { "interlagos", "Sao Paulo" }, { "las-vegas", "Las Vegas" }, { "lusail", "Lusail" }, { "yas-marina-circuit", "Abu Dhabi" }, { "sakhir", "Bahrain" }, { "jeddah", "Jeddah" } };
+
+        [MenuItem("RaceLimit/Build all circuits", priority = 3)]
+        public static void BuildAll()
+        {
+            if (!HasGltfast()) { Build("spa-francorchamps", "Spa"); return; } // (asks to install glTFast)
+            int n = Circuits.GetLength(0);
+            if (!EditorUtility.DisplayDialog("RaceLimit", "Build a scene for each of the " + n + " circuits?\n\nThe first time, Unity has to import every circuit's model (20 to 70 MB each), which can take a few minutes per circuit, and the project's Library folder grows by a few GB. You can cancel part-way and carry on later: circuits already built are kept. To try just one first, use RaceLimit > Build one circuit.", "Build them all", "Cancel")) return;
+            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
+            int done = 0; var missing = new List<string>();
+            try
+            {
+                for (int i = 0; i < n; i++)
+                {
+                    if (EditorUtility.DisplayCancelableProgressBar("RaceLimit · building all circuits", Circuits[i, 1] + " (" + (i + 1) + " of " + n + ")", i / (float)n)) break;
+                    if (BuildScene(Circuits[i, 0], Circuits[i, 1], false)) done++; else missing.Add(Circuits[i, 1]);
+                }
+            }
+            finally { EditorUtility.ClearProgressBar(); }
+            BuildMenu();
+            EditorSceneManager.OpenScene(OUT + "/Scenes/" + RaceSettings.MenuScene + ".unity");
+            Debug.Log("RaceLimit: built " + done + " circuits" + (missing.Count > 0 ? "; couldn't build: " + string.Join(", ", missing.ToArray()) : "") + ". The main menu is open: press Play.");
+        }
+
+        [MenuItem("RaceLimit/Build one circuit/01 Melbourne", priority = 40)] static void B0() { Build("melbourne", "Melbourne"); }
+        [MenuItem("RaceLimit/Build one circuit/02 Shanghai", priority = 41)] static void B1() { Build("shanghai", "Shanghai"); }
+        [MenuItem("RaceLimit/Build one circuit/03 Suzuka", priority = 42)] static void B2() { Build("suzuka", "Suzuka"); }
+        [MenuItem("RaceLimit/Build one circuit/04 Miami", priority = 43)] static void B3() { Build("miami", "Miami"); }
+        [MenuItem("RaceLimit/Build one circuit/05 Montreal", priority = 44)] static void B4() { Build("montreal", "Montreal"); }
+        [MenuItem("RaceLimit/Build one circuit/06 Monaco", priority = 45)] static void B5() { Build("monte-carlo", "Monaco"); }
+        [MenuItem("RaceLimit/Build one circuit/07 Barcelona", priority = 46)] static void B6() { Build("catalunya", "Barcelona"); }
+        [MenuItem("RaceLimit/Build one circuit/08 Spielberg", priority = 47)] static void B7() { Build("spielberg", "Spielberg"); }
+        [MenuItem("RaceLimit/Build one circuit/09 Silverstone", priority = 48)] static void B8() { Build("silverstone", "Silverstone"); }
+        [MenuItem("RaceLimit/Build one circuit/10 Spa", priority = 49)] static void B9() { Build("spa-francorchamps", "Spa"); }
+        [MenuItem("RaceLimit/Build one circuit/11 Hungaroring", priority = 50)] static void B10() { Build("hungaroring", "Hungaroring"); }
+        [MenuItem("RaceLimit/Build one circuit/12 Zandvoort", priority = 51)] static void B11() { Build("zandvoort", "Zandvoort"); }
+        [MenuItem("RaceLimit/Build one circuit/13 Monza", priority = 52)] static void B12() { Build("monza", "Monza"); }
+        [MenuItem("RaceLimit/Build one circuit/14 Madrid", priority = 53)] static void B13() { Build("madring", "Madrid"); }
+        [MenuItem("RaceLimit/Build one circuit/15 Baku", priority = 54)] static void B14() { Build("baku", "Baku"); }
+        [MenuItem("RaceLimit/Build one circuit/16 Sepang", priority = 55)] static void B15() { Build("kuala-lumpur", "Sepang"); }
+        [MenuItem("RaceLimit/Build one circuit/17 Singapore", priority = 56)] static void B16() { Build("singapore", "Singapore"); }
+        [MenuItem("RaceLimit/Build one circuit/18 Austin", priority = 57)] static void B17() { Build("austin", "Austin"); }
+        [MenuItem("RaceLimit/Build one circuit/19 Mexico City", priority = 58)] static void B18() { Build("mexico-city", "Mexico City"); }
+        [MenuItem("RaceLimit/Build one circuit/20 Sao Paulo", priority = 59)] static void B19() { Build("interlagos", "Sao Paulo"); }
+        [MenuItem("RaceLimit/Build one circuit/21 Las Vegas", priority = 60)] static void B20() { Build("las-vegas", "Las Vegas"); }
+        [MenuItem("RaceLimit/Build one circuit/22 Lusail", priority = 61)] static void B21() { Build("lusail", "Lusail"); }
+        [MenuItem("RaceLimit/Build one circuit/23 Abu Dhabi", priority = 62)] static void B22() { Build("yas-marina-circuit", "Abu Dhabi"); }
+        [MenuItem("RaceLimit/Build one circuit/24 Bahrain", priority = 63)] static void B23() { Build("sakhir", "Bahrain"); }
+        [MenuItem("RaceLimit/Build one circuit/25 Jeddah", priority = 64)] static void B24() { Build("jeddah", "Jeddah"); }
+
         [MenuItem("RaceLimit/Build main menu", priority = 2)]
         public static void BuildMenuItem() { if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) { BuildMenu(); } }
 
@@ -72,36 +124,65 @@ namespace RaceLimit.EditorTools
                 return;
             }
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
+            try
+            {
+                EditorUtility.DisplayProgressBar("RaceLimit", "Building the " + sceneName + " scene…", 0.1f);
+                if (!BuildScene(slug, sceneName, true)) return;
+                // (the menu is made again every time, so it always has the latest screens and every era's car)
+                BuildMenu(sceneName);
+            }
+            finally { EditorUtility.ClearProgressBar(); }
+        }
+
+        // one circuit's scene; false if its files couldn't be loaded
+        static bool BuildScene(string slug, string sceneName, bool tell)
+        {
             string dir = PKG + "/Tracks/" + slug + "/", glbPath = dir + slug + ".glb";
             var trackAsset = LoadModel(glbPath);
             var json = AssetDatabase.LoadAssetAtPath<TextAsset>(dir + slug + ".track.json");
             if (trackAsset == null || json == null || CarAsset() == null)
             {
-                EditorUtility.DisplayDialog("RaceLimit", "Couldn't load " + (trackAsset == null ? glbPath : json == null ? dir + slug + ".track.json" : PKG + "/Cars/car.glb") + ". Check the Console for import errors.", "OK");
-                return;
+                string what = "Couldn't load " + (trackAsset == null ? glbPath : json == null ? dir + slug + ".track.json" : PKG + "/Cars/car_2026.glb") + ". Check the Console for import errors.";
+                if (tell) EditorUtility.DisplayDialog("RaceLimit", what, "OK"); else Debug.LogWarning("RaceLimit: " + what);
+                return false;
             }
-            try
-            {
-                EditorUtility.DisplayProgressBar("RaceLimit", "Building the " + sceneName + " scene…", 0.1f);
-                var scene = NewScene();
-                // ---- the circuit ----
-                var track = (GameObject)PrefabUtility.InstantiatePrefab(trackAsset);
-                track.name = "Track · " + sceneName;
-                // (colliders are added by TrackInfo each time the game starts, so a re-exported model can't leave the track hollow;
-                // and no static batching: it swaps each piece's mesh for one combined mesh, which the colliders can't use)
-                var info = track.AddComponent<TrackInfo>(); info.trackJson = json; info.model = track.transform;
-                info.Load();
-                EditorUtility.DisplayProgressBar("RaceLimit", "Sun, sky and car…", 0.6f);
-                AddGame(info);
-                SaveAndList(scene, sceneName, info, false);
-                if (!MenuExists()) BuildMenu(sceneName);
-            }
-            finally { EditorUtility.ClearProgressBar(); }
+            var scene = NewScene();
+            // ---- the circuit ----
+            var track = (GameObject)PrefabUtility.InstantiatePrefab(trackAsset);
+            track.name = "Track · " + sceneName;
+            // (colliders are added by TrackInfo each time the game starts, so a re-exported model can't leave the track hollow;
+            // and no static batching: it swaps each piece's mesh for one combined mesh, which the colliders can't use)
+            var info = track.AddComponent<TrackInfo>(); info.trackJson = json; info.model = track.transform;
+            info.Load();
+            AddGame(info);
+            SaveAndList(scene, sceneName, info, false);
+            MusicFolder();
+            return true;
+        }
+
+        // where the music exported from MuseScore goes (see RLCore)
+        static void MusicFolder()
+        {
+            string dir = OUT + "/Resources/RL_Music"; if (Directory.Exists(dir)) return;
+            Directory.CreateDirectory(dir);
+            File.WriteAllText(dir + "/Put the music here.txt", "Put the audio exported from MuseScore here (File > Export > MP3 or OGG).\nThe game finds each piece by words in its file name, so the names MuseScore gives them work as they are:\n  Main Theme, Full Throttle, Dusk   the main menu's three songs, taking turns\n  Garage, Loading, Formation (or Starting Grid), Pause, Replay, Podium\n  Win Sting, Pole Position, Race Finish, Retired\nThere is no music while driving.\n");
+            AssetDatabase.ImportAsset(dir + "/Put the music here.txt");
         }
 
         // ---- the pieces every scene shares ----
 
-        public static GameObject CarAsset() { return LoadModel(PKG + "/Cars/car.glb"); }
+        public static readonly int[] EraYears = { 1998, 2009, 2014, 2017, 2022, 2026 };
+        public static GameObject EraAsset(int year) { return LoadModel(PKG + "/Cars/car_" + year + ".glb"); }
+        public static GameObject CarAsset() { return EraAsset(2026) ?? LoadModel(PKG + "/Cars/car.glb"); }
+        // the chosen era's model and the team's colours go on at the start of a session (or in the menu)
+        static CarGarage AddGarage(GameObject root, bool performance)
+        {
+            var g = root.AddComponent<CarGarage>(); g.applyPerformance = performance;
+            var models = new List<GameObject>(); var years = new List<int>();
+            foreach (int y in EraYears) { var m = EraAsset(y); if (m != null) { models.Add(m); years.Add(y); } }
+            g.eraModels = models.ToArray(); g.eraYears = years.ToArray();
+            return g;
+        }
 
         // an empty scene with the sun, the sky and the lighting
         public static Scene NewScene()
@@ -130,6 +211,7 @@ namespace RaceLimit.EditorTools
         {
             var carRoot = new GameObject("PlayerCar");
             var model = (GameObject)PrefabUtility.InstantiatePrefab(CarAsset()); model.transform.SetParent(carRoot.transform, false);
+            model.name = CarGarage.ModelName;
             // (the car should face +Z: if the importer turned it round, turn it back)
             float zf = 0, zr = 0;
             foreach (var t in model.GetComponentsInChildren<Transform>(true)) { if (t.name.StartsWith("RL_Wheel_F")) zf += t.position.z; else if (t.name.StartsWith("RL_Wheel_R")) zr += t.position.z; }
@@ -137,6 +219,7 @@ namespace RaceLimit.EditorTools
             carRoot.AddComponent<Rigidbody>();
             var box = carRoot.AddComponent<BoxCollider>(); box.center = new Vector3(0, 0.62f, 0.1f); box.size = new Vector3(1.8f, 0.5f, 5.2f);
             var car = carRoot.AddComponent<RaceCar>();
+            AddGarage(carRoot, true);
             SetLayer(carRoot, 2); // (Ignore Raycast: the wheels' rays don't hit the car itself)
             var grid = info.PoseAt(-40, info.data.half * 0.4f, 0.45f);
             carRoot.transform.SetPositionAndRotation(grid.position, grid.rotation);
@@ -207,6 +290,7 @@ namespace RaceLimit.EditorTools
             floor.GetComponent<Renderer>().sharedMaterial = SaveMat(TrackMaterials.Lit(new Color(0.07f, 0.075f, 0.09f), 0.75f), "RL_StudioFloor");
             var turntable = new GameObject("Turntable");
             var car = (GameObject)PrefabUtility.InstantiatePrefab(carAsset); car.transform.SetParent(turntable.transform, false);
+            car.name = CarGarage.ModelName;
             float zf = 0, zr = 0;
             foreach (var t in car.GetComponentsInChildren<Transform>(true)) { if (t.name.StartsWith("RL_Wheel_F")) zf += t.position.z; else if (t.name.StartsWith("RL_Wheel_R")) zr += t.position.z; }
             if (zf < zr) car.transform.localRotation = Quaternion.Euler(0, 180, 0);
@@ -226,6 +310,7 @@ namespace RaceLimit.EditorTools
             sc.clearFlags = CameraClearFlags.SolidColor; sc.backgroundColor = new Color(0.043f, 0.05f, 0.07f); sc.cullingMask = 0; sc.depth = 10; screenGo.AddComponent<AudioListener>();
             var menu = new GameObject("RaceLimit Menu").AddComponent<MainMenu>();
             menu.studioCamera = studio; menu.turntable = turntable.transform;
+            menu.garage = AddGarage(turntable, false);
             menu.barlow500 = LoadFont("Barlow_500Medium"); menu.barlow600 = LoadFont("Barlow_600SemiBold"); menu.barlow700 = LoadFont("Barlow_700Bold"); menu.barlowCondensed700 = LoadFont("BarlowCondensed_700Bold"); menu.jetBrainsMono600 = LoadFont("JetBrainsMono_600SemiBold");
             string path = OUT + "/Scenes/" + RaceSettings.MenuScene + ".unity";
             EditorSceneManager.SaveScene(scene, path);
