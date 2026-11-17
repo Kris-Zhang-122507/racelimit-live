@@ -29,6 +29,8 @@ namespace RaceLimit
         public bool timeTrial; public int era = 2026;
         string BestKey { get { return RaceSettings.BestKey(track && track.data != null ? track.data.slug : "track", era, timeTrial); } }
         bool moved; // (the grid music plays until the car first moves off)
+        [System.NonSerialized] public RaceDirector race; // (a race: the grid, the other cars, the order and the penalties)
+        bool offCounted;
 
         void Start()
         {
@@ -43,7 +45,13 @@ namespace RaceLimit
             bestLap = PlayerPrefs.GetFloat(BestKey, -1);
             var core = RLCore.Get(); core.ApplyGraphics();
             RLDayNight.Apply(track.data != null ? track.data.slug : "", RaceSettings.TimeOfDay);
-            if (hotLap)
+            if (RaceSettings.Session == 3 && RaceSettings.FromMenu)
+            {
+                // a race: the director puts everyone on the grid and runs the lights
+                race = gameObject.AddComponent<RaceDirector>(); race.Setup(this);
+                core.Music(MusicMood.Grid);
+            }
+            else if (hotLap)
             {
                 // hot laps and time trials: rolling, 350 m before the line at 200 km/h
                 car.Teleport(track.PoseAt(-350, 0, 0.45f));
@@ -103,10 +111,10 @@ namespace RaceLimit
                     bool sessionBest = !lapInvalid && (bestTrace == null || t < bestTraceLap);
                     if (sessionBest) { bestTraceLap = t; bestTrace = (float[])curTrace.Clone(); float lastT = 0; for (int i = 0; i < bestTrace.Length; i++) { if (bestTrace[i] < 0) bestTrace[i] = lastT; else lastT = bestTrace[i]; } }
                     if (!lapInvalid && (bestLap < 0 || t < bestLap)) { bool first = bestLap < 0; bestLap = t; PlayerPrefs.SetFloat(BestKey, t); PlayerPrefs.Save(); Say((timeTrial ? "New time trial best " : "Best lap ") + Fmt(t), 3); if (!first) RLCore.Get().Sting("pole position"); }
-                    else Say(lapInvalid ? "Lap deleted: track limits" : "Lap " + Fmt(t), 2.5f);
+                    else if (race == null) Say(lapInvalid ? "Lap deleted: track limits" : "Lap " + Fmt(t), 2.5f);
                     for (int s = 0; s < 3; s++) if (!lapInvalid && sectors[s] > 0 && (bestSectors[s] < 0 || sectors[s] < bestSectors[s])) bestSectors[s] = sectors[s];
                 }
-                else Say("Timed lap", 1.4f);
+                else if (race == null) Say("Timed lap", 1.4f);
                 if (timeTrial) car.ers = car.batteryJ; // (every time-trial lap starts with a full battery)
                 running = true; lap++; lapStart = secStart = now; sector = 0; lapInvalid = false; sectors = new float[] { -1, -1, -1 }; sectorCls = new int[3];
                 for (int i = 0; i < curTrace.Length; i++) curTrace[i] = -1;
@@ -129,7 +137,7 @@ namespace RaceLimit
             onPit = inLane;
             // track limits: all four wheels on grass or gravel for a moment
             // (not in the pit lane: its apron and the garages' forecourt aren't the track, but they aren't off it either)
-            if (car.offTrack && car.kmh > 30 && !inLane && !NearPit(p)) { offT += Time.deltaTime; if (offT > 0.25f && running && !lapInvalid) { lapInvalid = true; Say("Track limits: lap deleted", 2.2f); } } else offT = 0;
+            if (car.offTrack && car.kmh > 30 && !inLane && !NearPit(p)) { offT += Time.deltaTime; if (offT > 0.25f && race != null && !offCounted) { offCounted = true; race.TrackLimits(); if (running) lapInvalid = true; } else if (offT > 0.25f && race == null && running && !lapInvalid) { lapInvalid = true; Say("Track limits: lap deleted", 2.2f); } } else { offT = 0; offCounted = false; }
             bool lim = inLane && pd >= track.data.pitLimitFrom && pd <= track.data.pitLimitTo;
             if (lim != car.pitLimiter)
             {

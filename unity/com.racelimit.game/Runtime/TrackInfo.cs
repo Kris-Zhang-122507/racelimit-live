@@ -32,6 +32,7 @@ namespace RaceLimit
             public float[] pitWallL, pitWallR;       // the pit lane's walls either side of its middle (40 = open)
             public WallRun[] walls;
             public float carEyeZ, wheelRadius;
+            public float[] line, vline;              // the racing line (metres left of the centre line) and the speed carried along it (m/s): for the other cars in a race
         }
 
         public TextAsset trackJson;

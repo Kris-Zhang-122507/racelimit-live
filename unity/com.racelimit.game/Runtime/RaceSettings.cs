@@ -12,7 +12,11 @@ namespace RaceLimit
         static void I_(string k, int v) { PlayerPrefs.SetInt("RaceLimit." + k, v); }
 
         public static int Assists { get { return I("assists", 0); } set { I_("assists", value); } }   // 0 lots, 1 some, 2 none
-        public static int Session { get { return I("session", 0); } set { I_("session", value); } }   // 0 practice, 1 hot laps, 2 time trial
+        public static int Session { get { return I("session", 0); } set { I_("session", value); } }   // 0 practice, 1 hot laps, 2 time trial, 3 race
+        public static int RaceLaps { get { return I("raceLaps", 1); } set { I_("raceLaps", value); } }   // 0: 3 laps, 1: 5, 2: 10, 3: a quarter of the real distance, 4: all of it
+        public static int AiLevel { get { return I("aiLevel", 1); } set { I_("aiLevel", value); } }     // 0 easy … 3 expert
+        public static int GridStart { get { return I("gridStart", 1); } set { I_("gridStart", value); } } // 0 pole, 1 the middle, 2 the back
+        public static int GridSize { get { return I("gridSize", 0); } set { I_("gridSize", value); } }   // 0: 10 cars, 1: 20
         public static int HudSize { get { return I("hudSize", 0); } set { I_("hudSize", value); } }   // 0 normal, 1 large, 2 extra large
         public static bool AutoGears { get { return I("autoGears", 1) == 1; } set { I_("autoGears", value ? 1 : 0); } }
         public static bool FullHud { get { return I("fullHud", 1) == 1; } set { I_("fullHud", value ? 1 : 0); } }
@@ -40,7 +44,9 @@ namespace RaceLimit
             "High: full size, shadows far out, 4× smoothing. For a graphics card.",
         };
 
-        public static string SessionName(int s) { return s == 1 ? "Hot laps" : s == 2 ? "Time trial" : "Practice"; }
+        public static readonly string[] LevelNames = { "Easy", "Medium", "Hard", "Expert" };
+        public static int LapsFor(int option, int fullLaps) { return option == 0 ? 3 : option == 1 ? 5 : option == 2 ? 10 : option == 3 ? Mathf.Max(3, Mathf.RoundToInt(fullLaps / 4f)) : Mathf.Max(3, fullLaps); }
+        public static string SessionName(int s) { return s == 1 ? "Hot laps" : s == 2 ? "Time trial" : s == 3 ? "Race" : "Practice"; }
 
         // the best lap, kept for each circuit and each era of car (time trials and everything else separately)
         public static string BestKey(string slug, int era, bool timeTrial) { return "RaceLimit.best." + slug + "." + era + (timeTrial ? ".tt" : ""); }

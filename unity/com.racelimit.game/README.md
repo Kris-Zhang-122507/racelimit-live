@@ -25,6 +25,23 @@ build at least one again so the main menu and the car are made afresh: they are 
 - Mouse, keyboard (arrows, Enter, Esc) or a controller (d-pad or stick, A, B) work in every menu. Everything you choose is saved.
 - Esc in a session: carry on, start again, assists, music, or back to the menu.
 
+## Racing
+
+Pick **Race** on the race weekend screen (or the Race card on the main menu), then:
+
+- **Race length:** 3, 5 or 10 laps, a quarter of the real distance, or all of it.
+- **Other drivers:** Easy, Medium, Hard or Expert.
+- **Cars:** 10 or 20 on the grid (10 is kinder to laptop graphics). **You start** from pole, the middle or the back.
+
+Five red lights come on one at a time, then all go out: go. Moving before that is a jump start (5 seconds). Running wide
+with all four wheels gets three warnings, then 5 seconds each time. Ramming the car in front costs 5 seconds. A blue
+flag means a car a lap ahead is behind you. The order is down the left; the results table comes up at the end.
+
+The other cars follow the racing line that comes with each circuit, pass each other and you, and go round a stopped car.
+They are solid but don't run the full physics. Not here yet: formation lap, safety car, pit stops, rain.
+
+`scripts/unity/racesim/racesim.py` runs the same driving rules outside Unity (lap times, passes, cars touching).
+
 ## Music
 Export the pieces in `designs/race/music/` from MuseScore (File → Export → MP3 or OGG) and put the files in your Unity project's
 `Assets/RaceLimit/Resources/RL_Music/` folder (made the first time you build a circuit). The game finds each by words in its file

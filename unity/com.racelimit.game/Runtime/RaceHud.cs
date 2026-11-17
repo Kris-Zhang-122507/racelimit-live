@@ -86,7 +86,7 @@ namespace RaceLimit
             }
         }
 
-        Font FontFor(HudFont f)
+        public Font FontFor(HudFont f)
         {
             switch (f) { case HudFont.B500: return barlow500; case HudFont.B600: return barlow600; case HudFont.B700: return barlow700; case HudFont.BC700: return barlowCondensed700; default: return jetBrainsMono600; }
         }

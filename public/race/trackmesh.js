@@ -4,8 +4,8 @@
 // start gantry and brake boards. Everything is generated, nothing is downloaded.
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
-import { addProps } from "./trackprops.js?v=mwj2ar9t";
-import { prepareMap, settleWater, buildMap } from "./trackworld.js?v=mwj2ar9t";
+import { addProps } from "./trackprops.js?v=mwjzsuit";
+import { prepareMap, settleWater, buildMap } from "./trackworld.js?v=mwjzsuit";
 
 const smoothstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
@@ -395,7 +395,7 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
     const pitAt = (j) => { let pi = 0, bd = Infinity; for (let n = 0; n < M; n++) { const q2 = Math.abs(R.mj[n] - j); if (q2 < bd) { bd = q2; pi = n; } } return pi; };
     // The pit building: one straight building for all ten teams (not ten separate boxes, which stepped up and down
     // and sat at odd angles where the lane slopes or bends). It follows the lane's slope end to end. Each team has
-    // three garage doors you can see into, its name on the band above, a glazed upper floor and an overhanging roof.
+    // two garage doors you can see into (one per car), its name on the band above, a glazed upper floor and an overhanging roof.
     {
       const pgs = []; for (let t = 0; t < 10; t++) pgs.push(pitAt(g0 + (t + 0.5) * segLen));
       const doorPt = (pg) => { const o = GS * gDoor(pg); return new THREE.Vector3(R.X[pg] + R.LX[pg] * o, R.Y[pg], R.Z[pg] + R.LZ[pg] * o); };
@@ -414,12 +414,12 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
       add(new THREE.BoxGeometry(Lrow + 5, 0.35, depth + 5.5), roofM, 0, H + 0.55, -depth / 2 + 2.6);                  // the roof, over the working lane
       add(new THREE.BoxGeometry(Lrow + 5.1, 0.6, 0.3), edgeM, 0, H + 0.45, 5.3);                                     // its front edge
       for (let t = 0; t < 10; t++) {
-        const x0 = dir * (t - 4.5) * seg, dw = (seg - 1.6) / 3;
-        // three doors per team: inside is lit, with the team's colour on the back wall
+        const x0 = dir * (t - 4.5) * seg, dw = (seg - 1.6) / 2;
+        // two doors per team, one for each car: inside is lit, with the team's colour on the back wall
         add(new THREE.PlaneGeometry(seg - 1.0, DH), new THREE.MeshBasicMaterial({ map: tex(canvas(768, 192, (cg, w, h) => {
           cg.fillStyle = "#F4F5F7"; cg.fillRect(0, 0, w, h);
-          for (let d = 0; d < 3; d++) {
-            const x = w * (0.012 + d * 0.335), ww = w * 0.306;
+          for (let d = 0; d < 2; d++) {
+            const x = w * (0.012 + d * 0.502), ww = w * 0.474;
             const gr = cg.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, "#0B0D11"); gr.addColorStop(0.55, "#1A1E26"); gr.addColorStop(1, "#3A404B"); cg.fillStyle = gr; cg.fillRect(x, 0, ww, h);
             cg.fillStyle = "rgba(255,255,255,0.75)"; cg.fillRect(x + ww * 0.08, h * 0.07, ww * 0.84, 5);                       // a strip light
             cg.fillStyle = cols[t]; cg.globalAlpha = 0.85; cg.fillRect(x + ww * 0.06, h * 0.26, ww * 0.88, h * 0.3); cg.globalAlpha = 1; // back wall panel
@@ -428,7 +428,7 @@ export function buildCircuit(tr, scene, { profile, team } = {}) {
             cg.fillStyle = cols[t]; cg.fillRect(x, h * 0.86, ww, 4);
           }
         })) }), x0, DH / 2, 0.02);
-        for (let d = 0; d <= 3; d++) add(new THREE.BoxGeometry(d === 0 || d === 3 ? 0.9 : 0.45, DH + 0.2, 0.5), pillarM, x0 - seg / 2 + 0.5 + (d === 0 ? 0 : d === 3 ? seg - 1.0 : 0.29 + d * (dw + 0.21)), DH / 2, 0.2);
+        for (let d = 0; d <= 2; d++) add(new THREE.BoxGeometry(d === 1 ? 0.45 : 0.9, DH + 0.2, 0.5), pillarM, x0 - seg / 2 + 0.5 + (d === 0 ? 0 : d === 2 ? seg - 1.0 : (seg - 1.0) / 2), DH / 2, 0.2);
         const sign = add(new THREE.PlaneGeometry(seg - 4, 1.2), new THREE.MeshBasicMaterial({ map: tex(canvas(512, 64, (cg, w, h) => { cg.fillStyle = "#16181D"; cg.fillRect(0, 0, w, h); cg.fillStyle = cols[t]; cg.fillRect(0, h - 6, w, 6); cg.fillStyle = "#F2F2F2"; cg.font = "700 40px BC, sans-serif"; cg.textAlign = "center"; cg.textBaseline = "middle"; cg.fillText(teams[t], w / 2, h / 2 - 2); })) }), x0, DH + 0.95, 0.24);
         sign.userData.sign = true;
         pitInfo.garageRow.at.push(pgs[t]); pitInfo.garageRow.out.push(gOut(pgs[t]));

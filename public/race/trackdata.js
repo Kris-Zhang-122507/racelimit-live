@@ -708,6 +708,26 @@ function buildPitRoad(tr, P0) {
   const M = pts.length, PX = new Float32Array(M), PY = new Float32Array(M), PZ = new Float32Array(M), mj = new Float32Array(M), PO = new Float32Array(M);
   pts.forEach((p, n) => { PX[n] = p.x; PY[n] = p.y; PZ[n] = p.z; mj[n] = p.j; PO[n] = p.o; });
   { const c = Float32Array.from(PY); for (let i = 0; i < M; i++) { let a = 0, n = 0; for (let d = -10; d <= 10; d++) { const q = i + d; if (q >= 0 && q < M) { a += c[q]; n++; } } PY[i] = a / n; } }
+  // Where the pit road lies on the track's own tarmac (the entry and the exit), it takes the track's height exactly,
+  // easing over to its own smoothed height as it moves away: otherwise the smoothing above leaves a step of up to
+  // half a metre where the two meet on a slope (a bump you drive over going in and coming out).
+  {
+    const mix = new Float32Array(M).fill(1), ty = new Float32Array(M), offA = new Float32Array(M).fill(99);
+    for (let i = 0; i < M; i++) {
+      let j = -1, bd = Infinity;                                                       // the nearest bit of track, looking only along the stretch this part of the pit road runs beside
+      for (let d = -80; d <= 80; d++) { const q = wrap(Math.round(mj[i]) + d, N), dd = (X[q] - PX[i]) ** 2 + (Z[q] - PZ[i]) ** 2; if (dd < bd) { bd = dd; j = q; } }
+      if (!(j >= 0)) continue;
+      const o = (PX[i] - X[j]) * LX[j] + (PZ[i] - Z[j]) * LZ[j], al = (PX[i] - X[j]) * tr.TX[j] + (PZ[i] - Z[j]) * tr.TZ[j];
+      const j2 = wrap(j + (al >= 0 ? 1 : -1), N), ds = Math.hypot(X[j2] - X[j], Z[j2] - Z[j]) || 1, f = Math.min(1, Math.abs(al) / ds);
+      const y = tr.yAt(j, o) * (1 - f) + tr.yAt(j2, o) * f;                             // (between the track's own points, not stepping from one to the next)
+      if (!Number.isFinite(y) || Math.abs(y - PY[i]) > 3) continue;                    // (another level of the track: leave it)
+      const a = Math.min(1, Math.max(0, (Math.abs(o) - (half + 2.5)) / 8)); mix[i] = a * a * (3 - 2 * a); ty[i] = y; offA[i] = Math.abs(o);
+    }
+    for (let i = 0; i < M; i++) if (mix[i] < 1) PY[i] = ty[i] * (1 - mix[i]) + PY[i] * mix[i];
+    const c = Float32Array.from(PY);                                                    // tidy the join, only off the track
+    for (let i = 0; i < M; i++) { if (mix[i] <= 0) continue; let a = 0, n = 0; for (let d = -5; d <= 5; d++) { const q = i + d; if (q >= 0 && q < M) { a += c[q]; n++; } } PY[i] = c[i] + (a / n - c[i]) * mix[i]; }
+    for (let it = 0; it < 120; it++) for (let i = 1; i < M - 1; i++) if (offA[i] > half + 2.2) PY[i] += ((PY[i - 1] + PY[i + 1]) / 2 - PY[i]) * 0.5 * Math.min(1, mix[i] * 12 + 0.3);
+  }
   const cl = (i) => Math.max(0, Math.min(M - 1, i));
   const TX = new Float32Array(M), TZ = new Float32Array(M), PLX = new Float32Array(M), PLZ = new Float32Array(M), K = new Float32Array(M), slope = new Float32Array(M), dist = new Float32Array(M);
   for (let i = 0; i < M; i++) { const a = cl(i - 1), b = cl(i + 1), dx = PX[b] - PX[a], dz = PZ[b] - PZ[a], l = Math.hypot(dx, dz) || 1; TX[i] = dx / l; TZ[i] = dz / l; PLX[i] = TZ[i]; PLZ[i] = -TX[i]; slope[i] = (PY[b] - PY[a]) / l; if (i) dist[i] = dist[i - 1] + Math.hypot(PX[i] - PX[i - 1], PZ[i] - PZ[i - 1]); }

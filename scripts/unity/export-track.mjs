@@ -175,6 +175,8 @@ const res = await p.evaluate(async () => {
     outL: A(tr.N, (i) => r2(tr.yAt(i, Math.max(tr.half + 1, tr.wall[0][i] + 2)))), outR: A(tr.N, (i) => r2(tr.yAt(i, -Math.max(tr.half + 1, tr.wall[1][i] + 2)))),
     corners: tr.corners.map((c) => ({ n: c.n, name: c.name, i: c.i })),
     hasPit: !!P, pitLimitFrom: P ? r1(P.limitFrom) : 0, pitLimitTo: P ? r1(P.limitTo) : 0, pitX: pk.map((i) => r2(P.X[i])), pitY: pk.map((i) => r2(P.Y[i])), pitZ: pk.map((i) => r2(P.Z[i])), pitDist: pk.map((i) => r1(P.dist[i])),
+    // the racing line (metres left of the centre line) and the speed a quick car carries along it (m/s): for the other cars in a race
+    line: A(tr.N, (i) => r2(window.__race.line.off[i])), vline: A(tr.N, (i) => r1(window.__race.vp[i])),
     carEyeZ: Math.round(ck * 1000) / 1000, wheelRadius: 0.352,
     note: "x,y,z in three.js metres: Unity maps them with the RL_O/X/Y/Z markers in the .glb. wallL/wallR: barrier distance from the centre line.",
   };

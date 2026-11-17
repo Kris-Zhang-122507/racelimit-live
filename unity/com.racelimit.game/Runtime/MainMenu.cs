@@ -148,14 +148,14 @@ namespace RaceLimit
             MenuUi.Pill(p, hero.x + 18, hero.yMax - 150, "Main mode", HudLayout.Accent, MenuUi.Dark);
             p.Text(new Rect(hero.x + 18, hero.yMax - 124, hero.width - 36, 42), "Race weekend", HudFont.BC700, 34, HudLayout.Text, TextAnchor.MiddleLeft);
             var pe = Picked;
-            p.Text(new Rect(hero.x + 18, hero.yMax - 78, Mathf.Min(420, hero.width - 36), 66), "Practice, hot laps and time trials at " + (n == 1 ? "1 circuit" : n + " circuits") + ", in cars from 1998 to 2026." + (pe != null ? " Last time: " + pe.name + ", " + CarName() + "." : ""), HudFont.B500, 13, HudLayout.Text, TextAnchor.UpperLeft);
+            p.Text(new Rect(hero.x + 18, hero.yMax - 78, Mathf.Min(420, hero.width - 36), 66), "Races, practice, hot laps and time trials at " + (n == 1 ? "1 circuit" : n + " circuits") + ", in cars from 1998 to 2026." + (pe != null ? " Last time: " + pe.name + ", " + CarName() + "." : ""), HudFont.B500, 13, HudLayout.Text, TextAnchor.UpperLeft);
             if (p.Hit(hero)) Go(Screen_.Weekend);
             float x1 = 24 + heroW + gap, x2 = x1 + colW + gap, y2 = y + rowH + gap, y3 = y + 2 * (rowH + gap);
             if (Card(new Rect(x1, y, colW, rowH), "Against the clock", "Time trial", "A full battery every lap. Your best is saved for each circuit and each car.", true)) { RaceSettings.Session = 2; Go(Screen_.Weekend); }
             if (Card(new Rect(x2, y, colW, rowH), "Your car", "Garage", "Choose the car: six eras from the 1998 V10s to 2026, in ten teams' colours. Now: " + CarName() + ".", true)) { carsBack = Screen_.Main; Go(Screen_.Cars); }
             if (Card(new Rect(x1, y2, colW, rowH), "Display, graphics, sound, keys", "Settings · controls", "Graphics presets for laptop graphics, music volume, and every key can be changed.", true)) Go(Screen_.Settings);
             Card(new Rect(x2, y2, colW, rowH), "In the Unity editor", "Track Builder", "Build circuits from straights, corners and famous corners (RaceLimit > Track Builder). They appear with the others.", true, true);
-            Card(new Rect(24, y3, heroW, rowH), "Next to be built", "Race", "A grid of AI cars, a formation lap and a standing start, flags, the safety car and penalties.", false);
+            if (Card(new Rect(24, y3, heroW, rowH), "Against other cars", "Race", "A grid of 10 or 20 cars, the start lights, a standing start, penalties and a results table. Formation lap and safety car come next.", true)) { RaceSettings.Session = 3; Go(Screen_.Weekend); }
             Card(new Rect(x1, y3, colW, rowH), "Coming", "Career", "Start at a back-of-the-grid team, develop upgrades, manage the budget and earn a better seat.", false);
             Card(new Rect(x2, y3, colW, rowH), "Coming", "Replays & photo mode", "Watch your laps from the TV cameras, onboard or the helicopter; pause and frame a shot.", false);
             p.Text(new Rect(28, H - 40, W - 56, 24), "Circuit surroundings from map data © OpenStreetMap contributors. All teams, sponsors and brands are made up.", HudFont.B500, 12, HudLayout.Soft, TextAnchor.MiddleLeft);
@@ -205,15 +205,28 @@ namespace RaceLimit
             float x = side.x + 22, sy2 = side.y + 18;
             p.Text(new Rect(x, sy2, rw - 44, 30), "Session", HudFont.BC700, 22, HudLayout.Text, TextAnchor.MiddleLeft); sy2 += 42;
             int c = MenuUi.Chips(p, x, sy2, new[] { "Practice", "Hot laps", "Time trial" }, RaceSettings.Session); if (c >= 0) RaceSettings.Session = c; sy2 += 36;
-            MenuUi.Chips(p, x, sy2, new[] { "Race · next to be built" }, -1, new[] { false }); sy2 += 46;
+            c = MenuUi.Chips(p, x, sy2, new[] { "Race" }, RaceSettings.Session == 3 ? 0 : -1); if (c >= 0) RaceSettings.Session = 3; sy2 += 46;
+            bool isRace = RaceSettings.Session == 3;
+            if (isRace)
+            {
+                MenuUi.Label(p, x, sy2, 200, "Race length"); sy2 += 18;
+                c = MenuUi.Chips(p, x, sy2, new[] { "3", "5", "10", "Quarter", "Full" }, RaceSettings.RaceLaps); if (c >= 0) RaceSettings.RaceLaps = c; sy2 += 40;
+                MenuUi.Label(p, x, sy2, 200, "Other drivers"); sy2 += 18;
+                c = MenuUi.Chips(p, x, sy2, RaceSettings.LevelNames, RaceSettings.AiLevel); if (c >= 0) RaceSettings.AiLevel = c; sy2 += 40;
+                MenuUi.Label(p, x, sy2, 200, "Cars · you start"); sy2 += 18;
+                c = MenuUi.Chips(p, x, sy2, new[] { "10", "20" }, RaceSettings.GridSize); if (c >= 0) RaceSettings.GridSize = c;
+                c = MenuUi.Chips(p, x + MenuUi.ChipWidth(p, "10") + MenuUi.ChipWidth(p, "20") + 26, sy2, new[] { "Pole", "Middle", "Back" }, RaceSettings.GridStart); if (c >= 0) RaceSettings.GridStart = c;
+                sy2 += 40;
+            }
             MenuUi.Label(p, x, sy2, 200, "Assists"); sy2 += 18;
             c = MenuUi.Chips(p, x, sy2, new[] { "Lots", "Some", "None" }, RaceSettings.Assists); if (c >= 0) RaceSettings.Assists = c; sy2 += 46;
             MenuUi.Label(p, x, sy2, 200, "Gears"); sy2 += 18;
             c = MenuUi.Chips(p, x, sy2, new[] { "Automatic", "Manual" }, RaceSettings.AutoGears ? 0 : 1); if (c >= 0) RaceSettings.AutoGears = c == 0; sy2 += 46;
-            MenuUi.Label(p, x, sy2, 200, "Weather"); sy2 += 18;
-            MenuUi.Chips(p, x, sy2, new[] { "Dry", "Rain · coming" }, 0, new[] { true, false }); sy2 += 48;
+            if (!isRace) { MenuUi.Label(p, x, sy2, 200, "Weather"); sy2 += 18; MenuUi.Chips(p, x, sy2, new[] { "Dry", "Rain · coming" }, 0, new[] { true, false }); sy2 += 48; }
             int s = RaceSettings.Session;
-            string about = s == 2 ? "Time trial: you start rolling, 350 m before the line. Every lap starts with a full battery, and your best lap is saved for this circuit and this car."
+            var fct = e != null ? GameData.Circuit(Slug(e)) : null;
+            string about = s == 3 ? "Race: " + RaceSettings.LapsFor(RaceSettings.RaceLaps, fct != null ? fct.raceLaps : 20) + " laps against " + (RaceSettings.GridSize == 0 ? 9 : 19) + " cars, from " + (RaceSettings.GridStart == 0 ? "pole" : RaceSettings.GridStart == 1 ? "the middle of the grid" : "the back") + ". Five red lights, then go when they all go out. Moving early, running wide four times or ramming a car costs 5 seconds."
+                : s == 2 ? "Time trial: you start rolling, 350 m before the line. Every lap starts with a full battery, and your best lap is saved for this circuit and this car."
                 : s == 1 ? "Hot laps: you start rolling, 350 m before the line at 200 km/h. Every lap is timed."
                 : "Practice: you start on the grid. Laps are timed from the line. The pit lane has an 80 km/h limiter.";
             about += RaceSettings.Assists == 0 ? " Lots: ABS, traction control and the stability help." : RaceSettings.Assists == 1 ? " Some: ABS and traction control." : " None: no ABS, no traction control, no stability help.";
