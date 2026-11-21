@@ -1,6 +1,27 @@
 {
  "sessions": [
   {
+   "key": 11416,
+   "year": 2026,
+   "meeting": "United States",
+   "location": "Las Vegas",
+   "circuit": "Las Vegas",
+   "name": "Qualifying",
+   "type": "Qualifying",
+   "startUtc": "2026-11-21T04:00:00+00:00",
+   "file": "11416.jsonl.gz",
+   "sizeKb": 50,
+   "score": 2,
+   "reasons": [
+    "close at the top"
+   ],
+   "laps": null,
+   "v": 4,
+   "grid": false,
+   "telemetry": true,
+   "incidents": 0
+  },
+  {
    "key": 11412,
    "year": 2026,
    "meeting": "Brazil",
@@ -870,5 +891,5 @@
    "grid": true
   }
  ],
- "updated": "2026-11-08T19:39:34.438Z"
+ "updated": "2026-11-21T09:45:14.207Z"
 }
