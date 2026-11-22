@@ -1,6 +1,66 @@
 {
  "sessions": [
   {
+   "key": 11420,
+   "meeting": "United States",
+   "name": "Race",
+   "startUtc": "2026-11-22T04:00:00+00:00",
+   "incidents": [
+    {
+     "ms": 1795322235000,
+     "n": "11",
+     "kind": "collision",
+     "points": 6,
+     "lap": 20,
+     "message": "TURN 14 INCIDENT INVOLVING CARS 11 (PER) AND 51 (CAM) NOTED - CAUSING A COLLISION (20:33:38)",
+     "t": "2026-11-22T04:37:15.000Z",
+     "tla": "PER",
+     "team": "Cadillac",
+     "colour": "#909090",
+     "peakG": 0
+    },
+    {
+     "ms": 1795322235000,
+     "n": "51",
+     "kind": "collision",
+     "points": 6,
+     "lap": 20,
+     "message": "TURN 14 INCIDENT INVOLVING CARS 11 (PER) AND 51 (CAM) NOTED - CAUSING A COLLISION (20:33:38)",
+     "t": "2026-11-22T04:37:15.000Z",
+     "tla": "CAM",
+     "team": "Haas F1 Team",
+     "colour": "#9C9FA2",
+     "peakG": 3.2
+    },
+    {
+     "ms": 1795324572000,
+     "n": "16",
+     "kind": "collision",
+     "points": 6,
+     "lap": 41,
+     "message": "FIA STEWARDS: TURN 7 INCIDENT INVOLVING CARS 16 (LEC) AND 44 (HAM) UNDER INVESTIGATION - CAUSING A COLLISION (21:11:03)",
+     "t": "2026-11-22T05:16:12.000Z",
+     "tla": "LEC",
+     "team": "Ferrari",
+     "colour": "#ED1131",
+     "peakG": 1.6
+    },
+    {
+     "ms": 1795324572000,
+     "n": "44",
+     "kind": "collision",
+     "points": 6,
+     "lap": 41,
+     "message": "FIA STEWARDS: TURN 7 INCIDENT INVOLVING CARS 16 (LEC) AND 44 (HAM) UNDER INVESTIGATION - CAUSING A COLLISION (21:11:03)",
+     "t": "2026-11-22T05:16:12.000Z",
+     "tla": "HAM",
+     "team": "Ferrari",
+     "colour": "#ED1131",
+     "peakG": 5.2
+    }
+   ]
+  },
+  {
    "key": 11416,
    "meeting": "United States",
    "name": "Qualifying",
@@ -944,5 +1004,5 @@
    "incidents": []
   }
  ],
- "updated": "2026-11-21T09:45:14.206Z"
+ "updated": "2026-11-22T11:16:24.435Z"
 }

@@ -1,6 +1,32 @@
 {
  "sessions": [
   {
+   "key": 11420,
+   "year": 2026,
+   "meeting": "United States",
+   "location": "Las Vegas",
+   "circuit": "Las Vegas",
+   "name": "Race",
+   "type": "Race",
+   "startUtc": "2026-11-22T04:00:00+00:00",
+   "file": "11420.jsonl.gz",
+   "sizeKb": 373,
+   "score": 5,
+   "reasons": [
+    "lots of overtaking",
+    "a safety car",
+    "changes for the lead",
+    "a close finish",
+    "several retirements"
+   ],
+   "laps": 50,
+   "v": 4,
+   "grid": true,
+   "telemetry": true,
+   "incidents": 4,
+   "gps": true
+  },
+  {
    "key": 11416,
    "year": 2026,
    "meeting": "United States",
@@ -891,5 +917,5 @@
    "grid": true
   }
  ],
- "updated": "2026-11-21T09:45:14.207Z"
+ "updated": "2026-11-22T11:16:24.435Z"
 }
